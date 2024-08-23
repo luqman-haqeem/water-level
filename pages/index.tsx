@@ -1,118 +1,326 @@
-import Image from "next/image";
-import { Inter } from "next/font/google";
+import { useState, useMemo } from 'react'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Droplet, Camera, ChevronDown, Search, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react'
 
-const inter = Inter({ subsets: ["latin"] });
+// Mock data for stations and cameras
+const stations = [
+    { id: 1, name: "KG. PASIR", location: "HULU LANGAT", waterLevel: 47.88, lastUpdated: "1 month ago", status: "Normal" },
+    { id: 2, name: "BATU 9, HULU LANGAT", location: "HULU LANGAT", waterLevel: 37.08, lastUpdated: "1 month ago", status: "Normal" },
+    { id: 3, name: "SG. KANTAN, KAJANG", location: "KAJANG", waterLevel: 26.05, lastUpdated: "1 month ago", status: "Normal" },
+    { id: 4, name: "BATU 20, HULU LANGAT", location: "HULU LANGAT", waterLevel: 88.39, lastUpdated: "1 month ago", status: "Alert" },
+    { id: 5, name: "KG. SESAPAN BKT. REMBAU", location: "REMBAU", waterLevel: 32.75, lastUpdated: "1 month ago", status: "Normal" },
+]
 
-export default function Home() {
-  return (
-    <main
-      className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
-    >
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">pages/index.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+const cameras = [
+    { id: 1, name: "Camera 1", location: "HULU LANGAT" },
+    { id: 2, name: "Camera 2", location: "KAJANG" },
+    { id: 3, name: "Camera 3", location: "BATU 9" },
+    { id: 4, name: "Camera 4", location: "KG. PASIR" },
+]
+
+export default function Component() {
+    const [activeTab, setActiveTab] = useState("stations")
+    const [searchTerm, setSearchTerm] = useState("")
+    const [selectedLocation, setSelectedLocation] = useState("All")
+    const [selectedStation, setSelectedStation] = useState(stations[0])
+    const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const [showLoginModal, setShowLoginModal] = useState(false)
+    const [showRegisterModal, setShowRegisterModal] = useState(false)
+    const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
+    const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
+
+    const locations = useMemo(() => {
+        const uniqueLocations = new Set(stations.map(station => station.location))
+        return ["All", ...Array.from(uniqueLocations)]
+    }, [])
+
+    const filteredStations = useMemo(() => {
+        return stations.filter(station =>
+            (selectedLocation === "All" || station.location === selectedLocation) &&
+            (station.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                station.location.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+    }, [searchTerm, selectedLocation])
+
+    const toggleFavorite = (type: 'station' | 'camera', id: number) => {
+        if (!isLoggedIn) {
+            setShowLoginModal(true)
+            return
+        }
+        setFavorites(prev => {
+            const key = type === 'station' ? 'stations' : 'cameras'
+            const newFavorites = prev[key].includes(id)
+                ? prev[key].filter(fav => fav !== id)
+                : [...prev[key], id]
+            return { ...prev, [key]: newFavorites }
+        })
+    }
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault()
+        // Implement actual login logic here
+        setIsLoggedIn(true)
+        setShowLoginModal(false)
+    }
+
+    const handleRegister = (e: React.FormEvent) => {
+        e.preventDefault()
+        // Implement actual registration logic here
+        setIsLoggedIn(true)
+        setShowRegisterModal(false)
+    }
+
+    const handleLogout = () => {
+        setIsLoggedIn(false)
+        setFavorites({ stations: [], cameras: [] })
+    }
+
+    return (
+        <div className="flex flex-col h-screen bg-background">
+            {/* Header */}
+            <header className="border-b px-4 py-2 flex justify-between items-center">
+                <div className="flex items-center">
+                    <Droplet className="w-8 h-8 text-primary mr-4" />
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList>
+                            <TabsTrigger value="stations">Stations</TabsTrigger>
+                            <TabsTrigger value="cameras">Cameras</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
+                {isLoggedIn ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                                My Account
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleLogout}>
+                                <LogOut className="mr-2 h-4 w-4" />
+                                Logout
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : (
+                    <div>
+                        <Button variant="ghost" size="sm" onClick={() => setShowLoginModal(true)}>
+                            <LogIn className="mr-2 h-4 w-4" />
+                            Login
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)}>
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Register
+                        </Button>
+                    </div>
+                )}
+            </header>
+
+            {/* Content */}
+            <div className="flex-1 flex overflow-hidden">
+                {activeTab === "stations" && (
+                    <>
+                        {/* Collapsible Station list */}
+                        <div className={`border-r flex flex-col transition-all duration-300 ease-in-out ${isSideMenuExpanded ? 'w-1/3' : 'w-16'}`}>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="self-end m-2"
+                                onClick={() => setIsSideMenuExpanded(!isSideMenuExpanded)}
+                            >
+                                {isSideMenuExpanded ? <ChevronLeft /> : <ChevronRight />}
+                            </Button>
+                            {isSideMenuExpanded && (
+                                <div className="p-4 flex-1 flex flex-col overflow-hidden">
+                                    <div className="flex items-center mb-4">
+                                        <Input
+                                            placeholder="Search stations..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="mr-2"
+                                        />
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" size="icon">
+                                                    <SlidersHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem>Sort by Name</DropdownMenuItem>
+                                                <DropdownMenuItem>Sort by Water Level</DropdownMenuItem>
+                                                <DropdownMenuItem>Filter by Status</DropdownMenuItem>
+                                                {isLoggedIn && <DropdownMenuItem>Show Favorites</DropdownMenuItem>}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                    <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                                        <SelectTrigger className="mb-4">
+                                            <SelectValue placeholder="Filter by location" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {locations.map(location => (
+                                                <SelectItem key={location} value={location}>{location}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <ScrollArea className="flex-1">
+                                        {filteredStations.map(station => (
+                                            <Card
+                                                key={station.id}
+                                                className={`mb-2 cursor-pointer ${selectedStation.id === station.id ? 'border-primary' : ''}`}
+                                                onClick={() => setSelectedStation(station)}
+                                            >
+                                                <CardHeader className="p-4">
+                                                    <div className="flex justify-between items-center">
+                                                        <CardTitle className="text-sm font-medium">{station.name}</CardTitle>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                toggleFavorite('station', station.id)
+                                                            }}
+                                                        >
+                                                            <Star className={`h-4 w-4 ${favorites.stations.includes(station.id) ? 'fill-yellow-400' : ''}`} />
+                                                        </Button>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">{station.location}</p>
+                                                </CardHeader>
+                                                <CardContent className="p-4 pt-0 flex justify-between items-center">
+                                                    <div>
+                                                        <p className="text-sm font-medium">{station.waterLevel} m</p>
+                                                        <p className="text-xs text-muted-foreground">{station.lastUpdated}</p>
+                                                    </div>
+                                                    <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.status}</Badge>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </ScrollArea>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Station details */}
+                        <div className="flex-1 p-4 overflow-auto">
+                            <h2 className="text-2xl font-bold mb-4">{selectedStation.name}</h2>
+                            <p className="text-muted-foreground mb-4">{selectedStation.location}</p>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <Card>
+                                    <CardHeader className="p-4">
+                                        <CardTitle className="text-sm font-medium">Current Water Level</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-4 pt-0">
+                                        <p className="text-2xl font-bold">{selectedStation.waterLevel} m</p>
+                                        <p className="text-xs text-muted-foreground">Last updated: {selectedStation.lastUpdated}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader className="p-4">
+                                        <CardTitle className="text-sm font-medium">Status</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-4 pt-0">
+                                        <Badge variant={selectedStation.status === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.status}</Badge>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                            <Card>
+                                <CardHeader className="p-4">
+                                    <CardTitle className="text-sm font-medium">Live Camera Feed</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-0">
+                                    {/* <img src="/placeholder.svg?height=300&width=500" alt="Live camera feed" className="w-full rounded-md" /> */}
+                                    <img src="https://placehold.co/500x300" alt="Live camera feed" className="w-full rounded-md" />
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === "cameras" && (
+                    <div className="flex-1 p-4 overflow-auto">
+                        <h2 className="text-2xl font-bold mb-4">Camera Feeds</h2>
+                        <div className="grid grid-cols-2 gap-4">
+                            {cameras.map((camera) => (
+                                <Card key={camera.id}>
+                                    <CardHeader className="p-4">
+                                        <div className="flex justify-between items-center">
+                                            <CardTitle className="text-sm font-medium">{camera.name}</CardTitle>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => toggleFavorite('camera', camera.id)}
+                                            >
+                                                <Star className={`h-4 w-4 ${favorites.cameras.includes(camera.id) ? 'fill-yellow-400' : ''}`} />
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">{camera.location}</p>
+                                    </CardHeader>
+                                    <CardContent className="p-4 pt-0">
+                                        <img src="/placeholder.svg?height=200&width=350" alt={`${camera.name} feed`} className="w-full rounded-md" />
+                                        <img src="https://placehold.co/350x200" alt={`${camera.name} feed`} className="w-full rounded-md" />
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Login Modal */}
+            <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Login</DialogTitle>
+                        <DialogDescription>Enter your credentials to log in</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <Label htmlFor="email">Email</Label>
+                            <Input id="email" type="email" placeholder="Enter your email" required />
+                        </div>
+                        <div>
+                            <Label htmlFor="password">Password</Label>
+                            <Input id="password" type="password" placeholder="Enter your password" required />
+                        </div>
+                        <Button type="submit" className="w-full">Login</Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Register Modal */}
+            <Dialog open={showRegisterModal} onOpenChange={setShowRegisterModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Register</DialogTitle>
+                        <DialogDescription>Create a new account</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleRegister} className="space-y-4">
+                        <div>
+                            <Label htmlFor="register-email">Email</Label>
+                            <Input id="register-email" type="email" placeholder="Enter your email" required />
+                        </div>
+                        <div>
+                            <Label htmlFor="register-password">Password</Label>
+                            <Input id="register-password" type="password" placeholder="Create a password" required />
+                        </div>
+                        <div>
+                            <Label htmlFor="confirm-password">Confirm Password</Label>
+                            <Input id="confirm-password" type="password" placeholder="Confirm your password" required />
+                        </div>
+                        <Button type="submit" className="w-full">Register</Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    )
 }
