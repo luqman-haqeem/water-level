@@ -133,6 +133,17 @@ export default function Component({ stations, cameras }: ComponentProps) {
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN') {
+                setIsLoggedIn(true)
+            } else if (event === 'SIGNED_OUT') {
+                setIsLoggedIn(false)
+            }
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
 
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
@@ -162,30 +173,64 @@ export default function Component({ stations, cameras }: ComponentProps) {
         })
     }
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
-        // Implement actual login logic here
-        setIsLoggedIn(true)
-        setShowLoginModal(false)
+        const form = e.currentTarget
+        const email = (form.elements.namedItem('email') as HTMLInputElement).value
+        const password = (form.elements.namedItem('password') as HTMLInputElement).value
+
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) {
+            console.error('Error logging in:', error.message)
+        } else {
+            setShowLoginModal(false)
+        }
     }
 
-    const handleRegister = (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
-        // Implement actual registration logic here
-        setIsLoggedIn(true)
-        setShowRegisterModal(false)
+        const form = e.currentTarget
+        const email = (form.elements.namedItem('email') as HTMLInputElement).value
+        const password = (form.elements.namedItem('password') as HTMLInputElement).value
+
+        const { error } = await supabase.auth.signUp({ email, password })
+        if (error) {
+            console.error('Error registering:', error.message)
+        } else {
+            setShowRegisterModal(false)
+        }
     }
 
-    const handleLogout = () => {
-        setIsLoggedIn(false)
-        setFavorites({ stations: [], cameras: [] })
+    const handleLogout = async () => {
+        const { error } = await supabase.auth.signOut()
+        if (error) {
+            console.error('Error logging out:', error.message)
+        } else {
+            setFavorites({ stations: [], cameras: [] })
+        }
     }
 
-    const handleSocialLogin = (provider: string) => {
-        // Implement social login logic here
-        console.log(`Logging in with ${provider}`)
-        setIsLoggedIn(true)
-        setShowLoginModal(false)
+    const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
+        const { error } = await supabase.auth.signInWithOAuth({ provider })
+        if (error) {
+            console.error(`Error logging in with ${provider}:`, error.message)
+        } else {
+            setShowLoginModal(false)
+        }
+
+        // const { data, error } = await supabase.auth.signInWithOAuth({
+        //     provider: 'google',
+        //     options: {
+        //         queryParams: {
+        //             access_type: 'offline',
+        //             prompt: 'consent',
+        //         },
+        //         // redirectTo: `${locations.origin}/auth/callback`,
+        //     },
+        // })
+
+        // console.log('data', data);
+
     }
 
     return (
@@ -212,10 +257,10 @@ export default function Component({ stations, cameras }: ComponentProps) {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                         className="mr-2"
                     >
-                        {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                     </Button>
                     {isLoggedIn ? (
                         <DropdownMenu>
@@ -427,25 +472,25 @@ export default function Component({ stations, cameras }: ComponentProps) {
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div>
                             <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" placeholder="Enter your email" required />
+                            <Input id="email" name="email" type="email" placeholder="Enter your email" required />
                         </div>
                         <div>
                             <Label htmlFor="password">Password</Label>
-                            <Input id="password" type="password" placeholder="Enter your password" required />
+                            <Input id="password" name="password" type="password" placeholder="Enter your password" required />
                         </div>
                         <Button type="submit" className="w-full">Login</Button>
                     </form>
                     <Separator className="my-4" />
                     <div className="space-y-2">
-                        <Button onClick={() => handleSocialLogin('Google')} variant="outline" className="w-full">
+                        <Button onClick={() => handleSocialLogin('google')} variant="outline" className="w-full">
                             Login with Google
                         </Button>
-                        <Button onClick={() => handleSocialLogin('Facebook')} variant="outline" className="w-full">
+                        {/* <Button onClick={() => handleSocialLogin('facebook')} variant="outline" className="w-full">
                             Login with Facebook
                         </Button>
-                        <Button onClick={() => handleSocialLogin('Apple')} variant="outline" className="w-full">
+                        <Button onClick={() => handleSocialLogin('apple')} variant="outline" className="w-full">
                             Login with Apple
-                        </Button>
+                        </Button> */}
                     </div>
                 </DialogContent>
             </Dialog>
@@ -460,11 +505,11 @@ export default function Component({ stations, cameras }: ComponentProps) {
                     <form onSubmit={handleRegister} className="space-y-4">
                         <div>
                             <Label htmlFor="register-email">Email</Label>
-                            <Input id="register-email" type="email" placeholder="Enter your email" required />
+                            <Input id="register-email" name="email" type="email" placeholder="Enter your email" required />
                         </div>
                         <div>
                             <Label htmlFor="register-password">Password</Label>
-                            <Input id="register-password" type="password" placeholder="Create a password" required />
+                            <Input id="register-password" name="password" type="password" placeholder="Create a password" required />
                         </div>
                         <div>
                             <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -474,15 +519,15 @@ export default function Component({ stations, cameras }: ComponentProps) {
                     </form>
                     <Separator className="my-4" />
                     <div className="space-y-2">
-                        <Button onClick={() => handleSocialLogin('Google')} variant="outline" className="w-full">
+                        <Button onClick={() => handleSocialLogin('google')} variant="outline" className="w-full">
                             Register with Google
                         </Button>
-                        <Button onClick={() => handleSocialLogin('Facebook')} variant="outline" className="w-full">
+                        {/* <Button onClick={() => handleSocialLogin('facebook')} variant="outline" className="w-full">
                             Register with Facebook
                         </Button>
-                        <Button onClick={() => handleSocialLogin('Apple')} variant="outline" className="w-full">
+                        <Button onClick={() => handleSocialLogin('apple')} variant="outline" className="w-full">
                             Register with Apple
-                        </Button>
+                        </Button> */}
                     </div>
                 </DialogContent>
             </Dialog>
