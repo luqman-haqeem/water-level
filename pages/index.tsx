@@ -217,7 +217,16 @@ export default function Component({ stations, cameras }: ComponentProps) {
     }
 
     const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
-        const { error } = await supabase.auth.signInWithOAuth({ provider })
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider,
+            options: {
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                },
+                redirectTo: "https://hnqhytdyrehyflbymaej.supabase.co/auth/v1/callback",
+            },
+        })
         if (error) {
             console.error(`Error logging in with ${provider}:`, error.message)
         } else {
