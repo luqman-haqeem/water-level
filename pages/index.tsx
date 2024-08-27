@@ -17,8 +17,8 @@ import AlertLevelBadge from "@/components/AlertLevelBadge";
 
 
 import { createClient } from '@supabase/supabase-js'
-const supabaseUrl = 'https://hnqhytdyrehyflbymaej.supabase.co'
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+const supabaseUrl = process.env.SUPABASE_URL as string
+const supabaseKey = process.env.SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface ComponentProps {
