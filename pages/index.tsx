@@ -18,7 +18,7 @@ import AlertLevelBadge from "@/components/AlertLevelBadge";
 
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = 'https://hnqhytdyrehyflbymaej.supabase.co'
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface ComponentProps {
@@ -60,7 +60,7 @@ export async function getStaticProps() {
     //     { id: 5, station_name: "KG. SESAPAN BKT. REMBAU", location: "REMBAU", waterLevel: 32.75, lastUpdated: "1 month ago", status: "Normal" },
     // ]
 
-    let { data: stations, stationsError } = await supabase
+    let { data: stations, error: stationsError } = await supabase
         .from('stations')
         .select(`
             id,
@@ -73,20 +73,11 @@ export async function getStaticProps() {
                 img_url
             )
             `)
-
-    // .eq('id', 'current_levels.id');
-
-    // .range(0, 9)
-
-
-
-
-
-
-    // console.log(stations);
-    // console.log(stationsData?.current_levels);
-    // console.log(stationsError);
-
+    if (stationsError) {
+        console.error('Error fetching stations:', stationsError.message)
+        // Handle error as needed, e.g., return an empty array or throw an error
+        stations = []
+    }
 
     // const cameras = [
     //     { id: 1, name: "Camera 1", location: "HULU LANGAT" },
@@ -95,11 +86,16 @@ export async function getStaticProps() {
     //     { id: 4, name: "Camera 4", location: "KG. PASIR" },
     // ]
 
-    let { data: cameras, camerasError } = await supabase
+    let { data: cameras, error: camerasError } = await supabase
         .from('cameras')
         .select('id,camera_name,img_url,districts(name)')
 
-    console.log(cameras);
+    // console.log(cameras);
+    if (camerasError) {
+        console.error('Error fetching camera:', camerasError.message)
+        // Handle error as needed, e.g., return an empty array or throw an error
+        cameras = []
+    }
 
     return {
         props: {
@@ -376,7 +372,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                         <p className="text-xs text-muted-foreground">{station.current_levels?.updated_at}</p>
                                                     </div>
                                                     {/* <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.current_levels?.alert_level}</Badge> */}
-                                                    <AlertLevelBadge alert_level={station.current_levels?.alert_level} />
+                                                    <AlertLevelBadge alert_level={Number(station.current_levels?.alert_level) || 0} />
 
                                                 </CardContent>
                                             </Card>
@@ -408,8 +404,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                         <CardContent className="p-4 pt-0">
 
                                             {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
-                                            <AlertLevelBadge className="text-lg" alert_level={selectedStation.current_levels?.alert_level} />
 
+                                            <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
                                         </CardContent>
                                     </Card>
                                 </div>

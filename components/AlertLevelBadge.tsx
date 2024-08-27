@@ -10,20 +10,20 @@ const AlertLevelBadge: React.FC<AlertLevelBadgeProps> = ({ alert_level, classNam
 
     const alertNames: Record<number, string> = {
         1: "Alert",
-        2: "Warnong",
+        2: "Warning",
         3: "Danger",
     };
 
-    let variant: "secondary" | "destructive" | "warning" | "danger" = "secondary";
+    let variant: "alert" | "destructive" | "warning" | "secondary" = "secondary";
     switch (alert_level) {
         case 1:
-            variant = "destructive";
+            variant = "alert";
             break;
         case 2:
             variant = "warning";
             break;
         case 3:
-            variant = "danger";
+            variant = "destructive";
             break;
         default:
             variant = "secondary";
