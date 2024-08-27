@@ -35,6 +35,7 @@ interface ComponentProps {
         };
         cameras: {
             img_url: string;
+            JPS_camera_id: string;
 
         };
     }[];
@@ -42,6 +43,7 @@ interface ComponentProps {
         id: number;
         camera_name: string;
         img_url: string;
+        JPS_camera_id: string;
 
         districts: {
             name: string;
@@ -70,6 +72,7 @@ export async function getStaticProps() {
             current_levels (
             current_level, updated_at,alert_level),
             cameras (
+                JPS_camera_id,
                 img_url
             )
             `)
@@ -88,9 +91,9 @@ export async function getStaticProps() {
 
     let { data: cameras, error: camerasError } = await supabase
         .from('cameras')
-        .select('id,camera_name,img_url,districts(name)')
+        .select('id,camera_name,img_url,JPS_camera_id,districts(name)')
 
-    // console.log(cameras);
+    console.log(cameras);
     if (camerasError) {
         console.error('Error fetching camera:', camerasError.message)
         // Handle error as needed, e.g., return an empty array or throw an error
@@ -414,7 +417,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                         <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
-                                        {selectedStation?.cameras ? <img src={selectedStation?.cameras?.img_url} alt="Live camera feed" className="w-full rounded-md" />
+                                        {/* {selectedStation?.cameras ? <img src={selectedStation?.cameras?.img_url} alt="Live camera feed" className="w-full rounded-md" /> */}
+                                        {selectedStation?.cameras ? <img src={`/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} alt="Live camera feed" className="w-full rounded-md" />
                                             : <p className="text-center text-muted-foreground">No camera feed available.</p>}
                                         {/* <img src="https://placehold.co/500x300" alt="Live camera feed" className="w-full rounded-md" /> */}
                                     </CardContent>
@@ -449,7 +453,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
                                         {/* <img src="/placeholder.svg?height=200&width=350" alt={`${camera.name} feed`} className="w-full rounded-md" /> */}
-                                        <img src={camera.img_url} alt={`${camera.camera_name} feed`} className="w-full rounded-md" />
+                                        <img src={`/proxy-image/${camera?.JPS_camera_id}`} alt={`${camera.camera_name} feed`} className="w-full rounded-md" />
+
                                     </CardContent>
                                 </Card>
                             ))}
