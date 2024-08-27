@@ -15,6 +15,7 @@ import { Droplet, Camera, ChevronDown, Search, SlidersHorizontal, Star, LogIn, L
 import { ThemeProvider } from "@/components/theme-provider"
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import { Analytics } from '@vercel/analytics/react';
+import Image from 'next/image'
 
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -101,7 +102,7 @@ export async function getStaticProps() {
         .eq('is_enabled', 'TRUE')
 
 
-    console.log(cameras);
+    // console.log(cameras);
     if (camerasError) {
         console.error('Error fetching camera:', camerasError.message)
         // Handle error as needed, e.g., return an empty array or throw an error
@@ -128,6 +129,11 @@ export default function Component({ stations, cameras }: ComponentProps) {
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
     const [isMobile, setIsMobile] = useState(false)
     const { theme, setTheme } = useTheme()
+
+
+    const [sortBy, setSortBy] = useState<"name" | "waterLevel">("name");
+    const [filterByStatus, setFilterByStatus] = useState<string | null>(null);
+
 
     useEffect(() => {
         const checkMobile = () => {
@@ -158,13 +164,27 @@ export default function Component({ stations, cameras }: ComponentProps) {
     }, [])
 
     const filteredStations = useMemo(() => {
-
-        return stations.filter(station =>
+        let filtered = stations.filter(station =>
             (selectedLocation === "All" || station.districts.name === selectedLocation) &&
             (station.station_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 station.districts.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-    }, [searchTerm, selectedLocation])
+        );
+
+        if (filterByStatus) {
+            filtered = filtered.filter(station => {
+                const match = station.current_levels?.alert_level == filterByStatus;
+                return match;
+            });
+        }
+
+        return filtered.sort((a, b) => {
+            if (sortBy === "name") {
+                return a.station_name.localeCompare(b.station_name);
+            } else {
+                return (a.current_levels?.current_level || 0) - (b.current_levels?.current_level || 0);
+            }
+        });
+    }, [searchTerm, selectedLocation, filterByStatus, sortBy]);
 
     const toggleFavorite = (type: 'station' | 'camera', id: number) => {
         if (!isLoggedIn) {
@@ -220,13 +240,13 @@ export default function Component({ stations, cameras }: ComponentProps) {
     const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
         const { error } = await supabase.auth.signInWithOAuth({
             provider,
-            options: {
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent',
-                },
-                redirectTo: "https://hnqhytdyrehyflbymaej.supabase.co/auth/v1/callback",
-            },
+            // options: {
+            //     queryParams: {
+            //         access_type: 'offline',
+            //         prompt: 'consent',
+            //     },
+            //     redirectTo: "https://hnqhytdyrehyflbymaej.supabase.co/auth/v1/callback",
+            // },
         })
         if (error) {
             console.error(`Error logging in with ${provider}:`, error.message)
@@ -234,20 +254,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
             setShowLoginModal(false)
         }
 
-        // const { data, error } = await supabase.auth.signInWithOAuth({
-        //     provider: 'google',
-        //     options: {
-        //         queryParams: {
-        //             access_type: 'offline',
-        //             prompt: 'consent',
-        //         },
-        //         // redirectTo: `${locations.origin}/auth/callback`,
-        //     },
-        // })
-
-        // console.log('data', data);
-
     }
+
+
 
     return (
         <ThemeProvider
@@ -338,9 +347,13 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent>
-                                                    <DropdownMenuItem>Sort by Name</DropdownMenuItem>
-                                                    <DropdownMenuItem>Sort by Water Level</DropdownMenuItem>
-                                                    <DropdownMenuItem>Filter by Status</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSortBy("name")}>Sort by Name</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSortBy("waterLevel")}>Sort by Water Level</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setFilterByStatus(null)}>Clear Filter</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setFilterByStatus("0")}>Filter by Status: Normal</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setFilterByStatus("1")}>Filter by Status: Alert</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setFilterByStatus("2")}>Filter by Status: Warning</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setFilterByStatus("3")}>Filter by Status: Danger</DropdownMenuItem>
                                                     {isLoggedIn && <DropdownMenuItem>Show Favorites</DropdownMenuItem>}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -436,7 +449,11 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                             <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
-                                            {selectedStation?.cameras ? <img src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} alt="Live camera feed" className="w-full rounded-md" />
+
+                                            {selectedStation?.cameras ?
+                                                <Image src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} width={500}
+                                                    height={300} alt="Live camera feed" className="w-full rounded-md"></Image>
+
                                                 : <p className="text-center text-muted-foreground">No camera feed available.</p>}
                                         </CardContent>
                                     </Card>
@@ -469,7 +486,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                             <p className="text-xs text-muted-foreground">{camera.districts.name}</p>
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
-                                            <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} alt={`${camera.camera_name} feed`} className="w-full rounded-md" />
+                                            <Image src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
+                                                height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md"></Image>
+                                            {/* <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} alt={`${camera.camera_name} feed`} className="w-full rounded-md" /> */}
 
                                         </CardContent>
                                     </Card>
