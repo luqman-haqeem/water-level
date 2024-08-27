@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/proxy-image/:path*",
-      "destination": "http://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/:path*"
-    }
-  ]
-}

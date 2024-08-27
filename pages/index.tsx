@@ -15,6 +15,11 @@ import { Droplet, Camera, ChevronDown, Search, SlidersHorizontal, Star, LogIn, L
 import { ThemeProvider } from "@/components/theme-provider"
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+dayjs.extend(relativeTime)
+
+
 
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -92,6 +97,8 @@ export async function getStaticProps() {
     let { data: cameras, error: camerasError } = await supabase
         .from('cameras')
         .select('id,camera_name,img_url,JPS_camera_id,districts(name)')
+        .eq('is_enabled', 'TRUE')
+
 
     console.log(cameras);
     if (camerasError) {
@@ -372,7 +379,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                     <div>
 
                                                         <p className="text-sm font-medium">{station.current_levels?.current_level} m</p>
-                                                        <p className="text-xs text-muted-foreground">{station.current_levels?.updated_at}</p>
+                                                        <p className="text-xs text-muted-foreground">{dayjs(station.current_levels?.updated_at).fromNow()}</p>
+
+
                                                     </div>
                                                     {/* <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.current_levels?.alert_level}</Badge> */}
                                                     <AlertLevelBadge alert_level={Number(station.current_levels?.alert_level) || 0} />
@@ -397,7 +406,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
                                             <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
-                                            <p className="text-xs text-muted-foreground">Last updated: {selectedStation.current_levels?.updated_at}</p>
+                                            <p className="text-xs text-muted-foreground">Last updated: {dayjs(selectedStation.current_levels?.updated_at).fromNow()}</p>
                                         </CardContent>
                                     </Card>
                                     <Card>
@@ -417,10 +426,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                         <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
-                                        {/* {selectedStation?.cameras ? <img src={selectedStation?.cameras?.img_url} alt="Live camera feed" className="w-full rounded-md" /> */}
-                                        {selectedStation?.cameras ? <img src={`/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} alt="Live camera feed" className="w-full rounded-md" />
+                                        {selectedStation?.cameras ? <img src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} alt="Live camera feed" className="w-full rounded-md" />
                                             : <p className="text-center text-muted-foreground">No camera feed available.</p>}
-                                        {/* <img src="https://placehold.co/500x300" alt="Live camera feed" className="w-full rounded-md" /> */}
                                     </CardContent>
                                 </Card>
                             </div>
@@ -452,8 +459,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                         <p className="text-xs text-muted-foreground">{camera.districts.name}</p>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
-                                        {/* <img src="/placeholder.svg?height=200&width=350" alt={`${camera.name} feed`} className="w-full rounded-md" /> */}
-                                        <img src={`/proxy-image/${camera?.JPS_camera_id}`} alt={`${camera.camera_name} feed`} className="w-full rounded-md" />
+                                        <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} alt={`${camera.camera_name} feed`} className="w-full rounded-md" />
 
                                     </CardContent>
                                 </Card>
