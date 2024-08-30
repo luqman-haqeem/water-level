@@ -158,6 +158,12 @@ export default function Component({ stations, cameras }: ComponentProps) {
         return () => subscription.unsubscribe()
     }, [])
 
+    useEffect(() => {
+        if (theme) {
+            setTheme(theme)
+        }
+    }, [theme, setTheme])
+
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
         return ["All", ...Array.from(uniqueLocations)]
@@ -286,12 +292,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
 
     return (
-        <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-        >
+        <>
 
             <div className="flex flex-col h-screen bg-background">
                 {/* Header */}
@@ -663,7 +664,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
             <Analytics />
 
-        </ThemeProvider >
+        </>
 
     )
 }
