@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
-import { Droplet, Camera, ChevronDown, Search, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react'
+import { Droplet, Camera, ChevronDown, Search, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight, Moon, Sun, Expand } from 'lucide-react'
 import { ThemeProvider } from "@/components/theme-provider"
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import { Analytics } from '@vercel/analytics/react';
@@ -255,13 +255,40 @@ export default function Component({ stations, cameras }: ComponentProps) {
         }
 
     }
+    const handleStationChange = (stationId: string) => {
+        const station = stations.find(s => s.id.toString() === stationId)
+        if (station) setSelectedStation(station)
+    }
+
+    const handlePreviousStation = () => {
+        const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
+        if (currentIndex > 0) setSelectedStation(stations[currentIndex - 1])
+    }
+
+    const handleNextStation = () => {
+        const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
+        if (currentIndex < stations.length - 1) setSelectedStation(stations[currentIndex + 1])
+    }
+
+    const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
+    const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
+
+    const openFullscreen = (src: string) => {
+        setFullscreenImageSrc(src)
+        setIsFullscreenOpen(true)
+    }
+
+    const closeFullscreen = () => {
+        setIsFullscreenOpen(false)
+        setFullscreenImageSrc("")
+    }
 
 
 
     return (
         <ThemeProvider
             attribute="class"
-            defaultTheme="system"
+            defaultTheme="light"
             enableSystem
             disableTransitionOnChange
         >
@@ -303,14 +330,14 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <div>
-                                <Button variant="ghost" size="sm" onClick={() => setShowLoginModal(true)}>
+                            <div className="flex items-center">
+                                <Button variant="ghost" size="sm" onClick={() => setShowLoginModal(true)} className="flex items-center">
                                     <LogIn className="mr-2 h-4 w-4" />
-                                    Login
+                                    <span className="hidden md:inline">Login</span>
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)}>
+                                <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)} className="flex items-center">
                                     <UserPlus className="mr-2 h-4 w-4" />
-                                    Register
+                                    <span className="hidden md:inline">Register</span>
                                 </Button>
                             </div>
                         )}
@@ -318,7 +345,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                 </header>
 
                 {/* Content */}
-                <div className="flex-1 flex overflow-hidden">
+                <main className="flex-1 flex overflow-hidden">
+
                     {activeTab === "stations" && (
                         <>
                             {/* Collapsible Station list */}
@@ -416,53 +444,102 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                     </div>
                                 )}
                             </div>
+                            <div className={`flex-1 p-4 overflow-auto ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
+                                <div className="block md:hidden pb-4">
+                                    <Select value={selectedStation?.id.toString() || ''} onValueChange={handleStationChange}>
+                                        <SelectTrigger className="w-full md:w-[300px] lg:w-[400px]">
+                                            <SelectValue placeholder="Select station" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {stations.map(station => (
+                                                <SelectItem key={station.id} value={station.id.toString()}>
+                                                    {station.station_name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                            {/* Station details */}
-                            {selectedStation ? (
-                                <div className={`flex-1 p-4 overflow-auto ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
-                                    <h2 className="text-2xl font-bold mb-4">{selectedStation.station_name}</h2>
-                                    <p className="text-muted-foreground mb-4">{selectedStation.districts.name}</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+                                {/* Station details */}
+                                {selectedStation ? (
+                                    <div className={`flex-1 p-4 overflow-auto pb-16 md:pb-4 ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
+
+
+                                        <h2 className="text-2xl font-bold mb-4">{selectedStation.station_name}</h2>
+                                        <p className="text-muted-foreground mb-4">{selectedStation.districts.name}</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <Card>
+                                                <CardHeader className="p-4">
+                                                    <CardTitle className="text-sm font-medium">Current Water Level</CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="p-4 pt-0">
+                                                    <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
+                                                    <p className="text-xs text-muted-foreground">Last updated: {dayjs(selectedStation.current_levels?.updated_at).fromNow()}</p>
+                                                </CardContent>
+                                            </Card>
+                                            <Card>
+                                                <CardHeader className="p-4">
+                                                    <CardTitle className="text-sm font-medium">Status</CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="p-4 pt-0">
+
+                                                    {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
+
+                                                    <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
+                                                </CardContent>
+                                            </Card>
+                                        </div>
                                         <Card>
                                             <CardHeader className="p-4">
-                                                <CardTitle className="text-sm font-medium">Current Water Level</CardTitle>
+                                                <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
                                             </CardHeader>
                                             <CardContent className="p-4 pt-0">
-                                                <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
-                                                <p className="text-xs text-muted-foreground">Last updated: {dayjs(selectedStation.current_levels?.updated_at).fromNow()}</p>
+                                                {selectedStation?.cameras ?
+                                                    <div onClick={() => openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`)} className="relative cursor-pointer">
+                                                        <Image src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md"></Image>
+                                                        <div className="absolute top-0 right-0 m-2">
+                                                            <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
+                                                        </div>
+                                                    </div>
+                                                    : <p className="text-center text-muted-foreground">No camera feed available.</p>}
                                             </CardContent>
                                         </Card>
-                                        <Card>
-                                            <CardHeader className="p-4">
-                                                <CardTitle className="text-sm font-medium">Status</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="p-4 pt-0">
-
-                                                {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
-
-                                                <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
-                                            </CardContent>
-                                        </Card>
+                                        {/* Navigation Footer */}
+                                        <footer className="fixed bottom-0 left-0 w-full bg-background border-t p-2 flex justify-between items-center md:hidden">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={handlePreviousStation}
+                                                disabled={selectedStation?.id === stations[0].id}
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                                <span className="sr-only">Previous station</span>
+                                            </Button>
+                                            <div className="text-sm text-muted-foreground">
+                                                Station {stations.findIndex(s => s.id === selectedStation?.id) + 1} of {stations.length}
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={handleNextStation}
+                                                disabled={selectedStation?.id === stations[stations.length - 1].id}
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                                <span className="sr-only">Next station</span>
+                                            </Button>
+                                        </footer>
                                     </div>
-                                    <Card>
-                                        <CardHeader className="p-4">
-                                            <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-4 pt-0">
 
-                                            {selectedStation?.cameras ?
-                                                <Image src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} width={500}
-                                                    height={300} alt="Live camera feed" className="w-full rounded-md"></Image>
+                                ) : (
+                                    // <div className="flex-1 p-4 overflow-auto">
+                                    <div >
+                                        <p className="text-center text-muted-foreground">No station selected. Please select a station to view details.</p>
+                                    </div>
+                                )}
+                            </div>
 
-                                                : <p className="text-center text-muted-foreground">No camera feed available.</p>}
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            ) : (
-                                <div className="flex-1 p-4 overflow-auto">
-                                    <p className="text-center text-muted-foreground">No station selected. Please select a station to view details.</p>
-                                </div>
-                            )}
+
                         </>
                     )}
 
@@ -496,7 +573,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                             </div>
                         </div>
                     )}
-                </div>
+                </main>
 
                 {/* Login Modal */}
                 <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
@@ -567,9 +644,26 @@ export default function Component({ stations, cameras }: ComponentProps) {
                         </div>
                     </DialogContent>
                 </Dialog>
+                {/* Fullscreen Modal */}
+                <Dialog open={isFullscreenOpen} onOpenChange={closeFullscreen}>
+                    <DialogContent className="max-w-screen-lg p-0">
+                        {/* <DialogHeader className="p-4">
+                            <DialogTitle>Fullscreen Camera Feed</DialogTitle>
+                        </DialogHeader> */}
+                        <div className="p-4 pt-10">
+                            <Image src={fullscreenImageSrc} width={1920} height={1080} alt="Fullscreen camera feed" className="w-full h-auto rounded-md" />
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+
             </div >
+
+
+
             <Analytics />
 
         </ThemeProvider >
+
     )
 }
