@@ -10,6 +10,10 @@ jobs:
   update-water-levels:
     runs-on: ubuntu-latest
 
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
     steps:
       # Step 1: Check out the repository
       - name: Checkout repository
