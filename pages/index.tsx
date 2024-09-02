@@ -562,9 +562,12 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                             <p className="text-xs text-muted-foreground">{camera.districts.name}</p>
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
-                                            <Image src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
-                                                height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md"></Image>
-                                            {/* <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} alt={`${camera.camera_name} feed`} className="w-full rounded-md" /> */}
+                                            {/* <Image src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
+                                                height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md"></Image> */}
+
+
+                                            <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
+                                                height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md" />
 
                                         </CardContent>
                                     </Card>
@@ -650,7 +653,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                             <DialogTitle>Fullscreen Camera Feed</DialogTitle>
                         </DialogHeader> */}
                         <div className="p-4 pt-10">
-                            <Image src={fullscreenImageSrc} width={1920} height={1080} alt="Fullscreen camera feed" className="w-full h-auto rounded-md" />
+                            <Image src={fullscreenImageSrc} width={1920} height={1080} alt="Fullscreen camera feed" className="w-full h-auto rounded-md" unoptimized />
+
                         </div>
                     </DialogContent>
                 </Dialog>
