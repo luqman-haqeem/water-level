@@ -27,5 +27,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Debug environment variables
+        run: |
+          echo "SUPABASE_URL: $SUPABASE_URL"
+          echo "SUPABASE_SERVICE_KEY: $SUPABASE_SERVICE_KEY"
+
       - name: Run water level updater
         run: node services/waterLevelUpdater.js
