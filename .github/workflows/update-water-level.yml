@@ -9,6 +9,7 @@ on:
 jobs:
   update-water-levels:
     runs-on: ubuntu-latest
+    environment: production
 
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
