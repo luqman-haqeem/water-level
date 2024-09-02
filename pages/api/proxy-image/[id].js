@@ -4,7 +4,11 @@ export default async function handler(req, res) {
     const { id } = req.query;
     const imageUrl = `http://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/${id}.jpg`;
 
+    console.log(`Fetching image for camera ID: ${id}`);
+    console.log(`Generated URL: ${imageUrl}`);
+
     try {
+
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
 
         res.setHeader('Content-Type', 'image/jpeg');
