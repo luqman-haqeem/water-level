@@ -7,6 +7,7 @@ require('dotenv').config()
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const stationURL = process.env.STATION_URL;
 
 const updateWaterLevels = async () => {
     try {
@@ -16,7 +17,7 @@ const updateWaterLevels = async () => {
 
         // Fetch data for all districts in parallel
         const districtPromises = districts.map(district =>
-            axios.get(`http://infobanjirjps.selangor.gov.my/JPSAPI/api/StationRiverLevels/GetWLAllStationData/${district.id}`)
+            axios.get(`${stationURL}${district.id}`)
         );
         const districtResponses = await Promise.all(districtPromises);
 

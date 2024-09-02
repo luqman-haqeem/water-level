@@ -1,9 +1,8 @@
-name: PROD - Update Water Levels
+name: PROD - Update Station Detail
 
 on:
   schedule:
-    # Run every 15 minutes
-    - cron: "*/15 * * * *"
+    - cron: "0 0 * * 0"
   workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
@@ -29,4 +28,4 @@ jobs:
         run: npm install
 
       - name: Run water level updater
-        run: node services/waterLevelUpdater.js
+        run: node services/stationUpdater.js
