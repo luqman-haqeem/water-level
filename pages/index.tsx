@@ -1,29 +1,23 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
-import { Droplet, Camera, ChevronDown, Search, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight, Moon, Sun, Expand } from 'lucide-react'
-import { ThemeProvider } from "@/components/theme-provider"
+import { Droplet, ChevronDown, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight, Moon, Sun, Expand } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import { Analytics } from '@vercel/analytics/react';
 import Image from 'next/image'
-
-import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
-dayjs.extend(relativeTime)
-
-
-
+import formatTimestamp from '@/utils/timeUtils'
 import { createClient } from '@supabase/supabase-js'
+
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -431,8 +425,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                         <div>
 
                                                             <p className="text-sm font-medium">{station.current_levels?.current_level} m</p>
-                                                            <p className="text-xs text-muted-foreground">{dayjs(station.current_levels?.updated_at).fromNow()}</p>
-
+                                                            <p className="text-xs text-muted-foreground">{formatTimestamp(station.current_levels?.updated_at)}</p>
 
                                                         </div>
                                                         {/* <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.current_levels?.alert_level}</Badge> */}
@@ -476,7 +469,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                 </CardHeader>
                                                 <CardContent className="p-4 pt-0">
                                                     <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
-                                                    <p className="text-xs text-muted-foreground">Last updated: {dayjs(selectedStation.current_levels?.updated_at).fromNow()}</p>
+                                                    <p className="text-xs text-muted-foreground">Last updated: {formatTimestamp(selectedStation.current_levels?.updated_at)}</p>
+
                                                 </CardContent>
                                             </Card>
                                             <Card>
