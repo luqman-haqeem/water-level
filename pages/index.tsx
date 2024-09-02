@@ -493,9 +493,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                             <CardContent className="p-4 pt-0">
                                                 {selectedStation?.cameras ?
                                                     <div onClick={() => openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`)} className="relative cursor-pointer">
-                                                        {/* <Image
+                                                        <Image
                                                             src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
-                                                            width={500} height={300} alt="Live camera feed" className="w-full rounded-md" ></Image> */}
+                                                            width={500} height={300} alt="Live camera feed" className="w-full rounded-md" unoptimized></Image>
                                                         <img src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md" />
                                                         <div className="absolute top-0 right-0 m-2">
                                                             <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
