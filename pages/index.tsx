@@ -108,7 +108,8 @@ export async function getStaticProps() {
         props: {
             stations,
             cameras
-        }
+        },
+        revalidate: 180 // 3 minutes
     }
 }
 
