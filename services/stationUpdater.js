@@ -10,6 +10,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 
 async function updateStationInfo() {
+
+    if (!process.env.STATION_URL) {
+        throw new Error('STATION_URL environment variable is not set');
+    }
+    if (!process.env.SUPABASE_URL) {
+        throw new Error('SUPABASE_URL environment variable is not set');
+    }
+    if (!process.env.SUPABASE_SERVICE_KEY) {
+        throw new Error('SUPABASE_SERVICE_KEY environment variable is not set');
+    }
     try {
         const { data: districts, error: districtsError } = await supabase
             .from('districts')
