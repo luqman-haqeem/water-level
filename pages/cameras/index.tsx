@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { useTheme } from "next-themes"
+
 import { Star } from 'lucide-react'
 import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'

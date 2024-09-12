@@ -1,16 +1,13 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
-import { Droplet, ChevronDown, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight, Moon, Sun, Expand } from 'lucide-react'
+import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
@@ -89,17 +86,16 @@ export async function getStaticProps() {
 export default function Component({ stations, cameras }: ComponentProps) {
     const router = useRouter();
     const { stationId } = router.query;
-    // const [activeTab, setActiveTab] = useState("stations")
     const [searchTerm, setSearchTerm] = useState("")
+    const [showLoginModal, setShowLoginModal] = useState(false)
+
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
     const [isLoggedIn, setIsLoggedIn] = useState(false)
-    const [showLoginModal, setShowLoginModal] = useState(false)
-    const [showRegisterModal, setShowRegisterModal] = useState(false)
+
     const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
     const [isMobile, setIsMobile] = useState(false)
-    const { theme, setTheme } = useTheme()
 
 
     const [sortBy, setSortBy] = useState<"name" | "waterLevel">("name");
@@ -111,19 +107,6 @@ export default function Component({ stations, cameras }: ComponentProps) {
             if (station) setSelectedStation(station);
         }
     }, [stationId, stations]);
-
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768)
-            if (window.innerWidth < 768) {
-                setIsSideMenuExpanded(false)
-            }
-        }
-        checkMobile()
-        window.addEventListener('resize', checkMobile)
-        return () => window.removeEventListener('resize', checkMobile)
-    }, [])
-
 
 
     const locations = useMemo(() => {
