@@ -12,7 +12,6 @@ import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
 import { Droplet, ChevronDown, SlidersHorizontal, Star, LogIn, LogOut, UserPlus, ChevronLeft, ChevronRight, Moon, Sun, Expand } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
-import { Analytics } from '@vercel/analytics/react';
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import { createClient } from '@supabase/supabase-js'
@@ -687,7 +686,6 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
 
 
-            <Analytics />
 
         </>
 
