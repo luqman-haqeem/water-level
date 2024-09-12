@@ -10,9 +10,12 @@ import { useTheme } from "next-themes"
 import { Droplet, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react';
 import { createClient } from '@supabase/supabase-js'
+import { Toaster } from "@/components/ui/toaster"
+
+import { useToast } from "@/hooks/use-toast"
 
 import { useRouter } from 'next/router'
-
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -32,6 +35,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     const [mounted, setMounted] = useState(false)
     const router = useRouter()
+    const { toast } = useToast()
+    const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+    const [message, setMessage] = useState('')
 
     useEffect(() => {
         setMounted(true)
@@ -70,31 +76,52 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
+        setStatus('loading')
+
         const form = e.currentTarget
         const email = (form.elements.namedItem('email') as HTMLInputElement).value
         const password = (form.elements.namedItem('password') as HTMLInputElement).value
 
         const { error } = await supabase.auth.signInWithPassword({ email, password })
+
         if (error) {
-            console.error('Error logging in:', error.message)
+            setStatus('error')
+            setMessage(error instanceof Error ? error.message : 'Login failed')
         } else {
+            setStatus('idle')
             setShowLoginModal(false)
         }
+
     }
 
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
+        setStatus('loading')
         const form = e.currentTarget
         const email = (form.elements.namedItem('email') as HTMLInputElement).value
         const password = (form.elements.namedItem('password') as HTMLInputElement).value
+        const confirmPassword = (form.elements.namedItem('confirm-password') as HTMLInputElement).value
 
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        if (password !== confirmPassword) {
+            setStatus('error')
+            setMessage('Passwords do not match')
+            return
+        }
+        const { error } = await supabase.auth.signUp({ email, password })
 
         if (error) {
-            console.error('Error registering:', error.message)
+            setStatus('error')
+            setMessage(error instanceof Error ? error.message : 'Registration failed')
         } else {
-            setShowRegisterModal(false)
+            toast({
+                title: "Registration Successful",
+                description: "Please check your email for verification link",
+                duration: 2000,
+            })
         }
+        setStatus('idle')
+        setShowRegisterModal(false)
+
     }
 
     const handleLogout = async () => {
@@ -192,6 +219,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
                     {children}
                 </main>
+                <Toaster />
 
                 {/* Login Modal */}
                 <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
@@ -209,8 +237,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                                 <Label htmlFor="password">Password</Label>
                                 <Input id="password" name="password" type="password" placeholder="Enter your password" required />
                             </div>
-                            <Button type="submit" className="w-full">Login</Button>
+                            <Button type="submit" className="w-full" disabled={status === 'loading'}>
+                                {status === 'loading' ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Logging in...
+                                    </>
+                                ) : (
+                                    'Login'
+                                )}
+                            </Button>
                         </form>
+                        {status === 'error' && (
+                            <div className="flex items-center gap-2 text-red-600 mt-2">
+                                <AlertCircle className="h-5 w-5" />
+                                <span>{message}</span>
+                            </div>
+                        )}
                         <Separator className="my-4" />
                         <div className="space-y-2">
                             <Button onClick={() => handleSocialLogin('google')} variant="outline" className="w-full">
@@ -246,8 +289,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                                 <Label htmlFor="confirm-password">Confirm Password</Label>
                                 <Input id="confirm-password" type="password" placeholder="Confirm your password" required />
                             </div>
-                            <Button type="submit" className="w-full">Register</Button>
+                            <Button type="submit" className="w-full" disabled={status === 'loading'}>
+                                {status === 'loading' ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Registering...
+                                    </>
+                                ) : (
+                                    'Register'
+                                )}
+                            </Button>
                         </form>
+
+                        {status === 'error' && (
+                            <div className="flex items-center gap-2 text-red-600 mt-2">
+                                <AlertCircle className="h-5 w-5" />
+                                <span>{message}</span>
+                            </div>
+                        )}
                         <Separator className="my-4" />
                         <div className="space-y-2">
                             <Button onClick={() => handleSocialLogin('google')} variant="outline" className="w-full">
