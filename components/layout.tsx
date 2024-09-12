@@ -10,7 +10,6 @@ import { useTheme } from "next-themes"
 import { Droplet, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react';
 import { createClient } from '@supabase/supabase-js'
-import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import { useRouter } from 'next/router'
 
@@ -269,7 +268,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
 
             <Analytics />
-            <SpeedInsights />
 
         </>
 
