@@ -102,6 +102,17 @@ export default function Component({ stations, cameras }: ComponentProps) {
     const [filterByStatus, setFilterByStatus] = useState<string | null>(null);
 
     useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768)
+            if (window.innerWidth < 768) {
+                setIsSideMenuExpanded(false)
+            }
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+    useEffect(() => {
         if (stationId) {
             const station = stations.find(s => s.id.toString() === stationId);
             if (station) setSelectedStation(station);
