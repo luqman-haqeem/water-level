@@ -20,6 +20,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
 
 interface ComponentProps {
     stations: {
@@ -349,9 +350,11 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
                                         {selectedStation?.cameras ?
-                                            <div onClick={() => openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`)} className="relative cursor-pointer">
+                                            <div onClick={() => openFullscreen(`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg`)} className="relative cursor-pointer">
                                                 <Image
-                                                    src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
+                                                    src={`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg`}
+
+                                                    // src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
                                                     width={500}
                                                     height={300}
                                                     alt="Live camera feed"

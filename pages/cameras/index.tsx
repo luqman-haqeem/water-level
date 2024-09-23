@@ -11,6 +11,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
 
 interface ComponentProps {
 
@@ -93,7 +94,9 @@ export default function Component({ cameras }: ComponentProps) {
                                         <p className="text-xs text-muted-foreground">{camera.districts.name}</p>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
-                                        <Image src={`/api/proxy-image/${camera?.JPS_camera_id}`}
+                                        <Image
+                                            src={`${bucketUrl}/images/${camera?.JPS_camera_id}.jpg`}
+                                            // src={`/api/proxy-image/${camera?.JPS_camera_id}`}
                                             width={600}
                                             height={330}
                                             alt={`${camera.camera_name} feed`}
