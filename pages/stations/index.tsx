@@ -79,7 +79,9 @@ export async function getStaticProps() {
     return {
         props: {
             stations
-        }
+        },
+        revalidate: 180 // 3 minutes
+
     }
 }
 
