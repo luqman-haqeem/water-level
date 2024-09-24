@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
-import { Droplet, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun } from 'lucide-react'
+import { Droplet, Droplets, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun, Camera, Circle, CircleUser } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react';
 import { createClient } from '@supabase/supabase-js'
 import { Toaster } from "@/components/ui/toaster"
@@ -70,8 +70,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         if (theme) {
             setTheme(theme)
         }
+        checkActiveTab();
     }, [theme, setTheme])
 
+    const checkActiveTab = () => {
+        const currentPath = router.pathname;
+        console.log(currentPath);
+
+        if (currentPath.includes('/stations')) {
+            setActiveTab('stations');
+        } else if (currentPath.includes('/cameras')) {
+            setActiveTab('cameras');
+        } else {
+            // setActiveTab('default');
+        }
+    };
 
 
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -167,11 +180,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {/* Header */}
                 <header className="border-b px-4 py-2 flex justify-between items-center">
                     <div className="flex items-center">
-                        <Droplet className="w-8 h-8 text-primary mr-4" />
+                        {/* <Droplet className="w-8 h-8 text-primary mr-4" /> */}
                         <Tabs value={activeTab} onValueChange={handleTabChange}>
                             <TabsList>
-                                <TabsTrigger value="stations">Stations</TabsTrigger>
-                                <TabsTrigger value="cameras">Cameras</TabsTrigger>
+                                <TabsTrigger value="stations">
+                                    <Droplets className="mr-2 h-4 w-4" />
+                                    <span className="hidden sm:inline">Stations</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="cameras">
+                                    <Camera className="mr-2 h-4 w-4" />
+
+                                    <span className="hidden sm:inline">Cameras</span>
+                                </TabsTrigger>
                             </TabsList>
                         </Tabs>
                     </div>
@@ -188,7 +208,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="sm">
-                                        My Account
+                                        <CircleUser className="mr-2 h-4 w-4" />
+
+                                        <span className="hidden md:inline">My Account</span>
+
                                         <ChevronDown className="ml-2 h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -203,7 +226,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             <div className="flex items-center">
                                 <Button variant="ghost" size="sm" onClick={() => setShowLoginModal(true)} className="flex items-center">
                                     <LogIn className="mr-2 h-4 w-4" />
-                                    <span className="hidden md:inline">Login</span>
+                                    <span  >Login</span>
                                 </Button>
                                 <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)} className="flex items-center">
                                     <UserPlus className="mr-2 h-4 w-4" />
