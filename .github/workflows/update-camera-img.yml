@@ -1,4 +1,4 @@
-name: PROD - Update Water Levels
+name: PROD - Update Camera Image
 
 on:
   schedule:
