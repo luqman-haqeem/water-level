@@ -16,11 +16,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 interface LoginModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onLogin: (email: string, password: string) => Promise<void>;
-    status: 'idle' | 'loading' | 'error';
-    message: string;
-    setStatus: (status: 'idle' | 'loading' | 'error') => void;
-    setMessage: (message: string) => void;
 }
 
 export default function LoginModal({ open, onOpenChange }: LoginModalProps) {

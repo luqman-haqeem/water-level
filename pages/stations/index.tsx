@@ -455,11 +455,6 @@ export default function Component({ stations, cameras }: ComponentProps) {
                     <LoginModal
                         open={showLoginModal}
                         onOpenChange={setShowLoginModal}
-                        onLogin={login}
-                        status={status}
-                        message={message}
-                        setStatus={setStatus}
-                        setMessage={setMessage}
                     />
                 </>
 

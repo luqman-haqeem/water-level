@@ -211,10 +211,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <LoginModal
                     open={showLoginModal}
                     onOpenChange={setShowLoginModal}
-                    status={status}
-                    message={message}
-                    setStatus={setStatus}
-                    setMessage={setMessage}
+
                 />
 
                 {/* Register Modal */}
