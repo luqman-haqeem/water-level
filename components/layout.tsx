@@ -46,12 +46,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768)
-            if (window.innerWidth < 768) {
-                setIsSideMenuExpanded(false)
-            }
+            const isMobileDevice = window.innerWidth < 768;
+            setIsMobile(isMobileDevice);
+            setIsSideMenuExpanded(!isMobileDevice);
         }
-        checkMobile()
+        checkMobile();
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
