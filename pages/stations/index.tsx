@@ -11,16 +11,19 @@ import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand } from 'luci
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
+import LoginModal from '@/components/LoginModel';
 import { createClient } from '@supabase/supabase-js'
 
 import { useRouter } from 'next/router';
-
+import useUserStore from '../../lib/store';
+import { log } from 'util'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
+
 
 interface ComponentProps {
     stations: {
@@ -52,9 +55,7 @@ interface ComponentProps {
     }[];
 }
 
-
 export async function getStaticProps() {
-
 
     let { data: stations, error: stationsError } = await supabase
         .from('stations')
@@ -76,7 +77,6 @@ export async function getStaticProps() {
         stations = []
     }
 
-
     return {
         props: {
             stations
@@ -94,7 +94,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
-    const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const { isLoggedIn, checkUserSession, register, login, logout } = useUserStore(); // Use Zustand state
 
     const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
@@ -103,7 +103,10 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
     const [sortBy, setSortBy] = useState<"name" | "waterLevel">("name");
     const [filterByStatus, setFilterByStatus] = useState<string | null>(null);
+    const [filterByFavorite, setFilterByFavorite] = useState<boolean>(false); // New state for favorite filter
 
+    const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+    const [message, setMessage] = useState('')
     useEffect(() => {
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768)
@@ -122,7 +125,15 @@ export default function Component({ stations, cameras }: ComponentProps) {
         }
     }, [stationId, stations]);
 
+    useEffect(() => {
+        const storedStations = sessionStorage.getItem('favorites_stations');
+        const storedCameras = sessionStorage.getItem('favorites_cameras');
 
+        setFavorites({
+            stations: storedStations ? JSON.parse(storedStations) : [],
+            cameras: storedCameras ? JSON.parse(storedCameras) : []
+        });
+    }, []);
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
         return ["All", ...Array.from(uniqueLocations)]
@@ -141,6 +152,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
                 return match;
             });
         }
+        if (filterByFavorite) {
+            filtered = filtered.filter(station => favorites.stations.includes(station.id));
+        }
 
         return filtered.sort((a, b) => {
             if (sortBy === "name") {
@@ -149,18 +163,23 @@ export default function Component({ stations, cameras }: ComponentProps) {
                 return (a.current_levels?.current_level || 0) - (b.current_levels?.current_level || 0);
             }
         });
-    }, [searchTerm, selectedLocation, filterByStatus, sortBy]);
+    }, [searchTerm, selectedLocation, filterByStatus, filterByFavorite, sortBy, favorites]);
 
     const toggleFavorite = (type: 'station' | 'camera', id: number) => {
+
         if (!isLoggedIn) {
             setShowLoginModal(true)
             return
         }
+
         setFavorites(prev => {
             const key = type === 'station' ? 'stations' : 'cameras'
             const newFavorites = prev[key].includes(id)
                 ? prev[key].filter(fav => fav !== id)
                 : [...prev[key], id]
+
+            sessionStorage.setItem(`favorites_${key}`, JSON.stringify(newFavorites));
+
             return { ...prev, [key]: newFavorites }
         })
     }
@@ -170,10 +189,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
         if (station) {
             setSelectedStation(station);
             router.push(`/stations?stationId=${station.id}`, undefined, { shallow: true });
-
         }
     }
-
 
     const handlePreviousStation = () => {
         const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
@@ -235,7 +252,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                             <DropdownMenuItem onClick={() => setFilterByStatus("1")}>Filter by Status: Alert</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setFilterByStatus("2")}>Filter by Status: Warning</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setFilterByStatus("3")}>Filter by Status: Danger</DropdownMenuItem>
-                                            {isLoggedIn && <DropdownMenuItem>Show Favorites</DropdownMenuItem>}
+                                            {/* {isLoggedIn && <DropdownMenuItem>Show Favorites</DropdownMenuItem>} */}
+                                            {isLoggedIn && <DropdownMenuItem onClick={() => setFilterByFavorite(true)}>Show Favorites</DropdownMenuItem>}
+
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
@@ -432,8 +451,19 @@ export default function Component({ stations, cameras }: ComponentProps) {
                         </DialogContent>
                     </Dialog>
 
-
+                    {/* Login Modal */}
+                    <LoginModal
+                        open={showLoginModal}
+                        onOpenChange={setShowLoginModal}
+                        onLogin={login}
+                        status={status}
+                        message={message}
+                        setStatus={setStatus}
+                        setMessage={setMessage}
+                    />
                 </>
+
+
             )}
 
         </>
