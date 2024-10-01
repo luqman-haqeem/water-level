@@ -3,7 +3,7 @@
   "short_name": "RWL",
   "description": "A tool to view the current water level in rivers in Selangor",
   "lang": "en-US",
-  "start_url": "/stations",
+  "start_url": "https://waterlvl.online/stations",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#317EFB",
