@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
-import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand } from 'lucide-react'
+import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
@@ -19,6 +19,7 @@ import useUserStore from '../../lib/store';
 import { log } from 'util'
 
 import PullToRefresh from 'pulltorefreshjs';
+import ReactDOMServer from 'react-dom/server';
 
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -89,35 +90,32 @@ export async function getStaticProps() {
     }
 }
 
-export default function Component({ stations, cameras }: ComponentProps) {
+export default function Component({ stations }: ComponentProps) {
     const router = useRouter();
     const { stationId } = router.query;
     const [searchTerm, setSearchTerm] = useState("")
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const { theme, setTheme } = useTheme()
 
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
-    const { isLoggedIn, checkUserSession, register, login, logout } = useUserStore(); // Use Zustand state
+    const { isLoggedIn } = useUserStore();
 
     const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
-    const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
-    const [isMobile, setIsMobile] = useState(false)
-
+    const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(false)
+    const [isMobile, setIsMobile] = useState(true)
 
     const [sortBy, setSortBy] = useState<"name" | "waterLevel">("name");
     const [filterByStatus, setFilterByStatus] = useState<string | null>(null);
-    const [filterByFavorite, setFilterByFavorite] = useState<boolean>(false); // New state for favorite filter
+    const [filterByFavorite, setFilterByFavorite] = useState<boolean>(false);
 
-    const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-    const [message, setMessage] = useState('')
     useEffect(() => {
         const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768)
-            if (window.innerWidth < 768) {
-                setIsSideMenuExpanded(false)
-            }
+            const isMobileDevice = window.innerWidth < 768;
+            setIsMobile(isMobileDevice);
+            setIsSideMenuExpanded(!isMobileDevice);
         }
-        checkMobile()
+        checkMobile();
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
@@ -130,10 +128,48 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
     useEffect(() => {
         PullToRefresh.init({
-            mainElement: 'body',
+            mainElement: 'main',
             onRefresh() {
-                window.location.reload();
-            }
+                // Custom refresh logic
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve();
+                        window.location.reload();
+                    }, 1000);
+                });
+            },
+            distThreshold: 60,
+            distMax: 80,
+            distReload: 50,
+            distIgnore: 0,
+            // iconArrow: '&#8675;',
+            iconArrow: ReactDOMServer.renderToString(
+                <div className={`flex justify-center items-center ${theme === 'dark' ? 'text-white' : 'text-stone-400'}`}>
+                    <RotateCw />
+                </div>
+            ),
+            iconRefreshing: ReactDOMServer.renderToString(
+                <div className={`flex justify-center items-center pt-4 ${theme === 'dark' ? 'text-white' : 'text-stone-400'}`}>
+                    <Ellipsis />
+                </div>
+            ),
+            instructionsPullToRefresh: ReactDOMServer.renderToString(
+                <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Pull down to refresh
+                </div>
+            ),
+            instructionsReleaseToRefresh: ReactDOMServer.renderToString(
+                <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Release to refresh
+                </div>
+            ),
+            instructionsRefreshing: ReactDOMServer.renderToString(
+                <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Refreshing
+                </div>
+            ),
+            refreshTimeout: 500,
+            shouldPullToRefresh: () => !window.scrollY
         });
         return () => PullToRefresh.destroyAll();
     }, []);
