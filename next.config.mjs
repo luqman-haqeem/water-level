@@ -22,4 +22,13 @@ const nextConfig = {
     },
 };
 
-export default nextConfig;
+import withPWA from 'next-pwa';
+
+const pwaConfig = withPWA({
+    dest: 'public',
+    disable: process.env.NODE_ENV === 'development', // disable PWA in development
+});
+
+const finalConfig = pwaConfig(nextConfig);
+
+export default finalConfig;
