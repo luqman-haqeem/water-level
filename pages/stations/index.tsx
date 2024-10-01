@@ -18,6 +18,9 @@ import { useRouter } from 'next/router';
 import useUserStore from '../../lib/store';
 import { log } from 'util'
 
+import PullToRefresh from 'pulltorefreshjs';
+
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -124,6 +127,16 @@ export default function Component({ stations, cameras }: ComponentProps) {
             if (station) setSelectedStation(station);
         }
     }, [stationId, stations]);
+
+    useEffect(() => {
+        PullToRefresh.init({
+            mainElement: 'body',
+            onRefresh() {
+                window.location.reload();
+            }
+        });
+        return () => PullToRefresh.destroyAll();
+    }, []);
 
     useEffect(() => {
         const storedStations = sessionStorage.getItem('favorites_stations');
@@ -369,12 +382,14 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
                                         {selectedStation?.cameras ?
-                                            <div onClick={() => openFullscreen(`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg`)} className="relative cursor-pointer">
+                                            <div onClick={() =>
+                                                openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`)}
+                                                className="relative cursor-pointer">
                                                 <Image
-                                                    src={`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
-                                                    key={selectedStation.current_levels?.updated_at}
+                                                    // src={`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
+                                                    // key={selectedStation.current_levels?.updated_at}
 
-                                                    // src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
+                                                    src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
                                                     width={500}
                                                     height={300}
                                                     alt="Live camera feed"
@@ -445,6 +460,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                     onError={(e) => e.currentTarget.src = '/nocctv.png'}
                                     blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD0ykZgoyxAHqaomO5xhVkAOM7pMnPOT16dO/4UrxXDqm4OWwhyHAAIxnI9aALwIIyDkGiqaxTqA5Z92TnLZGNvp9aLKTezkFyoVfvPu55z/SgC5RRRQAUUUUAf/9k="
                                     placeholder="blur"
+                                    unoptimized
                                 />
 
                             </div>
