@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star } from 'lucide-react'
 import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
-
+import LoginModal from '@/components/LoginModel';
+import useUserStore from '../../lib/store';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -27,7 +28,6 @@ interface ComponentProps {
     }[];
 }
 
-
 export async function getStaticProps() {
 
     let { data: cameras, error: camerasError } = await supabase
@@ -43,17 +43,17 @@ export async function getStaticProps() {
     return {
         props: {
             cameras
-        }
+        },
+        revalidate: 180 // 3 minutes
+
     }
 }
 
 export default function Component({ cameras }: ComponentProps) {
 
-    const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const { isLoggedIn } = useUserStore();
     const [showLoginModal, setShowLoginModal] = useState(false)
-
     const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
-
 
     const toggleFavorite = (type: 'station' | 'camera', id: number) => {
         if (!isLoggedIn) {
@@ -69,10 +69,8 @@ export default function Component({ cameras }: ComponentProps) {
         })
     }
 
-
     return (
         <>
-
             <div className="flex flex-col h-screen bg-background">
                 {(
                     <div className="flex-1 p-4 overflow-auto">
@@ -104,9 +102,7 @@ export default function Component({ cameras }: ComponentProps) {
                                             onError={(e) => e.currentTarget.src = '/nocctv.png'}
                                             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD0ykZgoyxAHqaomO5xhVkAOM7pMnPOT16dO/4UrxXDqm4OWwhyHAAIxnI9aALwIIyDkGiqaxTqA5Z92TnLZGNvp9aLKTezkFyoVfvPu55z/SgC5RRRQAUUUUAf/9k="
                                             placeholder="blur"
-
                                         ></Image>
-
 
                                         {/* <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
                                                 height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md" /> */}
@@ -115,6 +111,12 @@ export default function Component({ cameras }: ComponentProps) {
                                 </Card>
                             ))}
                         </div>
+
+                        {/* Login Modal */}
+                        <LoginModal
+                            open={showLoginModal}
+                            onOpenChange={setShowLoginModal}
+                        />
                     </div>
                 )}
             </div >
