@@ -13,21 +13,17 @@ import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import LoginModal from '@/components/LoginModel';
 import { createClient } from '@supabase/supabase-js'
-
 import { useRouter } from 'next/router';
 import useUserStore from '../../lib/store';
-import { log } from 'util'
 
 import PullToRefresh from 'pulltorefreshjs';
 import ReactDOMServer from 'react-dom/server';
-
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
-
 
 interface ComponentProps {
     stations: {
@@ -77,7 +73,6 @@ export async function getStaticProps() {
             `)
     if (stationsError) {
         console.error('Error fetching stations:', stationsError.message)
-        // Handle error as needed, e.g., return an empty array or throw an error
         stations = []
     }
 
@@ -119,6 +114,7 @@ export default function Component({ stations }: ComponentProps) {
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
+
     useEffect(() => {
         if (stationId) {
             const station = stations.find(s => s.id.toString() === stationId);
@@ -127,6 +123,13 @@ export default function Component({ stations }: ComponentProps) {
     }, [stationId, stations]);
 
     useEffect(() => {
+        const storedStations = sessionStorage.getItem('favorites_stations');
+        const storedCameras = sessionStorage.getItem('favorites_cameras');
+
+        setFavorites({
+            stations: storedStations ? JSON.parse(storedStations) : [],
+            cameras: storedCameras ? JSON.parse(storedCameras) : []
+        });
         PullToRefresh.init({
             mainElement: 'main',
             onRefresh() {
@@ -174,15 +177,6 @@ export default function Component({ stations }: ComponentProps) {
         return () => PullToRefresh.destroyAll();
     }, []);
 
-    useEffect(() => {
-        const storedStations = sessionStorage.getItem('favorites_stations');
-        const storedCameras = sessionStorage.getItem('favorites_cameras');
-
-        setFavorites({
-            stations: storedStations ? JSON.parse(storedStations) : [],
-            cameras: storedCameras ? JSON.parse(storedCameras) : []
-        });
-    }, []);
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
         return ["All", ...Array.from(uniqueLocations)]
@@ -422,10 +416,10 @@ export default function Component({ stations }: ComponentProps) {
                                                 openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`)}
                                                 className="relative cursor-pointer">
                                                 <Image
-                                                    // src={`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
-                                                    // key={selectedStation.current_levels?.updated_at}
+                                                    src={`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
+                                                    key={selectedStation.current_levels?.updated_at}
 
-                                                    src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
+                                                    // src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
                                                     width={500}
                                                     height={300}
                                                     alt="Live camera feed"
