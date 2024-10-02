@@ -208,6 +208,10 @@ export default function Component({ stations }: ComponentProps) {
             }
         });
     }, [searchTerm, selectedLocation, filterByStatus, filterByFavorite, sortBy, favorites]);
+    const resetFilteredStations = () => {
+        setFilterByFavorite(false)
+        setFilterByStatus(null)
+    }
 
     const toggleFavorite = (type: 'station' | 'camera', id: number) => {
 
@@ -291,7 +295,7 @@ export default function Component({ stations }: ComponentProps) {
                                         <DropdownMenuContent>
                                             <DropdownMenuItem onClick={() => setSortBy("name")}>Sort by Name</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setSortBy("waterLevel")}>Sort by Water Level</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFilterByStatus(null)}>Clear Filter</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => resetFilteredStations()}>Clear Filter</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setFilterByStatus("0")}>Filter by Status: Normal</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setFilterByStatus("1")}>Filter by Status: Alert</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setFilterByStatus("2")}>Filter by Status: Warning</DropdownMenuItem>
@@ -382,7 +386,18 @@ export default function Component({ stations }: ComponentProps) {
                             <div className={`flex-1  overflow-auto pb-16 md:pb-4 ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
 
 
-                                <h2 className="text-2xl font-bold mb-4">{selectedStation.station_name}</h2>
+                                <h2 className="text-2xl  font-bold mb-4 inline">{selectedStation.station_name}</h2>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        toggleFavorite('station', selectedStation.id)
+                                    }}
+
+                                >
+                                    <Star className={`h-4 w-4 ${favorites.stations.includes(selectedStation.id) ? 'fill-yellow-400' : ''}`} />
+                                </Button>
                                 <p className="text-muted-foreground mb-4">{selectedStation.districts.name}</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     <Card>
