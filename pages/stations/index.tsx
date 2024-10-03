@@ -431,8 +431,6 @@ export default function Component({ stations }: ComponentProps) {
                                         <CardContent className="p-4 pt-0">
 
                                             {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
-
-
                                             <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
                                             <Popover>
                                                 <PopoverTrigger asChild>
@@ -463,12 +461,6 @@ export default function Component({ stations }: ComponentProps) {
                                                     </div>
                                                 </PopoverContent>
                                             </Popover>
-                                            {/* <Tooltip message={"✨ Coming soon!"}>
-                                                    <Info className='h-4 w-4' />
-
-                                                </Tooltip> */}
-
-
                                         </CardContent>
                                     </Card>
                                 </div>
