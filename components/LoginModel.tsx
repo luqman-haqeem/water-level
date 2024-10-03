@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@supabase/supabase-js';
 import useUserStore from '../lib/store';
 
@@ -19,8 +18,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
-    const { toast } = useToast();
-    const { isLoggedIn, checkUserSession, register, login, logout } = useUserStore(); // Use Zustand state
+    const { login } = useUserStore();
     const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
     const [message, setMessage] = useState('')
 
