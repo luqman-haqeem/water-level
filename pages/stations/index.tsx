@@ -428,42 +428,45 @@ export default function Component({ stations }: ComponentProps) {
                                         </CardContent>
                                     </Card>
                                     <Card>
-                                        <CardHeader className="p-4">
-                                            <CardTitle className="text-sm font-medium">Status</CardTitle>
+                                        <CardHeader className="p-4 md:pt-2">
+
+                                            <CardTitle className="text-sm font-medium  flex items-center">
+                                                Status
+                                                <Popover >
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-white hover:bg-gray-700 ml-1 p-0">
+                                                            <Info className="h-4 w-4" />
+                                                            <span className="sr-only">Water level information</span>
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-800">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center mb-1 last:mb-0">
+                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-secondary`} />
+                                                                <span className="text-white text-sm">Normal: {selectedStation?.normal_water_level} m</span>
+                                                            </div>
+                                                            <div className="flex items-center mb-1 last:mb-0">
+                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-alert`} />
+                                                                <span className="text-white text-sm">Alert: {selectedStation?.alert_water_level} m</span>
+                                                            </div>
+                                                            <div className="flex items-center mb-1 last:mb-0">
+                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-warning`} />
+                                                                <span className="text-white text-sm">Warning: {selectedStation?.warning_water_level} m</span>
+                                                            </div>
+                                                            <div className="flex items-center mb-1 last:mb-0">
+                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-destructive`} />
+                                                                <span className="text-white text-sm">Danger: {selectedStation?.danger_water_level} m</span>
+                                                            </div>
+                                                        </div>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
 
                                             {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
                                             <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-white hover:bg-gray-700">
-                                                        <Info className="h-4 w-4" />
-                                                        <span className="sr-only">Water level information</span>
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-800">
-                                                    <div className="p-4">
-                                                        {/* <h3 className="text-white font-semibold mb-2">Water Levels</h3> */}
-                                                        <div key="1" className="flex items-center mb-1 last:mb-0">
-                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-secondary`} />
-                                                            <span className="text-white text-sm">Normal: {selectedStation?.normal_water_level} m</span>
-                                                        </div>
-                                                        <div key="2" className="flex items-center mb-1 last:mb-0">
-                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-alert`} />
-                                                            <span className="text-white text-sm">Alert: {selectedStation?.alert_water_level} m</span>
-                                                        </div>
-                                                        <div key="3" className="flex items-center mb-1 last:mb-0">
-                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-warning`} />
-                                                            <span className="text-white text-sm">Warning: {selectedStation?.warning_water_level} m</span>
-                                                        </div>
-                                                        <div key="4" className="flex items-center mb-1 last:mb-0">
-                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-destructive`} />
-                                                            <span className="text-white text-sm">Danger: {selectedStation?.danger_water_level} m</span>
-                                                        </div>
-                                                    </div>
-                                                </PopoverContent>
-                                            </Popover>
+
                                         </CardContent>
                                     </Card>
                                 </div>
