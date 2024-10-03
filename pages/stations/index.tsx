@@ -1,3 +1,5 @@
+
+import Head from 'next/head';
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -278,6 +280,9 @@ export default function Component({ stations }: ComponentProps) {
 
     return (
         <>
+            <Head>
+                <title>Stations - River Water Level</title>
+            </Head>
             {(
                 <>
                     {/* Collapsible Station list */}

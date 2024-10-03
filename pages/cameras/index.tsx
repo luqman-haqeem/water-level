@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
+import Head from 'next/head';
 import { Star, Expand, RotateCw, Ellipsis } from 'lucide-react'
 import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
@@ -147,6 +147,9 @@ export default function Component({ cameras }: ComponentProps) {
 
     return (
         <>
+            <Head>
+                <title>Cameras - River Water Level</title>
+            </Head>
             <div className="flex flex-col h-screen bg-background">
                 {(
                     <div className="flex-1 p-4 overflow-auto">
