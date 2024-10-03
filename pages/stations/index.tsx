@@ -2,22 +2,19 @@ import { useState, useMemo, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
-import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
+import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
-import Tooltip from '@/components/Tooltip';
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/router';
 import useUserStore from '../../lib/store';
-
+import FilterDropdown from '@/components/FilterDropdown';
 import PullToRefresh from 'pulltorefreshjs';
 import ReactDOMServer from 'react-dom/server';
 import {
@@ -25,6 +22,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -95,7 +93,6 @@ export async function getStaticProps() {
             stations
         },
         revalidate: 180 // 3 minutes
-
     }
 }
 
@@ -228,7 +225,6 @@ export default function Component({ stations }: ComponentProps) {
     }
 
     const toggleFavorite = (type: 'station' | 'camera', id: number) => {
-
         if (!isLoggedIn) {
             setShowLoginModal(true)
             return
@@ -241,7 +237,6 @@ export default function Component({ stations }: ComponentProps) {
                 : [...prev[key], id]
 
             sessionStorage.setItem(`favorites_${key}`, JSON.stringify(newFavorites));
-
             return { ...prev, [key]: newFavorites }
         })
     }
@@ -271,11 +266,15 @@ export default function Component({ stations }: ComponentProps) {
         setFullscreenImageSrc(src)
         setIsFullscreenOpen(true)
     }
-
     const closeFullscreen = () => {
         setIsFullscreenOpen(false)
         setFullscreenImageSrc("")
     }
+
+    const handleFilterSelect = (filterId: string) => {
+        setActiveFilter(filterId === activeFilter ? null : filterId)
+    }
+    const [activeFilter, setActiveFilter] = useState<string | null>(null)
 
     return (
         <>
@@ -300,25 +299,17 @@ export default function Component({ stations }: ComponentProps) {
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="mr-2"
                                     />
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" size="icon">
-                                                <SlidersHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={() => setSortBy("name")}>Sort by Name</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setSortBy("waterLevel")}>Sort by Water Level</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => resetFilteredStations()}>Clear Filter</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFilterByStatus("0")}>Filter by Status: Normal</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFilterByStatus("1")}>Filter by Status: Alert</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFilterByStatus("2")}>Filter by Status: Warning</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFilterByStatus("3")}>Filter by Status: Danger</DropdownMenuItem>
-                                            {/* {isLoggedIn && <DropdownMenuItem>Show Favorites</DropdownMenuItem>} */}
-                                            {isLoggedIn && <DropdownMenuItem onClick={() => setFilterByFavorite(true)}>Show Favorites</DropdownMenuItem>}
+                                    <FilterDropdown
+                                        activeFilter={activeFilter}
+                                        isLoggedIn={isLoggedIn}
+                                        handleFilterSelect={handleFilterSelect}
+                                        resetFilteredStations={resetFilteredStations}
+                                        setSortBy={setSortBy}
+                                        setFilterByStatus={setFilterByStatus}
+                                        setFilterByFavorite={setFilterByFavorite}
+                                        setActiveFilter={setActiveFilter}
 
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    />
                                 </div>
                                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                                     <SelectTrigger className="mb-4">
@@ -379,19 +370,31 @@ export default function Component({ stations }: ComponentProps) {
                         )}
                     </div>
                     <div className={`flex-1 p-2 md:p-4 overflow-auto ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
-                        <div className="block md:hidden pb-4">
+                        <div className="flex items-center mb-4 block md:hidden pb-4">
                             <Select value={selectedStation?.id.toString() || ''} onValueChange={handleStationChange}>
-                                <SelectTrigger className="w-full md:w-[300px] lg:w-[400px]">
+                                <SelectTrigger className="w-full md:w-[300px] lg:w-[400px] mr-2">
                                     <SelectValue placeholder="Select station" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {stations.map(station => (
+                                    {filteredStations.map(station => (
                                         <SelectItem key={station.id} value={station.id.toString()}>
                                             {station.station_name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+
+                            <FilterDropdown
+                                activeFilter={activeFilter}
+                                isLoggedIn={isLoggedIn}
+                                handleFilterSelect={handleFilterSelect}
+                                resetFilteredStations={resetFilteredStations}
+                                setSortBy={setSortBy}
+                                setFilterByStatus={setFilterByStatus}
+                                setFilterByFavorite={setFilterByFavorite}
+                                setActiveFilter={setActiveFilter}
+
+                            />
                         </div>
 
 
@@ -522,7 +525,6 @@ export default function Component({ stations }: ComponentProps) {
                             </div>
 
                         ) : (
-                            // <div className="flex-1 p-4 overflow-auto">
                             <div >
                                 <p className="text-center text-muted-foreground">No station selected. Please select a station to view details.</p>
                             </div>
@@ -530,7 +532,6 @@ export default function Component({ stations }: ComponentProps) {
                     </div>
 
                     <FullscreenModal open={isFullscreenOpen} onOpenChange={closeFullscreen} imageSrc={fullscreenImageSrc}></FullscreenModal>
-
 
                     {/* Login Modal */}
                     <LoginModal
