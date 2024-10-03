@@ -7,19 +7,24 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
-import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis } from 'lucide-react'
+import { SlidersHorizontal, Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
+import Tooltip from '@/components/Tooltip';
 import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/router';
 import useUserStore from '../../lib/store';
 
 import PullToRefresh from 'pulltorefreshjs';
 import ReactDOMServer from 'react-dom/server';
-
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -43,6 +48,10 @@ interface ComponentProps {
             JPS_camera_id: string;
 
         };
+        normal_water_level: number;
+        alert_water_level: number;
+        warning_water_level: number;
+        danger_water_level: number;
     }[];
     cameras: {
         id: number;
@@ -70,13 +79,17 @@ export async function getStaticProps() {
             cameras (
                 JPS_camera_id,
                 img_url
-            )
+            ),
+            normal_water_level,
+            alert_water_level,
+            warning_water_level,
+            danger_water_level
+            
             `)
     if (stationsError) {
         console.error('Error fetching stations:', stationsError.message)
         stations = []
     }
-
     return {
         props: {
             stations
@@ -87,6 +100,7 @@ export async function getStaticProps() {
 }
 
 export default function Component({ stations }: ComponentProps) {
+
     const router = useRouter();
     const { stationId } = router.query;
     const [searchTerm, setSearchTerm] = useState("")
@@ -418,7 +432,43 @@ export default function Component({ stations }: ComponentProps) {
 
                                             {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
 
+
                                             <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-white hover:bg-gray-700">
+                                                        <Info className="h-4 w-4" />
+                                                        <span className="sr-only">Water level information</span>
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-800">
+                                                    <div className="p-4">
+                                                        {/* <h3 className="text-white font-semibold mb-2">Water Levels</h3> */}
+                                                        <div key="1" className="flex items-center mb-1 last:mb-0">
+                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-secondary`} />
+                                                            <span className="text-white text-sm">Normal: {selectedStation?.normal_water_level} m</span>
+                                                        </div>
+                                                        <div key="2" className="flex items-center mb-1 last:mb-0">
+                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-alert`} />
+                                                            <span className="text-white text-sm">Alert: {selectedStation?.alert_water_level} m</span>
+                                                        </div>
+                                                        <div key="3" className="flex items-center mb-1 last:mb-0">
+                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-warning`} />
+                                                            <span className="text-white text-sm">Warning: {selectedStation?.warning_water_level} m</span>
+                                                        </div>
+                                                        <div key="4" className="flex items-center mb-1 last:mb-0">
+                                                            <div className={`w-3 h-3 rounded-full mr-2 bg-destructive`} />
+                                                            <span className="text-white text-sm">Danger: {selectedStation?.danger_water_level} m</span>
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                            {/* <Tooltip message={"✨ Coming soon!"}>
+                                                    <Info className='h-4 w-4' />
+
+                                                </Tooltip> */}
+
+
                                         </CardContent>
                                     </Card>
                                 </div>
