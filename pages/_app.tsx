@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes'
 import Layout from "@/components/layout";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { useEffect, useState } from 'react';
+import Head from 'next/head';
 // import { initializeOneSignal } from '../utils/oneSignalConfig';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -25,12 +26,19 @@ export default function App({ Component, pageProps }: AppProps) {
         }
     }, []);
     return (
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <Layout>
-                <Component {...pageProps} />
-            </Layout>
-            <SpeedInsights />
-        </ThemeProvider>
+        <>
+            <Head>
+                <title>River Water Level</title>
+            </Head>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+
+                <Layout>
+                    <Component {...pageProps} />
+                </Layout>
+                <SpeedInsights />
+            </ThemeProvider>
+        </>
+
 
     )
 }
