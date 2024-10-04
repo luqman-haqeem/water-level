@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTheme } from "next-themes"
 import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
+
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import LoginModal from '@/components/LoginModel';
@@ -408,7 +409,7 @@ export default function Component({ stations }: ComponentProps) {
                             <div className={`flex-1  overflow-auto pb-16 md:pb-4 ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
 
 
-                                <h2 className="text-2xl  font-bold mb-4 inline">{selectedStation.station_name}</h2>
+                                <h2 className="text-2xl font-bold mb-4 inline">{selectedStation.station_name}</h2>
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -537,7 +538,7 @@ export default function Component({ stations }: ComponentProps) {
                                 <p className="text-center text-muted-foreground">No station selected. Please select a station to view details.</p>
                             </div>
                         )}
-                    </div>
+                    </div >
 
                     <FullscreenModal open={isFullscreenOpen} onOpenChange={closeFullscreen} imageSrc={fullscreenImageSrc}></FullscreenModal>
 
@@ -549,7 +550,8 @@ export default function Component({ stations }: ComponentProps) {
                 </>
 
 
-            )}
+            )
+            }
 
         </>
 

@@ -7,10 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
-import { Droplet, Droplets, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun, Camera, Circle, CircleUser } from 'lucide-react'
+import { Droplet, Droplets, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun, Camera, BellRing, CircleUser } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react';
 import { createClient } from '@supabase/supabase-js'
 import { Toaster } from "@/components/ui/toaster"
+import NotificationHandler from '@/components/NotificationHandler';
 
 import { useToast } from "@/hooks/use-toast"
 
@@ -25,8 +26,10 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations")
-    const { isLoggedIn, checkUserSession, register, login, logout } = useUserStore(); // Use Zustand state
+    const { isLoggedIn, checkUserSession, register, user, login, logout } = useUserStore(); // Use Zustand state
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const [showNotificationModel, setShowNotificationModel] = useState(false)
+
     const [showRegisterModal, setShowRegisterModal] = useState(false)
     const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
@@ -179,6 +182,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => setShowNotificationModel(true)} >
+                                        <BellRing className="mr-2 h-4 w-4" />
+                                        Notification
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={handleLogout}>
                                         <LogOut className="mr-2 h-4 w-4" />
                                         Logout
@@ -212,6 +219,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     onOpenChange={setShowLoginModal}
 
                 />
+                {/* Notification Modal */}
+                <NotificationHandler userId={user?.id} open={showNotificationModel} onOpenChange={setShowNotificationModel} />
+
 
                 {/* Register Modal */}
                 <Dialog open={showRegisterModal} onOpenChange={setShowRegisterModal}>
