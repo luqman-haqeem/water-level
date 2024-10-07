@@ -2,8 +2,8 @@ import OneSignal from 'react-onesignal';
 
 export const initializeOneSignal = async () => {
     OneSignal.init({
-        appId: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID as string,
-        safari_web_id: process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID as string,
+        appId: process.env.ONESIGNAL_APP_ID as string,
+        safari_web_id: process.env.ONESIGNAL_SAFARI_WEB_ID as string,
 
         notifyButton: {
             enable: true,
