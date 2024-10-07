@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { supabase } from "./supabaseClient"; // Import Supabase client
+import { User } from "@supabase/supabase-js";
 
 interface UserState {
-  user: Object | null;
+  user: User | null;
   isLoggedIn: boolean;
   checkUserSession: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;

@@ -220,7 +220,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
                 />
                 {/* Notification Modal */}
-                <NotificationHandler userId={user?.id} open={showNotificationModel} onOpenChange={setShowNotificationModel} />
+                <NotificationHandler userId={user?.id ?? ''} open={showNotificationModel} onOpenChange={setShowNotificationModel} />
 
 
                 {/* Register Modal */}
