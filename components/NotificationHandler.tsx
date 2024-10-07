@@ -20,12 +20,12 @@ interface NotificationHandlerProps {
 }
 
 const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open, onOpenChange }) => {
-    const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
-    const [preferences, setPreferences] = useState<UserPreferences>({
-        notifications: false,
-        dailyUpdates: false,
-        criticalAlerts: false,
-    });
+    // const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
+    // const [preferences, setPreferences] = useState<UserPreferences>({
+    //     notifications: false,
+    //     dailyUpdates: false,
+    //     criticalAlerts: false,
+    // });
 
     useEffect(() => {
         // checkSubscriptionStatus();
