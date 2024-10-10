@@ -74,9 +74,14 @@ const processImages = async () => {
             }
             console.log(`Processing image ${JPS_camera_id} of ${imageUrls.length}: ${img_url}`);
             await downloadImage(img_url, filePath);
-
             // Read the image as a buffer to upload to Supabase Storage
             const fileBuffer = fs.readFileSync(filePath);
+
+            // Check if the image is not broken
+            if (fileBuffer.length === 0) {
+                console.error(`Image ${fileName} is broken or empty. Skipping upload.`);
+                continue;
+            }
 
             // Upload image to Supabase bucket
             const { error } = await supabase
