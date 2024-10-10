@@ -1,17 +1,12 @@
-// components/NotificationHandler.tsx
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+
 import { BellRing } from "lucide-react";
 import { Switch } from "@/components/ui/switch"
+import useUserStore from '../lib/store';
 
-// import { subscribeUser, unsubscribeUser } from '../utils/oneSignalConfig';
-// import { checkNotificationPermission, requestNotificationPermission, saveUserPreferences, getUserPreferences, UserPreferences } from '../utils/permissions';
-// import { logSubscriptionChange } from '../utils/analytics';
+import { subscribeUser, unsubscribeUser } from '../utils/oneSignalConfig';
+import { checkNotificationPermission, requestNotificationPermission, saveUserPreferences, getUserPreferences, UserPreferences } from '../utils/permissions';
 
 interface NotificationHandlerProps {
     userId: string;
@@ -20,55 +15,57 @@ interface NotificationHandlerProps {
 }
 
 const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open, onOpenChange }) => {
-    // const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
-    // const [preferences, setPreferences] = useState<UserPreferences>({
-    //     notifications: false,
-    //     dailyUpdates: false,
-    //     criticalAlerts: false,
-    // });
+    const { isLoggedIn, isSubscribed, setIsSubscribed, user, login, logout } = useUserStore(); // 
+
+    const [preferences, setPreferences] = useState<UserPreferences>({
+        notifications: false,
+        dailyUpdates: false,
+        criticalAlerts: false,
+    });
 
     useEffect(() => {
-        // checkSubscriptionStatus();
-        // loadUserPreferences();
-    }, []);
+        loadUserPreferences();
+    }, [isSubscribed]);
 
-    // const checkSubscriptionStatus = async (): Promise<void> => {
-    //     const permission = await checkNotificationPermission();
-    //     setIsSubscribed(permission);
-    // };
+    const checkSubscriptionStatus = async (): Promise<void> => {
+        const permission = await checkNotificationPermission();
+        // console.log('permission', permission);
+        setIsSubscribed(permission);
+    };
 
-    // const loadUserPreferences = async (): Promise<void> => {
-    //     const userPreferences = await getUserPreferences(userId);
-    //     if (userPreferences) {
-    //         setPreferences(userPreferences);
-    //     }
-    // };
+    const loadUserPreferences = async (): Promise<void> => {
+        const userPreferences = await getUserPreferences(userId);
+        if (userPreferences) {
+            setPreferences(userPreferences);
+        }
+    };
 
-    // const handleSubscribe = async (): Promise<void> => {
-    //     const permission = await requestNotificationPermission();
-    //     if (permission) {
-    //         await subscribeUser(userId);
-    //         setIsSubscribed(true);
-    //         await logSubscriptionChange(true);
-    //         await saveUserPreferences(userId, { ...preferences, notifications: true });
-    //     } else {
-    //         console.log('no permisinion');
+    const handleSubscribe = async (): Promise<void> => {
 
-    //     }
-    // };
+        const permission = await requestNotificationPermission() ?? true;
 
-    // const handleUnsubscribe = async (): Promise<void> => {
-    //     await unsubscribeUser();
-    //     setIsSubscribed(false);
-    //     await logSubscriptionChange(false);
-    //     await saveUserPreferences(userId, { ...preferences, notifications: false });
-    // };
+        if (permission) {
+            await subscribeUser(userId);
+            // console.log('request permission', permission);
+
+            setIsSubscribed(permission);
+            // await logSubscriptionChange(true);
+            await saveUserPreferences(userId, { ...preferences, notifications: true });
+        }
+    };
+
+    const handleUnsubscribe = async (): Promise<void> => {
+        await unsubscribeUser();
+        setIsSubscribed(false);
+        // await logSubscriptionChange(false);
+        await saveUserPreferences(userId, { ...preferences, notifications: false });
+    };
 
     const handleSwitchChange = async (checked: boolean): Promise<void> => {
         if (checked) {
-            // await handleSubscribe();
+            await handleSubscribe();
         } else {
-            // await handleUnsubscribe();
+            await handleUnsubscribe();
         }
     };
 
@@ -90,7 +87,7 @@ const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open,
                                 Send notifications to device.
                             </p>
                         </div>
-                        <Switch onCheckedChange={handleSwitchChange} />
+                        <Switch checked={isSubscribed} onCheckedChange={handleSwitchChange} />
                     </div>
                 </div>
             </DialogContent>
