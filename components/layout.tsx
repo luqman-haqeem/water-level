@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useTheme } from "next-themes"
-import { Droplet, Droplets, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun, Camera, BellRing, CircleUser } from 'lucide-react'
+import { Droplets, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun, Camera, BellRing, CircleUser } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react';
 import { createClient } from '@supabase/supabase-js'
 import { Toaster } from "@/components/ui/toaster"
@@ -16,7 +16,7 @@ import NotificationHandler from '@/components/NotificationHandler';
 import { useToast } from "@/hooks/use-toast"
 
 import { useRouter } from 'next/router'
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2 } from "lucide-react"
 import useUserStore from '../lib/store';
 import LoginModal from '@/components/LoginModel';
 
@@ -47,16 +47,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         checkUserSession();
     }, []);
 
-    useEffect(() => {
-        const checkMobile = () => {
-            const isMobileDevice = window.innerWidth < 768;
-            setIsMobile(isMobileDevice);
-            setIsSideMenuExpanded(!isMobileDevice);
-        }
-        checkMobile();
-        window.addEventListener('resize', checkMobile)
-        return () => window.removeEventListener('resize', checkMobile)
-    }, [])
+    // useEffect(() => {
+    //     const checkMobile = () => {
+    //         const isMobileDevice = window.innerWidth < 768;
+    //         setIsMobile(isMobileDevice);
+    //         setIsSideMenuExpanded(!isMobileDevice);
+    //     }
+    //     checkMobile();
+    //     window.addEventListener('resize', checkMobile)
+    //     return () => window.removeEventListener('resize', checkMobile)
+    // }, [])
 
     // useEffect(() => {
     //     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -80,7 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     const checkActiveTab = () => {
         const currentPath = router.pathname;
-        console.log(currentPath);
+        // console.log(currentPath);
         if (currentPath.includes('/stations')) {
             setActiveTab('stations');
         } else if (currentPath.includes('/cameras')) {
@@ -118,8 +118,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     const handleLogout = async () => {
-        await logout(); // Use Zustand logout action
-        setFavorites({ stations: [], cameras: [] })
+        await logout();
     }
 
     const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
