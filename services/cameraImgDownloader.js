@@ -64,7 +64,8 @@ const processImages = async () => {
     try {
         const imageUrls = await fetchImageUrlsFromSupabase();
 
-        for (const { JPS_camera_id, img_url } of imageUrls) {
+        for (let index = 0; index < imageUrls.length; index++) {
+            const { JPS_camera_id, img_url } = imageUrls[index];
             const fileName = `${JPS_camera_id}.jpg`;
             const filePath = path.join(imageDir, fileName);
 
@@ -72,7 +73,7 @@ const processImages = async () => {
                 console.log(`Skipping image ${JPS_camera_id} due to invalid JPS_camera_id`);
                 continue;
             }
-            console.log(`Processing image ${JPS_camera_id} of ${imageUrls.length}: ${img_url}`);
+            console.log(`Processing image  ${index})of ${imageUrls.length} JPS_camera_id: ${JPS_camera_id} from URL: ${img_url}`);
             await downloadImage(img_url, filePath);
             // Read the image as a buffer to upload to Supabase Storage
             const fileBuffer = fs.readFileSync(filePath);
