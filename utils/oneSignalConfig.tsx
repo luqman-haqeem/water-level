@@ -1,5 +1,5 @@
 import OneSignal from 'react-onesignal';
-import novu from './novu';
+// import novu from './novu';
 
 export const initializeOneSignal = async () => {
 
