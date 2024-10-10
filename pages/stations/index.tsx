@@ -109,9 +109,9 @@ export default function Component({ stations }: ComponentProps) {
 
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
-    const { isLoggedIn } = useUserStore();
+    const { isLoggedIn, user, favStations, removeFavStation, addFavStation } = useUserStore();
 
-    const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
+    // const [favorites, setFavorites] = useState<{ stations: number[] }>({ stations: [] })
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(false)
     const [isMobile, setIsMobile] = useState(true)
 
@@ -137,14 +137,9 @@ export default function Component({ stations }: ComponentProps) {
         }
     }, [stationId, stations]);
 
-    useEffect(() => {
-        const storedStations = sessionStorage.getItem('favorites_stations');
-        const storedCameras = sessionStorage.getItem('favorites_cameras');
 
-        setFavorites({
-            stations: storedStations ? JSON.parse(storedStations) : [],
-            cameras: storedCameras ? JSON.parse(storedCameras) : []
-        });
+    useEffect(() => {
+
         PullToRefresh.init({
             mainElement: 'main',
             onRefresh() {
@@ -211,7 +206,7 @@ export default function Component({ stations }: ComponentProps) {
             });
         }
         if (filterByFavorite) {
-            filtered = filtered.filter(station => favorites.stations.includes(station.id));
+            filtered = filtered.filter(station => favStations.includes(station.id.toString()));
         }
 
         return filtered.sort((a, b) => {
@@ -221,28 +216,24 @@ export default function Component({ stations }: ComponentProps) {
                 return (a.current_levels?.current_level || 0) - (b.current_levels?.current_level || 0);
             }
         });
-    }, [searchTerm, selectedLocation, filterByStatus, filterByFavorite, sortBy, favorites]);
+    }, [searchTerm, selectedLocation, filterByStatus, filterByFavorite, sortBy, favStations]);
     const resetFilteredStations = () => {
         setFilterByFavorite(false)
         setFilterByStatus(null)
     }
 
-    const toggleFavorite = (type: 'station' | 'camera', id: number) => {
+    const toggleFavorite = (type: 'station', id: number) => {
         if (!isLoggedIn) {
-            setShowLoginModal(true)
-            return
+            setShowLoginModal(true);
+            return;
         }
 
-        setFavorites(prev => {
-            const key = type === 'station' ? 'stations' : 'cameras'
-            const newFavorites = prev[key].includes(id)
-                ? prev[key].filter(fav => fav !== id)
-                : [...prev[key], id]
-
-            sessionStorage.setItem(`favorites_${key}`, JSON.stringify(newFavorites));
-            return { ...prev, [key]: newFavorites }
-        })
-    }
+        if (favStations.includes(id.toString())) {
+            removeFavStation(id.toString());
+        } else {
+            addFavStation(id.toString());
+        }
+    };
 
     const handleStationChange = (stationId: string) => {
         const station = stations.find(s => s.id.toString() === stationId);
@@ -353,7 +344,7 @@ export default function Component({ stations }: ComponentProps) {
                                                             toggleFavorite('station', station.id)
                                                         }}
                                                     >
-                                                        <Star className={`h-4 w-4 ${favorites.stations.includes(station.id) ? 'fill-yellow-400' : ''}`} />
+                                                        <Star className={`h-4 w-4 ${favStations.includes(station.id.toString()) ? 'fill-yellow-400' : ''}`} />
                                                     </Button>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">{station.districts.name}</p>
@@ -419,7 +410,7 @@ export default function Component({ stations }: ComponentProps) {
                                     }}
 
                                 >
-                                    <Star className={`h-4 w-4 ${favorites.stations.includes(selectedStation.id) ? 'fill-yellow-400' : ''}`} />
+                                    <Star className={`h-4 w-4 ${favStations.includes(selectedStation.id.toString()) ? 'fill-yellow-400' : ''}`} />
                                 </Button>
                                 <p className="text-muted-foreground mb-4">{selectedStation.districts.name}</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
