@@ -5,8 +5,8 @@ export const initializeOneSignal = async () => {
 
     if (typeof window !== 'undefined') {
         OneSignal.init({
-            appId: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID as string,
-            safari_web_id: process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID as string,
+            appId: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID!,
+            safari_web_id: process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID!,
 
             // notifyButton: {
             //     enable: true,
