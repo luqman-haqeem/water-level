@@ -57,20 +57,30 @@ const useUserStore = create(
         }
 
         const fetchFavorites = async (type: "station" | "camera") => {
-          console.log("fetching", type, "favorites");
+          let tableName =
+            type === "station" ? "favorite_stations" : "favorite_cameras";
+
+          let colomnName = type === "station" ? "station_id" : "camera_id";
 
           const { data: favorites, error } = await supabase
-            .from("favorites")
-            .select("item_id")
-            .eq("user_id", data?.user?.id)
-            .eq("type", type);
+            .from(tableName)
+            .select(colomnName)
+            .eq("user_id", data?.user?.id);
 
           if (error) {
             console.error(`Error fetching ${type} favorites:`, error.message);
             return [];
           }
 
-          return favorites?.map((fav) => fav.item_id.toString()) || [];
+          //   console.log("favorites", favorites);
+          return (
+            favorites
+              ?.map((fav) => {
+                const value = (fav as any)[colomnName];
+                return value ? value.toString() : null;
+              })
+              .filter((value) => value !== null) || []
+          );
         };
 
         const favStations = await fetchFavorites("station");
@@ -116,11 +126,10 @@ const useUserStore = create(
       addFavStation: async (value) => {
         const user = useUserStore.getState().user;
 
-        const { error } = await supabase.from("favorites").insert([
+        const { error } = await supabase.from("favorite_stations").insert([
           {
             user_id: user?.id,
-            type: "station",
-            item_id: value,
+            station_id: value,
           },
         ]);
         if (error) {
@@ -136,12 +145,10 @@ const useUserStore = create(
         const user = useUserStore.getState().user;
 
         const { error } = await supabase
-          .from("favorites")
+          .from("favorite_stations")
           .delete()
-
           .eq("user_id", user?.id)
-          .eq("type", "station")
-          .eq("item_id", value);
+          .eq("station_id", value);
         if (error) {
           console.error("Error removing favorite station:", error);
           return;
@@ -153,11 +160,10 @@ const useUserStore = create(
       },
       addFavCamera: async (value) => {
         const user = useUserStore.getState().user;
-        const { error } = await supabase.from("favorites").insert([
+        const { error } = await supabase.from("favorite_cameras").insert([
           {
             user_id: user?.id,
-            type: "camera",
-            item_id: value,
+            camera_id: value,
           },
         ]);
         if (error) {
@@ -173,11 +179,10 @@ const useUserStore = create(
         const user = useUserStore.getState().user;
 
         const { error } = await supabase
-          .from("favorites")
+          .from("favorite_cameras")
           .delete()
           .eq("user_id", user?.id)
-          .eq("type", "camera")
-          .eq("item_id", value);
+          .eq("camera_id", value);
         if (error) {
           console.error("Error removing favorite camera:", error);
           return;
