@@ -236,7 +236,7 @@ export default function Component({ stations }: ComponentProps) {
     };
 
     const handleStationChange = (stationId: string) => {
-        const station = stations.find(s => s.id.toString() === stationId);
+        const station = filteredStations.find(s => s.id.toString() === stationId);
         if (station) {
             setSelectedStation(station);
             router.push(`/stations?stationId=${station.id}`, undefined, { shallow: true });
@@ -244,13 +244,13 @@ export default function Component({ stations }: ComponentProps) {
     }
 
     const handlePreviousStation = () => {
-        const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
-        if (currentIndex > 0) handleStationChange(stations[currentIndex - 1].id.toString())
+        const currentIndex = filteredStations.findIndex(s => s.id === selectedStation?.id)
+        if (currentIndex > 0) handleStationChange(filteredStations[currentIndex - 1].id.toString())
     }
 
     const handleNextStation = () => {
-        const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
-        if (currentIndex < stations.length - 1) handleStationChange(stations[currentIndex + 1].id.toString())
+        const currentIndex = filteredStations.findIndex(s => s.id === selectedStation?.id)
+        if (currentIndex < filteredStations.length - 1) handleStationChange(filteredStations[currentIndex + 1].id.toString())
     }
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
@@ -366,18 +366,25 @@ export default function Component({ stations }: ComponentProps) {
                             </div>
                         )}
                     </div>
+
+                    {/* Filter Mobile */}
                     <div className={`flex-1 p-2 md:p-4 overflow-auto ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
                         <div className="flex items-center mb-4 block md:hidden pb-4">
                             <Select value={selectedStation?.id.toString() || ''} onValueChange={handleStationChange}>
                                 <SelectTrigger className="w-full md:w-[300px] lg:w-[400px] mr-2">
                                     <SelectValue placeholder="Select station" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    {filteredStations.map(station => (
+                                <SelectContent> {filteredStations.length > 0 ? (
+                                    filteredStations.map(station => (
                                         <SelectItem key={station.id} value={station.id.toString()}>
                                             {station.station_name}
                                         </SelectItem>
-                                    ))}
+                                    ))
+                                ) : (
+                                    <SelectItem value="0" disabled>
+                                        No stations available
+                                    </SelectItem>
+                                )}
                                 </SelectContent>
                             </Select>
 
@@ -510,7 +517,7 @@ export default function Component({ stations }: ComponentProps) {
                                         <span className="sr-only">Previous station</span>
                                     </Button>
                                     <div className="text-sm text-muted-foreground">
-                                        Station {stations.findIndex(s => s.id === selectedStation?.id) + 1} of {stations.length}
+                                        Station {filteredStations.findIndex(s => s.id === selectedStation?.id) + 1} of {filteredStations.length}
                                     </div>
                                     <Button
                                         variant="outline"
