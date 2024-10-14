@@ -47,6 +47,7 @@ interface ComponentProps {
         cameras: {
             img_url: string;
             JPS_camera_id: string;
+            is_enabled: boolean;
 
         };
         normal_water_level: number;
@@ -79,7 +80,8 @@ export async function getStaticProps() {
             current_level, updated_at,alert_level),
             cameras (
                 JPS_camera_id,
-                img_url
+                img_url,
+                is_enabled
             ),
             normal_water_level,
             alert_water_level,
@@ -479,7 +481,7 @@ export default function Component({ stations }: ComponentProps) {
                                         <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
-                                        {selectedStation?.cameras ?
+                                        {selectedStation?.cameras && selectedStation?.cameras?.is_enabled ?
                                             <div onClick={() =>
                                                 openFullscreen(`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at)}
                                                 className="relative cursor-pointer">
