@@ -1,9 +1,10 @@
-name: PROD - Update Camera Image
+name: PROD - Update Camera Detail
 
 on:
   schedule:
     # Run every 15 minutes
     - cron: "*/15 * * * *"
+
   workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
@@ -27,6 +28,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Run camera update detail
+        run: node services/cameraUpdater.js
 
       - name: Run camera image updater
         run: node services/cameraImgDownloader.js
