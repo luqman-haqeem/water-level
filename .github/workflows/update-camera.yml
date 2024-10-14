@@ -15,7 +15,7 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      STATION_URL: ${{ vars.CAMERA_URL }}
+      CAMERA_URL: ${{ vars.CAMERA_URL }}
 
     steps:
       # Step 1: Check out the repository
