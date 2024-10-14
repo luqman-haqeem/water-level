@@ -1,0 +1,44 @@
+name: PROD - Update Camera Image
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+  update-camera-details:
+    runs-on: ubuntu-latest
+    needs: setup
+    environment: production
+    steps:
+      - name: Run camera update detail
+        run: node services/cameraUpdater.js
+
+  update-camera-images:
+    runs-on: ubuntu-latest
+    needs: setup
+    environment: production
+    steps:
+      - name: Run camera image updater
+        run: node services/cameraImgDownloader.js
