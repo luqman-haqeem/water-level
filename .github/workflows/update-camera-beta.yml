@@ -1,9 +1,9 @@
 name: PROD - Update Camera Image -Beta
 
 on:
-  schedule:
-    # Run every 15 minutes
-    - cron: "*/15 * * * *"
+  #   schedule:
+  # Run every 15 minutes
+  # - cron: "*/15 * * * *"
   workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
@@ -27,12 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create Deployment Artifacts 📦
-        run: |
-          mkdir -p artifacts
-          tar -czf artifacts/"${GITHUB_SHA}".tar.gz .
-
-      - name: Store Deployment Artifacts 📦
+      - name: Upload Artifacts 📦
         uses: actions/upload-artifact@v3
         with:
           name: water-level-artifacts
