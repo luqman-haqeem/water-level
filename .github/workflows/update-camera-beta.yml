@@ -1,4 +1,4 @@
-name: PROD - Update Camera Image
+name: PROD - Update Camera Image -Beta
 
 on:
   schedule:
@@ -27,11 +27,28 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Create Deployment Artifacts 📦
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+      - run: tar -czf "${GITHUB_SHA}".tar.gz .output
+
+      - name: Store Deployment Artifacts 📦
+        uses: actions/upload-artifact@v3
+        with:
+          name: water-level-artifacts
+          path: ${{ github.sha }}.tar.gz
+
   update-camera-details:
     runs-on: ubuntu-latest
     needs: setup
     environment: production
     steps:
+      - name: Run camera update detail
+        uses: actions/download-artifact@v3
+        with:
+          name: water-level-artifacts
+
       - name: Run camera update detail
         run: node services/cameraUpdater.js
 
@@ -40,5 +57,10 @@ jobs:
     needs: setup
     environment: production
     steps:
+      - name: Run camera update detail
+        uses: actions/download-artifact@v3
+        with:
+          name: water-level-artifacts
+
       - name: Run camera image updater
         run: node services/cameraImgDownloader.js
