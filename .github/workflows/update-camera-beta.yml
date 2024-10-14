@@ -28,16 +28,15 @@ jobs:
         run: npm install
 
       - name: Create Deployment Artifacts 📦
-        uses: actions/setup-node@v3
-        with:
-          node-version: "20"
-      - run: tar -czf "${GITHUB_SHA}".tar.gz .
+        run: |
+          mkdir -p artifacts
+          tar -czf artifacts/"${GITHUB_SHA}".tar.gz .
 
       - name: Store Deployment Artifacts 📦
         uses: actions/upload-artifact@v3
         with:
           name: water-level-artifacts
-          path: ${{ github.sha }}.tar.gz
+          path: artifacts/${{ github.sha }}.tar.gz
 
   update-camera-details:
     runs-on: ubuntu-latest
