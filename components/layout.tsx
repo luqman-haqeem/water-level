@@ -19,6 +19,7 @@ import { useRouter } from 'next/router'
 import { AlertCircle, Loader2 } from "lucide-react"
 import useUserStore from '../lib/store';
 import LoginModal from '@/components/LoginModel';
+import RegisterModel from '@/components/RegisterModel';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -223,57 +224,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
 
                 {/* Register Modal */}
-                <Dialog open={showRegisterModal} onOpenChange={setShowRegisterModal}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Register</DialogTitle>
-                            <DialogDescription>Create a new account</DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleRegister} className="space-y-4">
-                            <div>
-                                <Label htmlFor="register-email">Email</Label>
-                                <Input id="register-email" name="email" type="email" placeholder="Enter your email" required />
-                            </div>
-                            <div>
-                                <Label htmlFor="register-password">Password</Label>
-                                <Input id="register-password" name="password" type="password" placeholder="Create a password" required />
-                            </div>
-                            <div>
-                                <Label htmlFor="confirm-password">Confirm Password</Label>
-                                <Input id="confirm-password" type="password" placeholder="Confirm your password" required />
-                            </div>
-                            <Button type="submit" className="w-full" disabled={status === 'loading'}>
-                                {status === 'loading' ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Registering...
-                                    </>
-                                ) : (
-                                    'Register'
-                                )}
-                            </Button>
-                        </form>
-                        {status === 'error' && (
-                            <div className="flex items-center gap-2 text-red-600 mt-2">
-                                <AlertCircle className="h-5 w-5" />
-                                <span>{message}</span>
-                            </div>
-                        )}
-                        <Separator className="my-4" />
-                        <div className="space-y-2">
-                            <Button onClick={() => handleSocialLogin('google')} variant="outline" className="w-full">
-                                Register with Google
-                            </Button>
-                            {/* <Button onClick={() => handleSocialLogin('facebook')} variant="outline" className="w-full">
-                                Register with Facebook
-                            </Button>
-                            <Button onClick={() => handleSocialLogin('apple')} variant="outline" className="w-full">
-                                Register with Apple
-                            </Button> */}
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                <RegisterModel
+                    open={showRegisterModal}
+                    onOpenChange={setShowRegisterModal}
+                />
+            </div >
             <Analytics />
         </>
     )
