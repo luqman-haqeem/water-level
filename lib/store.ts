@@ -9,7 +9,10 @@ interface UserState {
   isSubscribed: boolean;
   setIsSubscribed: (value: boolean) => void;
   checkUserSession: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ status: boolean; error: Error | null }>;
   register: (
     email: string,
     password: string
@@ -21,6 +24,7 @@ interface UserState {
   removeFavStation: (value: string) => void;
   addFavCamera: (value: string) => void;
   removeFavCamera: (value: string) => void;
+  fetchFavorites: (type: "station" | "camera", data: any) => Promise<string[]>;
 }
 
 // Create Zustand store with persistence
@@ -53,38 +57,17 @@ const useUserStore = create(
         });
         if (error) {
           console.error("Login Error:", error.message);
-          return;
+          return {
+            status: false,
+            error: error,
+          };
         }
-
-        const fetchFavorites = async (type: "station" | "camera") => {
-          let tableName =
-            type === "station" ? "favorite_stations" : "favorite_cameras";
-
-          let colomnName = type === "station" ? "station_id" : "camera_id";
-
-          const { data: favorites, error } = await supabase
-            .from(tableName)
-            .select(colomnName)
-            .eq("user_id", data?.user?.id);
-
-          if (error) {
-            console.error(`Error fetching ${type} favorites:`, error.message);
-            return [];
-          }
-
-          //   console.log("favorites", favorites);
-          return (
-            favorites
-              ?.map((fav) => {
-                const value = (fav as any)[colomnName];
-                return value ? value.toString() : null;
-              })
-              .filter((value) => value !== null) || []
-          );
-        };
-
-        const favStations = await fetchFavorites("station");
-        const favCameras = await fetchFavorites("camera");
+        const favStations = await useUserStore
+          .getState()
+          .fetchFavorites("station", data);
+        const favCameras = await useUserStore
+          .getState()
+          .fetchFavorites("camera", data);
 
         set({
           user: data?.user,
@@ -92,6 +75,11 @@ const useUserStore = create(
           favStations,
           favCameras,
         });
+
+        return {
+          status: true,
+          error: null,
+        };
       },
       register: async (email, password) => {
         const { data, error } = await supabase.auth.signUp({ email, password });
@@ -103,10 +91,43 @@ const useUserStore = create(
             error: error,
           };
         }
+        set({
+          user: data?.user,
+          isLoggedIn: true,
+          favStations: [],
+          favCameras: [],
+        });
+
         return {
           status: true,
           error: null,
         };
+      },
+      fetchFavorites: async (type: "station" | "camera", data) => {
+        let tableName =
+          type === "station" ? "favorite_stations" : "favorite_cameras";
+
+        let colomnName = type === "station" ? "station_id" : "camera_id";
+
+        const { data: favorites, error } = await supabase
+          .from(tableName)
+          .select(colomnName)
+          .eq("user_id", data?.user?.id);
+
+        if (error) {
+          console.error(`Error fetching ${type} favorites:`, error.message);
+          return [];
+        }
+
+        //   console.log("favorites", favorites);
+        return (
+          favorites
+            ?.map((fav) => {
+              const value = (fav as any)[colomnName];
+              return value ? value.toString() : null;
+            })
+            .filter((value) => value !== null) || []
+        );
       },
       logout: async () => {
         const { error } = await supabase.auth.signOut();
