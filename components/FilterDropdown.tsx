@@ -33,7 +33,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                 <Button
                     variant="outline"
                     size="icon"
-                    className={`bg-gray-800 text-white border-gray-700 ${activeFilter ? 'bg-blue-600' : ''}`}
+                    className={`${activeFilter ? 'bg-blue-600' : ''}`}
                 >
                     <Filter className="h-4 w-4" />
                 </Button>
