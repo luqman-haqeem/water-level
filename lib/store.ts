@@ -40,10 +40,18 @@ const useUserStore = create(
         if (error) {
           //   console.error("Error getting user session:", error);
         } else if (data) {
-          //   console.log(data);
+          const favStations = await useUserStore
+            .getState()
+            .fetchFavorites("station", data);
+          const favCameras = await useUserStore
+            .getState()
+            .fetchFavorites("camera", data);
+
           set({
             user: data?.user,
             isLoggedIn: true,
+            favStations,
+            favCameras,
           });
         } else {
           set({ isLoggedIn: false });
