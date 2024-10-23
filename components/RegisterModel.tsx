@@ -32,11 +32,11 @@ export default function RegisterModel({ open, onOpenChange }: RegisterModelProps
             setMessage('Passwords do not match');
             return;
         }
-        const isRegister = await register(email, password);
+        const { error } = await register(email, password);
 
-        if (!isRegister?.status) {
+        if (error) {
             setStatus('error');
-            setMessage(isRegister?.error instanceof Error ? isRegister?.error.message : 'Registration failed');
+            setMessage(error instanceof Error ? error.message : 'Registration failed');
         } else {
             toast({
                 variant: "success",

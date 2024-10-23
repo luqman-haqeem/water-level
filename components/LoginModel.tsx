@@ -31,10 +31,16 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
         const email = (form.elements.namedItem('email') as HTMLInputElement).value;
         const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
-        await login(email, password);
+        const { error } = await login(email, password);
 
-        setStatus('idle');
-        onOpenChange(false);
+        if (error) {
+            setStatus('error');
+            setMessage(error instanceof Error ? error.message : 'Login failed');
+        } else {
+            setStatus('idle');
+            onOpenChange(false);
+        }
+
     };
 
     const handleSocialLogin = async (provider: 'google') => {
