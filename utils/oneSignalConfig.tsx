@@ -1,5 +1,6 @@
 import OneSignal from 'react-onesignal';
 // import novu from './novu';
+import useUserStore from '../lib/store';
 
 export const initializeOneSignal = async () => {
 
@@ -13,17 +14,83 @@ export const initializeOneSignal = async () => {
             // },
             serviceWorkerParam: { scope: "/push/onesignal/" },
             serviceWorkerPath: "push/onesignal/OneSignalSDKWorker.js",
-            allowLocalhostAsSecureOrigin: true
+            allowLocalhostAsSecureOrigin: true,
+            promptOptions: {
+                /* Change bold title, limited to 30 characters */
+                siteName: 'River Water Level',
+                /* Subtitle, limited to 90 characters */
+                actionMessage: "Get notified when your favorite station reaches a danger level.",
+                /* Example notification title */
+                // exampleNotificationTitle: 'Example notification',
+                // /* Example notification message */
+                // exampleNotificationMessage: 'This is an example notification',
+                // /* Text below example notification, limited to 50 characters */
+                // exampleNotificationCaption: 'You can unsubscribe anytime',
+                /* Accept button text, limited to 15 characters */
+                acceptButtonText: "ALLOW",
+                /* Cancel button text, limited to 15 characters */
+                cancelButtonText: "NO THANKS",
+                autoAcceptTitle: 'Click Allow'
+            }
         });
+
+
+        // OneSignal.Notifications.addEventListener("permissionChange", permissionChangeListener);
+        // OneSignal.Notifications.addEventListener.on('permissionChange', (permission) => {
+        //     console.log('Permission changed to:', permission.toString());
+        // });
+
+
+        const permissionChangeListener = async (permissionChange: any) => {
+            const { user, setIsSubscribed } = useUserStore.getState(); // Use getState() instead of hook
+
+            if (permissionChange) {
+                console.log(`permission accepted!`);
+                if (user?.id) {
+                    await subscribeUser(user.id);
+                    setIsSubscribed(true);
+                }
+            } else {
+                setIsSubscribed(false);
+            }
+        };
+
+        OneSignal.Notifications.addEventListener('permissionChange', permissionChangeListener);
+
     }
     // OneSignal.showSlidedownPrompt();
 };
+
+const permissionChangeListener = async (permission: any) => {
+    const { user, setIsSubscribed } = useUserStore();
+
+    if (permission) {
+        console.log(`permission accepted!`);
+        await subscribeUser(user?.id ?? '');
+        // console.log('request permission', permission);
+
+        setIsSubscribed(permission);
+        // await logSubscriptionChange(true);
+    } else {
+
+    }
+}
+
+
 export const promptForNotificationPermission = async () => {
-    const permission = await OneSignal.Notifications.requestPermission();
+    // const permission = await OneSignal.Notifications.requestPermission();
+    const permission = await OneSignal.Slidedown.promptPush({ force: true });
+
+    console.log('request permission', OneSignal.Slidedown);
     return permission;
 };
 
 export const subscribeUser = async (userId: string): Promise<void> => {
+    if (!userId) {
+        console.log('No user ID provided');
+
+        return;
+    }
     await OneSignal.login(userId);
 
     let onesignalId = OneSignal?.User?.PushSubscription?.id ?? '';

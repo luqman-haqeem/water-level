@@ -2,6 +2,11 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { supabase } from "./supabaseClient"; // Import Supabase client
 import { User } from "@supabase/supabase-js";
+import {
+  requestNotificationPermission,
+  saveUserPreferences,
+} from "../utils/permissions";
+import { subscribeUser, unsubscribeUser } from "../utils/oneSignalConfig";
 
 interface UserState {
   user: User | null;
@@ -9,9 +14,13 @@ interface UserState {
   isSubscribed: boolean;
   setIsSubscribed: (value: boolean) => void;
   checkUserSession: () => Promise<void>;
+  listenSessionChanges: () => void;
   login: (
     email: string,
     password: string
+  ) => Promise<{ status: boolean; error: Error | null }>;
+  loginWithMagicLink: (
+    email: string
   ) => Promise<{ status: boolean; error: Error | null }>;
   register: (
     email: string,
@@ -20,6 +29,7 @@ interface UserState {
   logout: () => Promise<void>;
   favStations: string[];
   favCameras: string[];
+
   addFavStation: (value: string) => void;
   removeFavStation: (value: string) => void;
   addFavCamera: (value: string) => void;
@@ -57,12 +67,106 @@ const useUserStore = create(
           set({ isLoggedIn: false });
         }
       },
+      listenSessionChanges: () => {
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session && session.provider_token) {
+            window.localStorage.setItem(
+              "oauth_provider_token",
+              session.provider_token
+            );
+          }
+
+          if (session && session.provider_refresh_token) {
+            window.localStorage.setItem(
+              "oauth_provider_refresh_token",
+              session.provider_refresh_token
+            );
+          }
+          if (event === "SIGNED_IN") {
+            console.log("from listenSessionChanges");
+            console.log(session);
+
+            const user = session?.user;
+            const favStations = await useUserStore
+              .getState()
+              .fetchFavorites("station", user?.id);
+            const favCameras = await useUserStore
+              .getState()
+              .fetchFavorites("camera", user?.id);
+
+            // console.log("from listenSessionChanges");
+
+            set({
+              user: user,
+              isLoggedIn: true,
+              favStations,
+              favCameras,
+            });
+
+            // request  notification pemision
+            console.log("request notification permission");
+
+            const requestPermision =
+              (await requestNotificationPermission()) ?? true;
+
+            if (requestPermision) {
+              await subscribeUser(user?.id ?? "");
+              console.log(" requestPermision", requestPermision);
+
+              set({ isSubscribed: requestPermision });
+              // await logSubscriptionChange(true);
+            }
+          }
+
+          if (event === "SIGNED_OUT") {
+            window.localStorage.removeItem("oauth_provider_token");
+            window.localStorage.removeItem("oauth_provider_refresh_token");
+
+            set({
+              user: null,
+              isLoggedIn: false,
+              favStations: [],
+              favCameras: [],
+            });
+          }
+        });
+      },
+      setNotificationPermission: async (permission: any) => {
+        if (permission) {
+          console.log(`permission accepted!`);
+          const userId = useUserStore.getState().user?.id ?? "";
+          await subscribeUser(userId);
+        } else {
+          await unsubscribeUser();
+        }
+        useUserStore.getState().setIsSubscribed(permission);
+
+        // await logSubscriptionChange(true);
+      },
+      loginWithMagicLink: async (email) => {
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+        });
+        if (error) {
+          console.error("Magic Link Error:", error.message);
+          return {
+            status: false,
+            error: error,
+          };
+        }
+
+        return {
+          status: true,
+          error: null,
+        };
+      },
 
       login: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+
         if (error) {
           console.error("Login Error:", error.message);
           return {

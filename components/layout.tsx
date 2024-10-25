@@ -19,7 +19,7 @@ import RegisterModel from '@/components/RegisterModel';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations")
-    const { isLoggedIn, checkUserSession, register, user, login, logout } = useUserStore(); // Use Zustand state
+    const { isLoggedIn, checkUserSession, register, user, listenSessionChanges, logout } = useUserStore(); // Use Zustand state
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [showNotificationModel, setShowNotificationModel] = useState(false)
     const [showRegisterModal, setShowRegisterModal] = useState(false)
@@ -31,6 +31,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         setMounted(true)
 
         checkUserSession();
+        listenSessionChanges();
     }, []);
 
     useEffect(() => {
@@ -122,10 +123,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                                     <LogIn className="mr-2 h-4 w-4" />
                                     <span className="hidden md:inline">Login</span>
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)} className="flex items-center">
+                                {/* <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)} className="flex items-center">
                                     <UserPlus className="mr-2 h-4 w-4" />
                                     <span className="hidden md:inline">Register</span>
-                                </Button>
+                                </Button> */}
                             </div>
                         )}
                     </div>
@@ -148,10 +149,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
 
                 {/* Register Modal */}
-                <RegisterModel
+                {/* <RegisterModel
                     open={showRegisterModal}
                     onOpenChange={setShowRegisterModal}
-                />
+                /> */}
             </div >
             <Analytics />
         </>
