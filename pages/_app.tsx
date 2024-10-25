@@ -3,7 +3,7 @@ import type { AppProps } from "next/app";
 import { ThemeProvider } from 'next-themes'
 import Layout from "@/components/layout";
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Head from 'next/head';
 import { initializeOneSignal } from '../utils/oneSignalConfig';
 

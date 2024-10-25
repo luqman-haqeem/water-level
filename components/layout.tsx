@@ -6,23 +6,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useTheme } from "next-themes"
 import { Droplets, ChevronDown, LogIn, LogOut, UserPlus, Moon, Sun, Camera, BellRing, CircleUser } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react';
-import { createClient } from '@supabase/supabase-js'
 import { Toaster } from "@/components/ui/toaster"
 import NotificationHandler from '@/components/NotificationHandler';
-
-import { useToast } from "@/hooks/use-toast"
 
 import { useRouter } from 'next/router'
 import useUserStore from '../lib/store';
 import LoginModal from '@/components/LoginModel';
-import RegisterModel from '@/components/RegisterModel';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations")
-    const { isLoggedIn, checkUserSession, register, user, listenSessionChanges, logout } = useUserStore(); // Use Zustand state
+    const { isLoggedIn, checkUserSession, user, listenSessionChanges, logout } = useUserStore(); // Use Zustand state
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [showNotificationModel, setShowNotificationModel] = useState(false)
-    const [showRegisterModal, setShowRegisterModal] = useState(false)
     const { theme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
     const router = useRouter()
