@@ -95,7 +95,13 @@ const useUserStore = create(
             console.log("session", session);
 
             const user = session?.user;
+            console.log("user", user);
+
             if (user) {
+              console.log("user exist");
+
+              console.log("fetching favorites");
+
               favStations = await useUserStore
                 .getState()
                 .fetchFavorites("station", user?.id);
