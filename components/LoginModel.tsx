@@ -44,7 +44,7 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 variant: "default",
                 title: "Check Your Email",
                 description: "We've sent you a login link. Please check your inbox and follow the instructions.",
-                duration: 3000,
+                duration: 5000,
 
             });
 
