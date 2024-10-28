@@ -112,7 +112,7 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
                     </form>
 
                     <p className="text-sm text-gray-400">
-                        We'll email you a secure, one-click login link - no password needed!
+                        We&apos;ll email you a secure, one-click login link - no password needed!
                     </p>
                     {status === 'error' && (
                         <div className="flex items-center gap-2 text-red-600 mt-2">
