@@ -73,6 +73,11 @@ const processImages = async () => {
                 console.log(`Skipping image ${JPS_camera_id} due to invalid JPS_camera_id`);
                 continue;
             }
+
+            if (!img_url) {
+                console.log(`Skipping image ${JPS_camera_id} due to missing img_url`);
+                continue;
+            }
             console.log(`Processing image  ${index})of ${imageUrls.length} JPS_camera_id: ${JPS_camera_id} from URL: ${img_url}`);
             await downloadImage(img_url, filePath);
             // Read the image as a buffer to upload to Supabase Storage
