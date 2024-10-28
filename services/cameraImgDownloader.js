@@ -51,7 +51,9 @@ const downloadImage = (url, destination) => {
 const fetchImageUrlsFromSupabase = async () => {
     const { data, error } = await supabase
         .from('cameras')
-        .select('JPS_camera_id,img_url');
+        .select('JPS_camera_id,img_url')
+        .neq('img_url', null)
+
 
     if (error) {
         throw new Error('Error fetching image URLs from Supabase:', error.message);
