@@ -49,6 +49,7 @@ const useUserStore = create(
       isSubscribed: false,
       setIsSubscribed: (value) => set({ isSubscribed: value }),
       checkUserSession: async () => {
+        console.log("from checkUserSession");
         const { data, error } = await supabase.auth.getUser();
         if (error) {
           //   console.error("Error getting user session:", error);
@@ -99,12 +100,12 @@ const useUserStore = create(
 
               console.log("fetching favorites");
 
-              const favStations = await useUserStore
-                .getState()
-                .fetchFavorites("station", user?.id);
-              const favCameras = await useUserStore
-                .getState()
-                .fetchFavorites("camera", user?.id);
+              //   const favStations = await useUserStore
+              //     .getState()
+              //     .fetchFavorites("station", user?.id);
+              //   const favCameras = await useUserStore
+              //     .getState()
+              //     .fetchFavorites("camera", user?.id);
 
               // request  notification pemision
               console.log("request notification permission");
@@ -120,8 +121,8 @@ const useUserStore = create(
               set({
                 user: user,
                 isLoggedIn: true,
-                favStations,
-                favCameras,
+                // favStations,
+                // favCameras,
               });
 
               set({ isSubscribed: requestPermision });
@@ -232,8 +233,9 @@ const useUserStore = create(
       fetchFavorites: async (type: "station" | "camera", userId: string) => {
         if (!userId) {
           console.log("No user ID provided");
-          return [];
         }
+        console.log("in fetchFavorites", type, userId);
+
         let tableName =
           type === "station" ? "favorite_stations" : "favorite_cameras";
 
