@@ -73,7 +73,7 @@ const useUserStore = create(
       },
       listenSessionChanges: () => {
         supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log("from listenSessionChanges");
+          console.log("Listen session changes");
 
           if (session && session.provider_token) {
             window.localStorage.setItem(
@@ -89,16 +89,16 @@ const useUserStore = create(
             );
           }
           if (event === "SIGNED_IN") {
-            console.log("SIGNED_IN");
-            console.log("session", session);
+            // console.log("SIGNED_IN");
+            // console.log("session", session);
 
             const user = session?.user;
-            console.log("user", user);
+            // console.log("user", user);
 
             if (user) {
-              console.log("user exist");
+              //   console.log("user exist");
 
-              console.log("fetching favorites");
+              //   console.log("fetching favorites");
 
               //   const favStations = await useUserStore
               //     .getState()
@@ -133,7 +133,7 @@ const useUserStore = create(
           }
 
           if (event === "SIGNED_OUT") {
-            console.log("SIGNED_OUT");
+            console.log("User signed out");
             window.localStorage.removeItem("oauth_provider_token");
             window.localStorage.removeItem("oauth_provider_refresh_token");
 
@@ -234,7 +234,7 @@ const useUserStore = create(
         if (!userId) {
           console.log("No user ID provided");
         }
-        console.log("in fetchFavorites", type, userId);
+        // console.log("in fetchFavorites", type, userId);
 
         let tableName =
           type === "station" ? "favorite_stations" : "favorite_cameras";
