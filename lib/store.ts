@@ -74,9 +74,6 @@ const useUserStore = create(
         supabase.auth.onAuthStateChange(async (event, session) => {
           console.log("from listenSessionChanges");
 
-          let favStations: string[] = [];
-          let favCameras: string[] = [];
-
           if (session && session.provider_token) {
             window.localStorage.setItem(
               "oauth_provider_token",
@@ -102,10 +99,10 @@ const useUserStore = create(
 
               console.log("fetching favorites");
 
-              favStations = await useUserStore
+              const favStations = await useUserStore
                 .getState()
                 .fetchFavorites("station", user?.id);
-              favCameras = await useUserStore
+              const favCameras = await useUserStore
                 .getState()
                 .fetchFavorites("camera", user?.id);
 
