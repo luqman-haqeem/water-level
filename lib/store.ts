@@ -34,7 +34,10 @@ interface UserState {
   removeFavStation: (value: string) => void;
   addFavCamera: (value: string) => void;
   removeFavCamera: (value: string) => void;
-  fetchFavorites: (type: "station" | "camera", data: any) => Promise<string[]>;
+  fetchFavorites: (
+    type: "station" | "camera",
+    data: string
+  ) => Promise<string[]>;
 }
 
 // Create Zustand store with persistence
@@ -52,10 +55,10 @@ const useUserStore = create(
         } else if (data) {
           const favStations = await useUserStore
             .getState()
-            .fetchFavorites("station", data);
+            .fetchFavorites("station", data?.user?.id);
           const favCameras = await useUserStore
             .getState()
-            .fetchFavorites("camera", data);
+            .fetchFavorites("camera", data?.user?.id);
 
           set({
             user: data?.user,
@@ -69,6 +72,11 @@ const useUserStore = create(
       },
       listenSessionChanges: () => {
         supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log("from listenSessionChanges");
+
+          let favStations: string[] = [];
+          let favCameras: string[] = [];
+
           if (session && session.provider_token) {
             window.localStorage.setItem(
               "oauth_provider_token",
@@ -83,42 +91,45 @@ const useUserStore = create(
             );
           }
           if (event === "SIGNED_IN") {
-            console.log("from listenSessionChanges");
-            console.log(session);
+            console.log("SIGNED_IN");
+            console.log("session", session);
 
             const user = session?.user;
-            const favStations = await useUserStore
-              .getState()
-              .fetchFavorites("station", user?.id);
-            const favCameras = await useUserStore
-              .getState()
-              .fetchFavorites("camera", user?.id);
+            if (user) {
+              favStations = await useUserStore
+                .getState()
+                .fetchFavorites("station", user?.id);
+              favCameras = await useUserStore
+                .getState()
+                .fetchFavorites("camera", user?.id);
 
-            // console.log("from listenSessionChanges");
+              // request  notification pemision
+              console.log("request notification permission");
 
-            set({
-              user: user,
-              isLoggedIn: true,
-              favStations,
-              favCameras,
-            });
+              const requestPermision =
+                (await requestNotificationPermission()) ?? true;
 
-            // request  notification pemision
-            console.log("request notification permission");
+              if (requestPermision) {
+                await subscribeUser(user?.id ?? "");
+                console.log(" requestPermision", requestPermision);
+              }
 
-            const requestPermision =
-              (await requestNotificationPermission()) ?? true;
-
-            if (requestPermision) {
-              await subscribeUser(user?.id ?? "");
-              console.log(" requestPermision", requestPermision);
+              set({
+                user: user,
+                isLoggedIn: true,
+                favStations,
+                favCameras,
+              });
 
               set({ isSubscribed: requestPermision });
               // await logSubscriptionChange(true);
+            } else {
+              console.log("user is null");
             }
           }
 
           if (event === "SIGNED_OUT") {
+            console.log("SIGNED_OUT");
             window.localStorage.removeItem("oauth_provider_token");
             window.localStorage.removeItem("oauth_provider_refresh_token");
 
@@ -176,10 +187,10 @@ const useUserStore = create(
         }
         const favStations = await useUserStore
           .getState()
-          .fetchFavorites("station", data);
+          .fetchFavorites("station", data?.user?.id);
         const favCameras = await useUserStore
           .getState()
-          .fetchFavorites("camera", data);
+          .fetchFavorites("camera", data?.user?.id);
 
         set({
           user: data?.user,
@@ -215,7 +226,11 @@ const useUserStore = create(
           error: null,
         };
       },
-      fetchFavorites: async (type: "station" | "camera", data) => {
+      fetchFavorites: async (type: "station" | "camera", userId: string) => {
+        if (!userId) {
+          console.log("No user ID provided");
+          return [];
+        }
         let tableName =
           type === "station" ? "favorite_stations" : "favorite_cameras";
 
@@ -224,7 +239,7 @@ const useUserStore = create(
         const { data: favorites, error } = await supabase
           .from(tableName)
           .select(colomnName)
-          .eq("user_id", data?.user?.id);
+          .eq("user_id", userId);
 
         if (error) {
           console.error(`Error fetching ${type} favorites:`, error.message);
@@ -277,19 +292,25 @@ const useUserStore = create(
       removeFavStation: async (value) => {
         const user = useUserStore.getState().user;
 
-        const { error } = await supabase
-          .from("favorite_stations")
-          .delete()
-          .eq("user_id", user?.id)
-          .eq("station_id", value);
-        if (error) {
-          console.error("Error removing favorite station:", error);
-          return;
+        if (user) {
+          const { error } = await supabase
+            .from("favorite_stations")
+            .delete()
+            .eq("user_id", user?.id)
+            .eq("station_id", value);
+          if (error) {
+            console.error("Error removing favorite station:", error);
+            return;
+          }
+          set((state) => ({
+            ...state,
+            favStations: state.favStations.filter(
+              (station) => station !== value
+            ),
+          }));
+        } else {
+          console.error("Error removing favorite station: User not logged in");
         }
-        set((state) => ({
-          ...state,
-          favStations: state.favStations.filter((station) => station !== value),
-        }));
       },
       addFavCamera: async (value) => {
         const user = useUserStore.getState().user;
@@ -311,19 +332,21 @@ const useUserStore = create(
       removeFavCamera: async (value) => {
         const user = useUserStore.getState().user;
 
-        const { error } = await supabase
-          .from("favorite_cameras")
-          .delete()
-          .eq("user_id", user?.id)
-          .eq("camera_id", value);
-        if (error) {
-          console.error("Error removing favorite camera:", error);
-          return;
+        if (user) {
+          const { error } = await supabase
+            .from("favorite_cameras")
+            .delete()
+            .eq("user_id", user?.id)
+            .eq("camera_id", value);
+          if (error) {
+            console.error("Error removing favorite camera:", error);
+            return;
+          }
+          set((state) => ({
+            ...state,
+            favCameras: state.favCameras.filter((camera) => camera !== value),
+          }));
         }
-        set((state) => ({
-          ...state,
-          favCameras: state.favCameras.filter((camera) => camera !== value),
-        }));
       },
     }),
     {
