@@ -38,7 +38,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                     <Filter className="h-4 w-4" />
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 bg-gray-800 text-white border-gray-700">
+            <DropdownMenuContent className="w-56 border-gray-700">
                 <DropdownMenuRadioGroup value={activeFilter || ''} onValueChange={handleFilterSelect}>
                     <DropdownMenuRadioItem
                         key="1"
