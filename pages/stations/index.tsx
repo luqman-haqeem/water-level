@@ -46,7 +46,7 @@ interface ComponentProps {
         };
         cameras: {
             img_url: string;
-            JPS_camera_id: string;
+            jps_camera_id: string;
             is_enabled: boolean;
 
         };
@@ -59,7 +59,7 @@ interface ComponentProps {
         id: number;
         camera_name: string;
         img_url: string;
-        JPS_camera_id: string;
+        jps_camera_id: string;
 
         districts: {
             name: string;
@@ -79,7 +79,7 @@ export async function getStaticProps() {
             current_levels (
             current_level, updated_at,alert_level),
             cameras (
-                JPS_camera_id,
+                jps_camera_id,
                 img_url,
                 is_enabled
             ),
@@ -483,13 +483,13 @@ export default function Component({ stations }: ComponentProps) {
                                     <CardContent className="p-4 pt-0">
                                         {selectedStation?.cameras && selectedStation?.cameras?.is_enabled ?
                                             <div onClick={() =>
-                                                openFullscreen(`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at)}
+                                                openFullscreen(`${bucketUrl}/images/${selectedStation?.cameras?.jps_camera_id}.jpg?` + selectedStation.current_levels?.updated_at)}
                                                 className="relative cursor-pointer">
                                                 <Image
-                                                    src={`${bucketUrl}/images/${selectedStation?.cameras?.JPS_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
+                                                    src={`${bucketUrl}/images/${selectedStation?.cameras?.jps_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
                                                     key={selectedStation.current_levels?.updated_at}
 
-                                                    // src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
+                                                    // src={`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`}
                                                     width={500}
                                                     height={300}
                                                     alt="Live camera feed"
@@ -499,7 +499,7 @@ export default function Component({ stations }: ComponentProps) {
                                                     placeholder="blur"
 
                                                 ></Image>
-                                                {/* <img src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md" /> */}
+                                                {/* <img src={`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md" /> */}
                                                 <div className="absolute top-0 right-0 m-2">
                                                     <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
                                                 </div>
@@ -535,7 +535,8 @@ export default function Component({ stations }: ComponentProps) {
 
                         ) : (
                             <div >
-                                <p className="text-center text-muted-foreground">No station selected. Please select a station to view details.</p>
+                                <h1 className="text-center">No station selected. Please select a station to view details.</h1>
+
                             </div>
                         )}
                     </div >

@@ -25,7 +25,7 @@ interface ComponentProps {
         id: number;
         camera_name: string;
         img_url: string;
-        JPS_camera_id: string;
+        jps_camera_id: string;
 
         districts: {
             name: string;
@@ -37,7 +37,7 @@ export async function getStaticProps() {
 
     let { data: cameras, error: camerasError } = await supabase
         .from('cameras')
-        .select('id,camera_name,img_url,JPS_camera_id,districts(name)')
+        .select('id,camera_name,img_url,jps_camera_id,districts(name)')
         .eq('is_enabled', 'TRUE')
     if (camerasError) {
         console.error('Error fetching camera:', camerasError.message)
@@ -157,11 +157,11 @@ export default function Component({ cameras }: ComponentProps) {
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
                                         <div onClick={() =>
-                                            openFullscreen(`${bucketUrl}/images/${camera?.JPS_camera_id}.jpg`)}
+                                            openFullscreen(`${bucketUrl}/images/${camera?.jps_camera_id}.jpg`)}
                                             className="relative cursor-pointer">
                                             <Image
-                                                src={`${bucketUrl}/images/${camera?.JPS_camera_id}.jpg`}
-                                                // src={`/api/proxy-image/${camera?.JPS_camera_id}`}
+                                                src={`${bucketUrl}/images/${camera?.jps_camera_id}.jpg`}
+                                                // src={`/api/proxy-image/${camera?.jps_camera_id}`}
                                                 width={600}
                                                 height={330}
                                                 alt={`${camera.camera_name} feed`}
@@ -176,7 +176,7 @@ export default function Component({ cameras }: ComponentProps) {
                                         </div>
 
 
-                                        {/* <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
+                                        {/* <img src={`/api/proxy-image/${camera?.jps_camera_id}`} width={500}
                                                 height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md" /> */}
 
                                     </CardContent>
