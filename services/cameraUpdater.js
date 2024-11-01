@@ -35,14 +35,21 @@ async function updateStationInfo() {
             if (!cameraJPS) continue;
 
             const cameraUpdates = cameraJPS.map(async (cameraJPS) => {
-                const { data: camera } = await supabase
+                const { data: camera, error: cameraError } = await supabase
                     .from('cameras')
                     .select('id')
-                    .eq('JPS_camera_id', cameraJPS.id)
+                    .eq('jps_camera_id', cameraJPS.id)
                     .single();
 
+                if (cameraError) {
+                    console.error(`Error fetching camera: ${cameraError.message}`);
+                    console.error(`Query: SELECT id FROM cameras WHERE jps_camera_id = ${cameraJPS.id}`);
+                }
+
                 if (camera) {
-                    return supabase
+                    console.log("Updating existing camera");
+                    console.log("Name:", cameraJPS.cameraName);
+                    const { error: updateError } = await supabase
                         .from('cameras')
                         .update({
                             camera_brand: cameraJPS.cameraBrand,
@@ -51,36 +58,56 @@ async function updateStationInfo() {
                             img_url: cameraJPS.imageUrl,
                             is_enabled: cameraJPS.isEnabled,
                             is_online: cameraJPS.isOnline,
-                            latitude: cameraJPS.latitude,
-                            longitude: cameraJPS.longitude,
-                            main_basin: cameraJPS.mainRiverBasin,
-                            sub_basin: cameraJPS.subRiverBasin,
+                            latitude: cameraJPS.latitude ?? 0,
+                            longitude: cameraJPS.longitude ?? 0,
+                            main_basin: cameraJPS.mainRiverBasin ?? '',
+                            sub_basin: cameraJPS.subRiverBasin ?? '',
                             updated_at: new Date(),
                         })
                         .eq('id', camera.id);
+
+                    if (updateError) {
+                        console.error(`Error updating camera: ${updateError.message}`);
+                        console.error(`Query: UPDATE cameras SET camera_brand = '${cameraJPS.cameraBrand}', camera_name = '${cameraJPS.cameraName}', district_id = ${cameraJPS.districtId}, img_url = '${cameraJPS.imageUrl}', is_enabled = ${cameraJPS.isEnabled}, is_online = ${cameraJPS.isOnline}, latitude = ${cameraJPS.latitude}, longitude = ${cameraJPS.longitude}, main_basin = '${cameraJPS.mainRiverBasin}', sub_basin = '${cameraJPS.subRiverBasin}', updated_at = '${new Date().toISOString()}' WHERE id = ${camera.id}`);
+                        throw new Error(`Error updating camera: ${updateError.message}`);
+                    }
                 } else {
-                    return supabase
-                        .from('stations')
+                    console.log("Creating new camera");
+                    console.log("Name:", cameraJPS.cameraName);
+
+                    const { error: insertError } = await supabase
+                        .from('cameras')
                         .insert([
                             {
+                                jps_camera_id: cameraJPS.id,
                                 camera_brand: cameraJPS.cameraBrand,
                                 camera_name: cameraJPS.cameraName,
                                 district_id: cameraJPS.districtId,
                                 img_url: cameraJPS.imageUrl,
                                 is_enabled: cameraJPS.isEnabled,
                                 is_online: cameraJPS.isOnline,
-                                latitude: cameraJPS.latitude,
-                                longitude: cameraJPS.longitude,
-                                main_basin: cameraJPS.mainRiverBasin,
-                                sub_basin: cameraJPS.subRiverBasin,
+                                latitude: cameraJPS.latitude ?? 0,
+                                longitude: cameraJPS.longitude ?? 0,
+                                main_basin: cameraJPS.mainRiverBasin ?? '',
+                                sub_basin: cameraJPS.subRiverBasin ?? '',
                                 updated_at: new Date(),
                                 created_at: new Date(),
                             },
                         ]);
+
+                    if (insertError) {
+                        console.error(`Error inserting camera: ${insertError.message}`);
+                        console.error(`Query: INSERT INTO cameras (jps_camera_id, camera_brand, camera_name, district_id, img_url, is_enabled, is_online, latitude, longitude, main_basin, sub_basin, updated_at, created_at) VALUES ('${cameraJPS.id}', '${cameraJPS.cameraBrand}', '${cameraJPS.cameraName}', ${cameraJPS.districtId}, '${cameraJPS.imageUrl}', ${cameraJPS.isEnabled}, ${cameraJPS.isOnline}, ${cameraJPS.latitude}, ${cameraJPS.longitude}, '${cameraJPS.mainRiverBasin}', '${cameraJPS.subRiverBasin}', '${new Date().toISOString()}', '${new Date().toISOString()}')`);
+
+                    }
                 }
             });
 
-            await Promise.all(cameraUpdates);
+            try {
+                await Promise.all(cameraUpdates);
+            } catch (error) {
+                console.error('Error processing camera updates:', error.message);
+            }
         }
 
         console.log('Camera updated successfully.');
@@ -88,6 +115,7 @@ async function updateStationInfo() {
         console.error('Error updating camera info:', error.message);
     }
 }
+
 updateStationInfo();
 
 module.exports = updateStationInfo;
