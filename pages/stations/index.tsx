@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTheme } from "next-themes"
 import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
+import { Badge } from "@/components/ui/badge"
 
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
@@ -54,6 +55,7 @@ interface ComponentProps {
         alert_water_level: number;
         warning_water_level: number;
         danger_water_level: number;
+        station_status: boolean;
     }[];
     cameras: {
         id: number;
@@ -86,7 +88,8 @@ export async function getStaticProps() {
             normal_water_level,
             alert_water_level,
             warning_water_level,
-            danger_water_level
+            danger_water_level,
+            station_status            
             
             `)
     if (stationsError) {
@@ -337,7 +340,11 @@ export default function Component({ stations }: ComponentProps) {
 
                                             <CardHeader className="p-4">
                                                 <div className="flex justify-between items-center">
-                                                    <CardTitle className="text-sm font-medium">{station.station_name}</CardTitle>
+                                                    <CardTitle className="text-sm font-medium ">{station.station_name}
+                                                        {!station.station_status ? <Badge className='ml-2' variant="outline">Station disabled</Badge> : null}
+
+                                                    </CardTitle>
+
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
@@ -410,6 +417,7 @@ export default function Component({ stations }: ComponentProps) {
 
 
                                 <h2 className="text-2xl font-bold mb-4 inline">{selectedStation.station_name}</h2>
+
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -421,6 +429,8 @@ export default function Component({ stations }: ComponentProps) {
                                 >
                                     <Star className={`h-4 w-4 ${favStations.includes(selectedStation.id.toString()) ? 'fill-yellow-400' : ''}`} />
                                 </Button>
+                                {!selectedStation.station_status ? <Badge className='ml-2' variant="outline">Station disabled</Badge> : null}
+
                                 <p className="text-muted-foreground mb-4">{selectedStation.districts.name}</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     <Card>
