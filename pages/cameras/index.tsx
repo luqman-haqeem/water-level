@@ -185,6 +185,7 @@ export default function Component({ cameras }: ComponentProps) {
                                 </Card>
                             ))}
                         </div>
+                        <div className="pb-20"></div>
                         <FullscreenModal open={isFullscreenOpen} onOpenChange={closeFullscreen} imageSrc={fullscreenImageSrc}></FullscreenModal>
 
 
