@@ -1,10 +1,8 @@
 
 import type { Metadata } from "next";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Camera, Droplets, LogIn, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ThemeProvider } from "@/components/theme-provider"
+
 import "./globals.css";
-import Link from "next/link"
 import NavBar from "@/components/NavBar";
 
 export const metadata: Metadata = {
@@ -23,7 +21,7 @@ export default function RootLayout({
 
 
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
             <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
             <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -34,10 +32,19 @@ export default function RootLayout({
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
             <body>
-                <div className="flex flex-col h-screen bg-background">
-                    <NavBar />
-                    {children}
-                </div>
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <div className="flex flex-col h-screen bg-background">
+                        <NavBar />
+                        {children}
+                    </div>
+
+                </ThemeProvider>
+
             </body>
 
 

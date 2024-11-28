@@ -1,17 +1,17 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
-import useUserStore from '../lib/store';
+import useUserStore from '@/lib/store';
 import Image from 'next/image';
 import Link from "next/link"
-import RegisterModel from './RegisterModel';
+import RegisterModel from '@/components/RegisterModel';
 
 import { useToast } from "@/hooks/use-toast";
 
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 
 interface LoginModalProps {
     open: boolean;
@@ -19,7 +19,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
-    const { isSubscribed, setIsSubscribed, user, login, loginWithMagicLink } = useUserStore();
+    const { loginWithMagicLink } = useUserStore();
     const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
     const [message, setMessage] = useState('')
     const [showRegisterModal, setShowRegisterModal] = useState(false)

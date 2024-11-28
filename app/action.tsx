@@ -6,6 +6,15 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { encodedRedirect } from "@/utils/utils";
 
+export const getUserDetails = async () => {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    return user;
+};
 export const getStationList = async () => {
 
     const supabase = await createClient();

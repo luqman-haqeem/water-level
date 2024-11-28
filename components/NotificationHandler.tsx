@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 import { BellRing } from "lucide-react";
 import { Switch } from "@/components/ui/switch"
-import useUserStore from '../lib/store';
+import useUserStore from '@/lib/store';
 
-import { subscribeUser, unsubscribeUser } from '../utils/oneSignalConfig';
-import { checkNotificationPermission, requestNotificationPermission, saveUserPreferences, getUserPreferences, UserPreferences } from '../utils/permissions';
+import { subscribeUser, unsubscribeUser } from '@/utils/oneSignalConfig';
+import { checkNotificationPermission, requestNotificationPermission, saveUserPreferences, getUserPreferences, UserPreferences } from '@/utils/permissions';
 
 interface NotificationHandlerProps {
     userId: string;
@@ -71,7 +71,7 @@ const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open,
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent >
                 <DialogHeader>
                     <DialogTitle>Notification Settings</DialogTitle>
                     <DialogDescription>Manage your notification preferences</DialogDescription>

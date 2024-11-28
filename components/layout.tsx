@@ -10,7 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 import NotificationHandler from '@/components/NotificationHandler';
 
 import { useRouter } from 'next/router'
-import useUserStore from '../lib/store';
+import useUserStore from '@/lib/store';
 import LoginModal from '@/components/LoginModel';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
