@@ -15,6 +15,7 @@ import useUserStore from "@/lib/store"
 import formatTimestamp from "@/utils/timeUtils"
 import { Badge } from "@/components/ui/badge"
 import StationDetails from "@/components/StationDetails";
+import FavoriteButton from "@/components/FavoriteButton";
 
 type Station = {
     id: number;
@@ -218,17 +219,8 @@ export default function StationsComponent({ initialStations }: ComponentProps) {
                                                     {!station.station_status ? <Badge className='ml-2' variant="outline">Station disabled</Badge> : null}
 
                                                 </CardTitle>
+                                                <FavoriteButton type="station" id={station.id} />
 
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        toggleFavorite('station', station.id)
-                                                    }}
-                                                >
-                                                    <Star className={`h-4 w-4 ${favStations.includes(station.id.toString()) ? 'fill-yellow-400' : ''}`} />
-                                                </Button>
                                             </div>
                                             <p className="text-xs text-muted-foreground">{station.districts.name}</p>
                                         </CardHeader>

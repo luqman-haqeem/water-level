@@ -45,7 +45,7 @@ const useUserStore = create(
   persist<UserState>(
     (set) => ({
       user: null,
-      isLoggedIn: false,
+      isLoggedIn: true,
       isSubscribed: false,
       setIsSubscribed: (value) => set({ isSubscribed: value }),
       checkUserSession: async () => {
