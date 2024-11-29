@@ -33,5 +33,5 @@ jobs:
       - name: Run camera update detail
         run: node services/cameraUpdater.js
 
-      - name: Run camera image updater
-        run: node services/cameraImgDownloader.js
+    #   - name: Run camera image updater
+    #     run: node services/cameraImgDownloader.js
