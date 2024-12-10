@@ -2,12 +2,12 @@
 
 ## Overview
 
-The River Water Level application is a tool to view the current water level in rivers in Selangor. It leverages Next.js for server-side rendering, React for the frontend, and Supabase for backend services.
+A system to monitor river water levels in Selangor based on data from JPS Selangor.
 
 ## Features
 
 - **Real-time Water Level Updates**: Display current water levels in rivers across Selangor.
-- **Camera Integration**: View live images from river cameras.
+- **Camera Integration**: View images from river cameras.
 - **User Authentication**: Secure user authentication using Supabase.
 - **Favorites Management**: Users can mark stations and cameras as favorites.
 - **Progressive Web App (PWA)**: Provides an app-like experience with offline support.
