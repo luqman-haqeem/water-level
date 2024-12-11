@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import useUserStore from "@/lib/store";
 import { Star } from "lucide-react";
-import LoginModal from "./LoginModel";
+import LoginModal from "@/components/LoginModel";
 
 export default function FavoriteButton({ type, id }: { type: 'camera' | 'station', id: number }) {
-    const { isLoggedIn, favCameras, favStations, addFavCamera, removeFavCamera, addFavStation, removeFavStation } = useUserStore();
+    const { isLoggedIn, favCameras, favStations, addFavorite, removeFavorite } = useUserStore();
     const [showLoginModal, setShowLoginModal] = useState(false)
     const favList = type == 'station' ? favStations : favCameras
     const toggleFavorite = (type: 'camera' | 'station', id: number) => {
@@ -14,22 +14,11 @@ export default function FavoriteButton({ type, id }: { type: 'camera' | 'station
             setShowLoginModal(true)
             return
         }
-        if (type == 'station') {
-
-            if (favList.includes(id.toString())) {
-                removeFavStation(id.toString());
-            } else {
-                addFavStation(id.toString());
-            }
+        if (favList.includes(id.toString())) {
+            removeFavorite(id.toString(), type);
         } else {
-            if (favList.includes(id.toString())) {
-                removeFavCamera(id.toString());
-            } else {
-
-                addFavCamera(id.toString());
-            }
+            addFavorite(id.toString(), type);
         }
-
     }
 
     return (
@@ -42,7 +31,6 @@ export default function FavoriteButton({ type, id }: { type: 'camera' | 'station
                     toggleFavorite(type, id)
                 }}
             >
-
                 <Star className={`h-4 w-4 ${favList.includes(id.toString()) ? 'fill-yellow-400' : ''}`} />
             </Button>
 

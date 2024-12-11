@@ -7,7 +7,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import useUserStore from '../lib/store';
-import { supabase } from "../lib/supabaseClient";
+import { createClient } from "@/utils/supabase/client";
 
 interface RegisterModelProps {
     open: boolean;
@@ -19,6 +19,7 @@ export default function RegisterModel({ open, onOpenChange }: RegisterModelProps
     const [message, setMessage] = useState('');
     const { register } = useUserStore();
     const { toast } = useToast();
+    const supabase = createClient();
 
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();

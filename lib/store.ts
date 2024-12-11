@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { supabase } from "./supabaseClient"; // Import Supabase client
 import { User } from "@supabase/supabase-js";
 import {
   requestNotificationPermission,
   saveUserPreferences,
 } from "../utils/permissions";
+
 import { subscribeUser, unsubscribeUser } from "../utils/oneSignalConfig";
+import { getUserDetails } from "@/app/action";
+import { createClient } from "@/utils/supabase/client";
 
 interface UserState {
   user: User | null;
@@ -27,13 +29,11 @@ interface UserState {
     password: string
   ) => Promise<{ status: boolean; error: Error | null }>;
   logout: () => Promise<void>;
+
   favStations: string[];
   favCameras: string[];
-
-  addFavStation: (value: string) => void;
-  removeFavStation: (value: string) => void;
-  addFavCamera: (value: string) => void;
-  removeFavCamera: (value: string) => void;
+  addFavorite: (value: string, type: "station" | "camera") => void;
+  removeFavorite: (value: string, type: "station" | "camera") => void;
   fetchFavorites: (
     type: "station" | "camera",
     data: string
@@ -49,7 +49,9 @@ const useUserStore = create(
       isSubscribed: false,
       setIsSubscribed: (value) => set({ isSubscribed: value }),
       checkUserSession: async () => {
-        console.log("from checkUserSession");
+        const supabase = createClient();
+
+        // console.log("from checkUserSession");
         const { data, error } = await supabase.auth.getUser();
         if (error) {
           //   console.error("Error getting user session:", error);
@@ -72,6 +74,8 @@ const useUserStore = create(
         }
       },
       listenSessionChanges: () => {
+        const supabase = createClient();
+
         supabase.auth.onAuthStateChange(async (event, session) => {
           console.log("Listen session changes");
 
@@ -159,6 +163,8 @@ const useUserStore = create(
         // await logSubscriptionChange(true);
       },
       loginWithMagicLink: async (email) => {
+        const supabase = createClient();
+
         const { error } = await supabase.auth.signInWithOtp({
           email,
         });
@@ -177,6 +183,8 @@ const useUserStore = create(
       },
 
       login: async (email, password) => {
+        const supabase = createClient();
+
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -209,6 +217,8 @@ const useUserStore = create(
         };
       },
       register: async (email, password) => {
+        const supabase = createClient();
+
         const { data, error } = await supabase.auth.signUp({ email, password });
 
         if (error) {
@@ -231,6 +241,8 @@ const useUserStore = create(
         };
       },
       fetchFavorites: async (type: "station" | "camera", userId: string) => {
+        const supabase = createClient();
+
         if (!userId) {
           console.log("No user ID provided");
         }
@@ -262,6 +274,8 @@ const useUserStore = create(
         );
       },
       logout: async () => {
+        const supabase = createClient();
+
         const { error } = await supabase.auth.signOut();
         if (error) {
           console.error("Logout Error:", error.message);
@@ -276,80 +290,59 @@ const useUserStore = create(
       },
       favStations: [],
       favCameras: [],
-      addFavStation: async (value) => {
-        const user = useUserStore.getState().user;
+      addFavorite: async (value, type: "station" | "camera") => {
+        const supabase = createClient();
 
-        const { error } = await supabase.from("favorite_stations").insert([
+        const user = await getUserDetails();
+
+        if (!user) {
+          console.log("No user found");
+          return;
+        }
+        const tableName =
+          type === "station" ? "favorite_stations" : "favorite_cameras";
+
+        const columnName = type === "station" ? "station_id" : "camera_id";
+        const stateKey = type === "station" ? "favStations" : "favCameras";
+
+        const { error } = await supabase.from(tableName).insert([
           {
             user_id: user?.id,
-            station_id: value,
+            [columnName]: value,
           },
         ]);
         if (error) {
-          console.error("Error adding favorite station:", error);
+          console.log("Error adding favorite station:", error);
           return;
         }
         set((state) => ({
           ...state,
-          favStations: [...state.favStations, value],
+          [stateKey]: [...state[stateKey], value],
         }));
       },
-      removeFavStation: async (value) => {
-        const user = useUserStore.getState().user;
+      removeFavorite: async (value, type: "station" | "camera") => {
+        const supabase = createClient();
+
+        const stateKey = type === "station" ? "favStations" : "favCameras";
+
+        const user = await getUserDetails();
+        const tableName =
+          type === "station" ? "favorite_stations" : "favorite_cameras";
+        const columnName = type === "station" ? "station_id" : "camera_id";
 
         if (user) {
           const { error } = await supabase
-            .from("favorite_stations")
+            .from(tableName)
             .delete()
             .eq("user_id", user?.id)
-            .eq("station_id", value);
+            .eq(columnName, value);
           if (error) {
-            console.error("Error removing favorite station:", error);
+            console.error("Error removing favorite :", error);
             return;
           }
           set((state) => ({
             ...state,
-            favStations: state.favStations.filter(
-              (station) => station !== value
-            ),
-          }));
-        } else {
-          console.error("Error removing favorite station: User not logged in");
-        }
-      },
-      addFavCamera: async (value) => {
-        const user = useUserStore.getState().user;
-        const { error } = await supabase.from("favorite_cameras").insert([
-          {
-            user_id: user?.id,
-            camera_id: value,
-          },
-        ]);
-        if (error) {
-          console.error("Error adding favorite camera:", error);
-          return;
-        }
-        set((state) => ({
-          ...state,
-          favCameras: [...state.favCameras, value],
-        }));
-      },
-      removeFavCamera: async (value) => {
-        const user = useUserStore.getState().user;
-
-        if (user) {
-          const { error } = await supabase
-            .from("favorite_cameras")
-            .delete()
-            .eq("user_id", user?.id)
-            .eq("camera_id", value);
-          if (error) {
-            console.error("Error removing favorite camera:", error);
-            return;
-          }
-          set((state) => ({
-            ...state,
-            favCameras: state.favCameras.filter((camera) => camera !== value),
+            [stateKey]: state[stateKey].filter((station) => station !== value),
           }));
         }
       },

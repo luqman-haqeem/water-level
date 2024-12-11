@@ -16,6 +16,7 @@ import formatTimestamp from "@/utils/timeUtils"
 import { Badge } from "@/components/ui/badge"
 import StationDetails from "@/components/StationDetails";
 import FavoriteButton from "@/components/FavoriteButton";
+import { useMobileDetection } from "@/utils/useMobileDetection";
 
 type Station = {
     id: number;
@@ -39,25 +40,10 @@ type Station = {
     warning_water_level: number;
     danger_water_level: number;
     station_status: boolean;
-
+    isFavorite?: boolean;
 }
 interface ComponentProps {
     initialStations: Station[];
-}
-export function useMobileDetection() {
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        }
-
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    return isMobile;
 }
 
 
@@ -65,7 +51,7 @@ export default function StationsComponent({ initialStations }: ComponentProps) {
     const [stations, setStations] = useState<Station[]>(initialStations);
 
     const router = useRouter();
-    const { isLoggedIn, user, favStations, removeFavStation, addFavStation } = useUserStore();
+    const { isLoggedIn, user, favStations, removeFavorite, addFavorite } = useUserStore();
 
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<Station | null>(null)
@@ -80,6 +66,9 @@ export default function StationsComponent({ initialStations }: ComponentProps) {
 
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(false);
 
+    useEffect(() => {
+        setIsSideMenuExpanded(!isMobile);
+    }, [isMobile]);
 
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
@@ -123,9 +112,9 @@ export default function StationsComponent({ initialStations }: ComponentProps) {
         }
 
         if (favStations.includes(id.toString())) {
-            removeFavStation(id.toString());
+            removeFavorite(id.toString(), 'station');
         } else {
-            addFavStation(id.toString());
+            addFavorite(id.toString(), 'station');
         }
     };
 

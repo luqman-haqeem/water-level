@@ -11,7 +11,7 @@ import RegisterModel from '@/components/RegisterModel';
 
 import { useToast } from "@/hooks/use-toast";
 
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from '@/utils/supabase/client'
 
 interface LoginModalProps {
     open: boolean;
@@ -24,6 +24,7 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
     const [message, setMessage] = useState('')
     const [showRegisterModal, setShowRegisterModal] = useState(false)
     const { toast } = useToast();
+    const supabase = createClient();
 
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -53,7 +54,17 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
     };
 
     const handleSocialLogin = async (provider: 'google') => {
-        const { error } = await supabase.auth.signInWithOAuth({ provider });
+        // const { error } = await supabase.auth.signInWithOAuth({ provider });
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                redirectTo: `${location.origin}/auth/callback`,
+                // queryParams: {
+                //     access_type: 'offline',
+                //     prompt: 'consent',
+                // },
+            },
+        });
         if (error) {
             console.error(`Error logging in with ${provider}:`, error.message);
         } else {
