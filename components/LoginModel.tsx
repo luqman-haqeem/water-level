@@ -12,6 +12,8 @@ import RegisterModel from '@/components/RegisterModel';
 import { useToast } from "@/hooks/use-toast";
 
 import { createClient } from '@/utils/supabase/client'
+import { useAuth } from "@/app/auth-provider";
+
 
 interface LoginModalProps {
     open: boolean;
@@ -25,30 +27,44 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
     const [showRegisterModal, setShowRegisterModal] = useState(false)
     const { toast } = useToast();
     const supabase = createClient();
+    const { login, loading } = useAuth()
+
 
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setStatus('loading');
+        // setStatus('loading');
 
+        // const form = e.currentTarget;
+        // const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+
+        // const { error } = await loginWithMagicLink(email);
+
+        // if (error) {
+        //     setStatus('error');
+        //     setMessage(error instanceof Error ? error.message : 'Login failed');
+        // } else {
+        //     setStatus('idle');
+        //     onOpenChange(false);
+        //     toast({
+        //         variant: "default",
+        //         title: "Check Your Email",
+        //         description: "We've sent you a login link. Please check your inbox and follow the instructions.",
+        //         duration: 5000,
+
+        //     });
+
+        // }
         const form = e.currentTarget;
+
         const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-
-        const { error } = await loginWithMagicLink(email);
-
-        if (error) {
-            setStatus('error');
-            setMessage(error instanceof Error ? error.message : 'Login failed');
-        } else {
-            setStatus('idle');
-            onOpenChange(false);
+        try {
+            await login(email)
+        } catch (error) {
             toast({
-                variant: "default",
-                title: "Check Your Email",
-                description: "We've sent you a login link. Please check your inbox and follow the instructions.",
-                duration: 5000,
-
-            });
-
+                title: "Error",
+                description: "Invalid email or password",
+                variant: "destructive",
+            })
         }
 
     };

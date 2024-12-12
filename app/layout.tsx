@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 
 import "./globals.css";
 import NavBar from "@/components/NavBar";
+import { AuthProvider } from "./auth-provider";
 
 export const metadata: Metadata = {
     title: 'Home',
@@ -38,11 +39,12 @@ export default function RootLayout({
                     enableSystem
                     disableTransitionOnChange
                 >
-                    <div className="flex flex-col h-screen bg-background">
-                        <NavBar />
-                        {children}
-                    </div>
-
+                    <AuthProvider>
+                        <div className="flex flex-col h-screen bg-background">
+                            <NavBar />
+                            {children}
+                        </div>
+                    </AuthProvider>
                 </ThemeProvider>
 
             </body>
