@@ -82,3 +82,5 @@ yarn  build
 ## API Routes
 
 -  **`/api/proxy-image/[id]`**: Fetches and serves images from external sources.
+
+## Update 12/8/2025
