@@ -6,9 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "migrate:data": "npx ts-node scripts/migrate-data.ts",
+    "seed:data": "node scripts/seed-data.js",
+    "seed:data:mock": "node scripts/seed-data.js --with-mock-data",
+    "scrape:water-level": "node scripts/scrapeWaterLevel.js",
+    "scrape:water-level:file": "node scripts/scrapeWaterLevel.js file",
+    "scrape:summary": "node scripts/scrapeWaterLevel.js summary"
   },
   "dependencies": {
+    "@auth/core": "^0.37.0",
+    "@convex-dev/auth": "^0.0.88",
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-dropdown-menu": "^2.1.2",
     "@radix-ui/react-label": "^2.1.0",
@@ -27,6 +37,7 @@
     "axios": "^1.7.5",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "convex": "^1.25.4",
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.5",
     "lucide-react": "^0.429.0",
@@ -50,6 +61,7 @@
     "postcss": "^8",
     "pulltorefreshjs": "^0.1.22",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

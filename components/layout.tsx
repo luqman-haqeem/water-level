@@ -10,12 +10,12 @@ import { Toaster } from "@/components/ui/toaster"
 import NotificationHandler from '@/components/NotificationHandler';
 
 import { useRouter } from 'next/router'
-import useUserStore from '../lib/store';
+import { useUserStore } from '../lib/convexStore';
 import LoginModal from '@/components/LoginModel';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations")
-    const { isLoggedIn, checkUserSession, user, listenSessionChanges, logout } = useUserStore(); // Use Zustand state
+    const { isLoggedIn, user, logout } = useUserStore(); // Use Convex store
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [showNotificationModel, setShowNotificationModel] = useState(false)
     const { theme, setTheme } = useTheme()
@@ -24,9 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         setMounted(true)
-
-        checkUserSession();
-        listenSessionChanges();
+        // Convex handles session management automatically
     }, []);
 
     useEffect(() => {

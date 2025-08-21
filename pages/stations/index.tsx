@@ -15,9 +15,11 @@ import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
-import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/router';
-import useUserStore from '../../lib/store';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useUserStore } from '../../lib/convexStore';
+import { useAuthActions } from "@convex-dev/auth/react";
 import FilterDropdown from '@/components/FilterDropdown';
 import PullToRefresh from 'pulltorefreshjs';
 import ReactDOMServer from 'react-dom/server';
@@ -27,30 +29,27 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const supabase = createClient(supabaseUrl, supabaseKey)
-
 const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
+
+import { Id } from "../../convex/_generated/dataModel";
 
 interface ComponentProps {
     stations: {
-        id: number;
+        id: Id<"stations"> | number;
         station_name: string;
         districts: {
             name: string;
         };
         current_levels: {
             current_level: number;
-            updated_at: string;
+            updated_at: string | number;
             alert_level: string;
-        };
+        } | null;
         cameras: {
-            img_url: string;
+            img_url: string | undefined;
             jps_camera_id: string;
             is_enabled: boolean;
-
-        };
+        } | null;
         normal_water_level: number;
         alert_water_level: number;
         warning_water_level: number;
@@ -69,42 +68,18 @@ interface ComponentProps {
     }[];
 }
 
+// Note: With Convex, we'll fetch data client-side using useQuery
+// Static generation can be implemented later with preloadQuery if needed
 export async function getStaticProps() {
-
-    let { data: stations, error: stationsError } = await supabase
-        .from('stations')
-        .select(`
-            id,
-            station_name,
-            districts(
-            name),
-            current_levels (
-            current_level, updated_at,alert_level),
-            cameras (
-                jps_camera_id,
-                img_url,
-                is_enabled
-            ),
-            normal_water_level,
-            alert_water_level,
-            warning_water_level,
-            danger_water_level,
-            station_status            
-            
-            `)
-    if (stationsError) {
-        console.error('Error fetching stations:', stationsError.message)
-        stations = []
-    }
     return {
         props: {
-            stations
+            stations: [] // Empty initial data, will be loaded by Convex
         },
         revalidate: 180 // 3 minutes
     }
 }
 
-export default function Component({ stations }: ComponentProps) {
+export default function Component({ stations: initialStations }: ComponentProps) {
 
     const router = useRouter();
     const { stationId } = router.query;
@@ -114,7 +89,10 @@ export default function Component({ stations }: ComponentProps) {
 
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
-    const { isLoggedIn, user, favStations, removeFavStation, addFavStation } = useUserStore();
+    
+    // Fetch data from Convex
+    const stations = useQuery(api.stations.getStationsWithDetails) || [];
+    const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
 
     // const [favorites, setFavorites] = useState<{ stations: number[] }>({ stations: [] })
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(false)
@@ -195,7 +173,7 @@ export default function Component({ stations }: ComponentProps) {
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
         return ["All", ...Array.from(uniqueLocations)]
-    }, [])
+    }, [stations])
 
     const filteredStations = useMemo(() => {
         let filtered = stations.filter(station =>
@@ -227,16 +205,17 @@ export default function Component({ stations }: ComponentProps) {
         setFilterByStatus(null)
     }
 
-    const toggleFavorite = (type: 'station', id: number) => {
+    const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
         if (!isLoggedIn) {
             setShowLoginModal(true);
             return;
         }
 
-        if (favStations.includes(id.toString())) {
-            removeFavStation(id.toString());
+        const idString = id.toString();
+        if (favStations.includes(idString)) {
+            removeFavStation(idString);
         } else {
-            addFavStation(id.toString());
+            addFavStation(idString);
         }
     };
 
@@ -244,17 +223,17 @@ export default function Component({ stations }: ComponentProps) {
         const station = filteredStations.find(s => s.id.toString() === stationId);
         if (station) {
             setSelectedStation(station);
-            router.push(`/stations?stationId=${station.id}`, undefined, { shallow: true });
+            router.push(`/stations?stationId=${station.id.toString()}`, undefined, { shallow: true });
         }
     }
 
     const handlePreviousStation = () => {
-        const currentIndex = filteredStations.findIndex(s => s.id === selectedStation?.id)
+        const currentIndex = filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString())
         if (currentIndex > 0) handleStationChange(filteredStations[currentIndex - 1].id.toString())
     }
 
     const handleNextStation = () => {
-        const currentIndex = filteredStations.findIndex(s => s.id === selectedStation?.id)
+        const currentIndex = filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString())
         if (currentIndex < filteredStations.length - 1) handleStationChange(filteredStations[currentIndex + 1].id.toString())
     }
 
@@ -362,7 +341,7 @@ export default function Component({ stations }: ComponentProps) {
                                                 <div>
 
                                                     <p className="text-sm font-medium">{station.current_levels?.current_level} m</p>
-                                                    <p className="text-xs text-muted-foreground">{formatTimestamp(station.current_levels?.updated_at)}</p>
+                                                    <p className="text-xs text-muted-foreground">{station.current_levels?.updated_at ? formatTimestamp(station.current_levels.updated_at.toString()) : 'Unknown'}</p>
 
                                                 </div>
                                                 {/* <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.current_levels?.alert_level}</Badge> */}
@@ -439,7 +418,7 @@ export default function Component({ stations }: ComponentProps) {
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
                                             <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
-                                            <p className="text-xs text-muted-foreground">Last updated: {formatTimestamp(selectedStation.current_levels?.updated_at)}</p>
+                                            <p className="text-xs text-muted-foreground">Last updated: {selectedStation.current_levels?.updated_at ? formatTimestamp(selectedStation.current_levels.updated_at.toString()) : 'Unknown'}</p>
 
                                         </CardContent>
                                     </Card>
@@ -525,19 +504,19 @@ export default function Component({ stations }: ComponentProps) {
                                         variant="outline"
                                         size="icon"
                                         onClick={handlePreviousStation}
-                                        disabled={selectedStation?.id === stations[0].id}
+                                        disabled={selectedStation?.id.toString() === stations[0]?.id.toString()}
                                     >
                                         <ChevronLeft className="h-4 w-4" />
                                         <span className="sr-only">Previous station</span>
                                     </Button>
                                     <div className="text-sm text-muted-foreground">
-                                        Station {filteredStations.findIndex(s => s.id === selectedStation?.id) + 1} of {filteredStations.length}
+                                        Station {filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString()) + 1} of {filteredStations.length}
                                     </div>
                                     <Button
                                         variant="outline"
                                         size="icon"
                                         onClick={handleNextStation}
-                                        disabled={selectedStation?.id === stations[stations.length - 1].id}
+                                        disabled={selectedStation?.id.toString() === stations[stations.length - 1]?.id.toString()}
                                     >
                                         <ChevronRight className="h-4 w-4" />
                                         <span className="sr-only">Next station</span>

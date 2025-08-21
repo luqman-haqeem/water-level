@@ -4,56 +4,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Head from 'next/head';
 import { Star, Expand, RotateCw, Ellipsis } from 'lucide-react'
 import Image from 'next/image'
-import { createClient } from '@supabase/supabase-js'
 import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
-
-import useUserStore from '../../lib/store';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useUserStore } from '../../lib/convexStore';
 import { useTheme } from "next-themes"
 
 import PullToRefresh from 'pulltorefreshjs';
 import ReactDOMServer from 'react-dom/server';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const supabase = createClient(supabaseUrl, supabaseKey)
-
 const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
 
+import { Id } from "../../convex/_generated/dataModel";
+
 interface ComponentProps {
-
     cameras: {
-        id: number;
+        id: Id<"cameras"> | number;
         camera_name: string;
-        img_url: string;
+        img_url: string | undefined;
         jps_camera_id: string;
-
         districts: {
             name: string;
         };
     }[];
 }
 
+// Note: With Convex, we'll fetch data client-side using useQuery
 export async function getStaticProps() {
-
-    let { data: cameras, error: camerasError } = await supabase
-        .from('cameras')
-        .select('id,camera_name,img_url,jps_camera_id,districts(name)')
-        .eq('is_enabled', 'TRUE')
-    if (camerasError) {
-        console.error('Error fetching camera:', camerasError.message)
-        cameras = []
-    }
     return {
         props: {
-            cameras
+            cameras: [] // Empty initial data, will be loaded by Convex
         },
         revalidate: 180 // 3 minutes
     }
 }
 
-export default function Component({ cameras }: ComponentProps) {
+export default function Component({ cameras: initialCameras }: ComponentProps) {
 
-    const { isLoggedIn, user, favCameras, addFavCamera, removeFavCamera } = useUserStore();
+    // Fetch data from Convex
+    const cameras = useQuery(api.cameras.getCamerasWithDetails) || [];
+    const { isLoggedIn, favCameras, addFavCamera, removeFavCamera } = useUserStore();
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
@@ -117,16 +107,16 @@ export default function Component({ cameras }: ComponentProps) {
         return () => PullToRefresh.destroyAll();
     }, []);
 
-    const toggleFavorite = (type: 'camera', id: number) => {
+    const toggleFavorite = (type: 'camera', id: Id<"cameras"> | number) => {
         if (!isLoggedIn) {
             setShowLoginModal(true)
             return
         }
-        if (favCameras.includes(id.toString())) {
-            removeFavCamera(id.toString());
+        const idString = id.toString();
+        if (favCameras.includes(idString)) {
+            removeFavCamera(idString);
         } else {
-
-            addFavCamera(id.toString());
+            addFavCamera(idString);
         }
     }
 

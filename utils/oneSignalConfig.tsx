@@ -1,13 +1,21 @@
 import OneSignal from 'react-onesignal';
 // import novu from './novu';
-import useUserStore from '../lib/store';
+import { useUserStore } from '../lib/convexStore';
 
 export const initializeOneSignal = async () => {
+    // Check if OneSignal is configured
+    const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+    const safariWebId = process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID;
+    
+    if (!appId || appId === 'your_onesignal_app_id') {
+        console.log('OneSignal not configured - skipping initialization');
+        return;
+    }
 
     if (typeof window !== 'undefined') {
         OneSignal.init({
-            appId: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID!,
-            safari_web_id: process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID!,
+            appId: appId,
+            safari_web_id: safariWebId || '',
 
             // notifyButton: {
             //     enable: true,
@@ -42,16 +50,14 @@ export const initializeOneSignal = async () => {
 
 
         const permissionChangeListener = async (permissionChange: any) => {
-            const { user, setIsSubscribed } = useUserStore.getState(); // Use getState() instead of hook
-
+            // Note: We can't use the useUserStore hook in this context
+            // For now, we'll handle this differently or pass user state when needed
             if (permissionChange) {
                 console.log(`permission accepted!`);
-                if (user?.id) {
-                    await subscribeUser(user.id);
-                    setIsSubscribed(true);
-                }
+                // await subscribeUser(user.id);
+                // setIsSubscribed(true);
             } else {
-                setIsSubscribed(false);
+                // setIsSubscribed(false);
             }
         };
 
@@ -61,20 +67,13 @@ export const initializeOneSignal = async () => {
     // OneSignal.showSlidedownPrompt();
 };
 
-const permissionChangeListener = async (permission: any) => {
-    const { user, setIsSubscribed } = useUserStore();
-
-    if (permission) {
-        console.log(`permission accepted!`);
-        await subscribeUser(user?.id ?? '');
-        // console.log('request permission', permission);
-
-        setIsSubscribed(permission);
-        // await logSubscriptionChange(true);
-    } else {
-
-    }
-}
+// This function is not used anymore since we moved the logic above
+// const permissionChangeListener = async (permission: any) => {
+//     if (permission) {
+//         console.log(`permission accepted!`);
+//         // Handle permission logic here
+//     }
+// }
 
 
 export const promptForNotificationPermission = async () => {

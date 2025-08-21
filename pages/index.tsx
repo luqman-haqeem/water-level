@@ -14,38 +14,40 @@ import { Droplet, ChevronDown, SlidersHorizontal, Star, LogIn, LogOut, UserPlus,
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
-import { createClient } from '@supabase/supabase-js'
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const supabase = createClient(supabaseUrl, supabaseKey)
-
+import { Id } from "../convex/_generated/dataModel";
 
 interface ComponentProps {
     stations: {
-        id: number;
+        id: Id<"stations"> | number;
         station_name: string;
         districts: {
             name: string;
         };
         current_levels: {
             current_level: number;
-            updated_at: string;
+            updated_at: string | number;
             alert_level: string;
-        };
+        } | null;
         cameras: {
-            img_url: string;
-            JPS_camera_id: string;
-
-        };
+            img_url: string | undefined;
+            jps_camera_id: string;
+            is_enabled: boolean;
+        } | null;
+        normal_water_level: number;
+        alert_water_level: number;
+        warning_water_level: number;
+        danger_water_level: number;
+        station_status: boolean;
     }[];
     cameras: {
-        id: number;
+        id: Id<"cameras"> | number;
         camera_name: string;
-        img_url: string;
-        JPS_camera_id: string;
-
+        img_url: string | undefined;
+        jps_camera_id: string;
         districts: {
             name: string;
         };
@@ -53,77 +55,35 @@ interface ComponentProps {
 }
 
 
+// Note: With Convex, we'll fetch data client-side using useQuery
 export async function getStaticProps() {
-    // Mock data for stations and cameras
-    // const stations = [
-    //     { id: 1, station_name: "KG. PASIR", location: "HULU LANGAT", waterLevel: 47.88, lastUpdated: "1 month ago", status: "Normal" },
-    //     { id: 2, station_name: "BATU 9, HULU LANGAT", location: "HULU LANGAT", waterLevel: 37.08, lastUpdated: "1 month ago", status: "Normal" },
-    //     { id: 3, station_name: "SG. KANTAN, KAJANG", location: "KAJANG", waterLevel: 26.05, lastUpdated: "1 month ago", status: "Normal" },
-    //     { id: 4, station_name: "BATU 20, HULU LANGAT", location: "HULU LANGAT", waterLevel: 88.39, lastUpdated: "1 month ago", status: "Alert" },
-    //     { id: 5, station_name: "KG. SESAPAN BKT. REMBAU", location: "REMBAU", waterLevel: 32.75, lastUpdated: "1 month ago", status: "Normal" },
-    // ]
-
-    let { data: stations, error: stationsError } = await supabase
-        .from('stations')
-        .select(`
-            id,
-            station_name,
-            districts(
-            name),
-            current_levels (
-            current_level, updated_at,alert_level),
-            cameras (
-                JPS_camera_id,
-                img_url
-            )
-            `)
-    if (stationsError) {
-        console.error('Error fetching stations:', stationsError.message)
-        // Handle error as needed, e.g., return an empty array or throw an error
-        stations = []
-    }
-
-    // const cameras = [
-    //     { id: 1, name: "Camera 1", location: "HULU LANGAT" },
-    //     { id: 2, name: "Camera 2", location: "KAJANG" },
-    //     { id: 3, name: "Camera 3", location: "BATU 9" },
-    //     { id: 4, name: "Camera 4", location: "KG. PASIR" },
-    // ]
-
-    let { data: cameras, error: camerasError } = await supabase
-        .from('cameras')
-        .select('id,camera_name,img_url,JPS_camera_id,districts(name)')
-        .eq('is_enabled', 'TRUE')
-
-
-    // console.log(cameras);
-    if (camerasError) {
-        console.error('Error fetching camera:', camerasError.message)
-        // Handle error as needed, e.g., return an empty array or throw an error
-        cameras = []
-    }
-
     return {
         props: {
-            stations,
-            cameras
+            stations: [], // Empty initial data, will be loaded by Convex
+            cameras: []   // Empty initial data, will be loaded by Convex
         },
         revalidate: 180 // 3 minutes
     }
 }
 
-export default function Component({ stations, cameras }: ComponentProps) {
+export default function Component({ stations: initialStations, cameras: initialCameras }: ComponentProps) {
     const [activeTab, setActiveTab] = useState("stations")
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedLocation, setSelectedLocation] = useState("All")
     const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
-    const [isLoggedIn, setIsLoggedIn] = useState(false)
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [showRegisterModal, setShowRegisterModal] = useState(false)
-    const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
     const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true)
     const [isMobile, setIsMobile] = useState(false)
     const { theme, setTheme } = useTheme()
+    
+    // Fetch data from Convex
+    const stations = useQuery(api.stations.getStationsWithDetails) || [];
+    const cameras = useQuery(api.cameras.getCamerasWithDetails) || [];
+    
+    // Mock user state for now - will be properly implemented with Convex auth
+    const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const [favorites, setFavorites] = useState<{ stations: number[], cameras: number[] }>({ stations: [], cameras: [] })
 
 
     const [sortBy, setSortBy] = useState<"name" | "waterLevel">("name");
@@ -141,17 +101,10 @@ export default function Component({ stations, cameras }: ComponentProps) {
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
-    useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN') {
-                setIsLoggedIn(true)
-            } else if (event === 'SIGNED_OUT') {
-                setIsLoggedIn(false)
-            }
-        })
-
-        return () => subscription.unsubscribe()
-    }, [])
+    // TODO: Implement Convex auth state listener
+    // useEffect(() => {
+    //     // Convex auth state changes will be handled differently
+    // }, [])
 
     useEffect(() => {
         if (theme) {
@@ -162,7 +115,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
     const locations = useMemo(() => {
         const uniqueLocations = new Set(stations.map(station => station.districts.name))
         return ["All", ...Array.from(uniqueLocations)]
-    }, [])
+    }, [stations])
 
     const filteredStations = useMemo(() => {
         let filtered = stations.filter(station =>
@@ -187,74 +140,44 @@ export default function Component({ stations, cameras }: ComponentProps) {
         });
     }, [searchTerm, selectedLocation, filterByStatus, sortBy]);
 
-    const toggleFavorite = (type: 'station' | 'camera', id: number) => {
+    const toggleFavorite = (type: 'station' | 'camera', id: Id<"stations"> | Id<"cameras"> | number) => {
         if (!isLoggedIn) {
             setShowLoginModal(true)
             return
         }
+        const numId = typeof id === 'string' ? parseInt(id) : id;
         setFavorites(prev => {
             const key = type === 'station' ? 'stations' : 'cameras'
-            const newFavorites = prev[key].includes(id)
-                ? prev[key].filter(fav => fav !== id)
-                : [...prev[key], id]
+            const newFavorites = prev[key].includes(numId)
+                ? prev[key].filter(fav => fav !== numId)
+                : [...prev[key], numId]
             return { ...prev, [key]: newFavorites }
         })
     }
 
+    // TODO: Implement Convex auth handlers
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
-        const form = e.currentTarget
-        const email = (form.elements.namedItem('email') as HTMLInputElement).value
-        const password = (form.elements.namedItem('password') as HTMLInputElement).value
-
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) {
-            console.error('Error logging in:', error.message)
-        } else {
-            setShowLoginModal(false)
-        }
+        // Will be implemented with Convex auth
+        console.log('Login will be handled by Convex auth')
     }
 
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
-        const form = e.currentTarget
-        const email = (form.elements.namedItem('email') as HTMLInputElement).value
-        const password = (form.elements.namedItem('password') as HTMLInputElement).value
-
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) {
-            console.error('Error registering:', error.message)
-        } else {
-            setShowRegisterModal(false)
-        }
+        // Will be implemented with Convex auth
+        console.log('Register will be handled by Convex auth')
     }
 
     const handleLogout = async () => {
-        const { error } = await supabase.auth.signOut()
-        if (error) {
-            console.error('Error logging out:', error.message)
-        } else {
-            setFavorites({ stations: [], cameras: [] })
-        }
+        // Will be implemented with Convex auth
+        console.log('Logout will be handled by Convex auth')
+        setFavorites({ stations: [], cameras: [] })
     }
 
     const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider,
-            // options: {
-            //     queryParams: {
-            //         access_type: 'offline',
-            //         prompt: 'consent',
-            //     },
-            //     redirectTo: "https://hnqhytdyrehyflbymaej.supabase.co/auth/v1/callback",
-            // },
-        })
-        if (error) {
-            console.error(`Error logging in with ${provider}:`, error.message)
-        } else {
-            setShowLoginModal(false)
-        }
-
+        // Will be implemented with Convex auth
+        console.log(`${provider} login will be handled by Convex auth`)
+        setShowLoginModal(false)
     }
     const handleStationChange = (stationId: string) => {
         const station = stations.find(s => s.id.toString() === stationId)
@@ -262,12 +185,12 @@ export default function Component({ stations, cameras }: ComponentProps) {
     }
 
     const handlePreviousStation = () => {
-        const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
+        const currentIndex = stations.findIndex(s => s.id.toString() === selectedStation?.id.toString())
         if (currentIndex > 0) setSelectedStation(stations[currentIndex - 1])
     }
 
     const handleNextStation = () => {
-        const currentIndex = stations.findIndex(s => s.id === selectedStation?.id)
+        const currentIndex = stations.findIndex(s => s.id.toString() === selectedStation?.id.toString())
         if (currentIndex < stations.length - 1) setSelectedStation(stations[currentIndex + 1])
     }
 
@@ -397,8 +320,8 @@ export default function Component({ stations, cameras }: ComponentProps) {
 
 
                                                 <Card
-                                                    key={station.id}
-                                                    className={`mb-2 cursor-pointer ${selectedStation?.id === station.id ? 'border-primary' : ''}`}
+                                                    key={station.id.toString()}
+                                                    className={`mb-2 cursor-pointer ${selectedStation?.id.toString() === station.id.toString() ? 'border-primary' : ''}`}
 
                                                     onClick={() => {
                                                         setSelectedStation(station)
@@ -417,7 +340,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                                     toggleFavorite('station', station.id)
                                                                 }}
                                                             >
-                                                                <Star className={`h-4 w-4 ${favorites.stations.includes(station.id) ? 'fill-yellow-400' : ''}`} />
+                                                                <Star className={`h-4 w-4 ${favorites.stations.includes(typeof station.id === 'string' ? parseInt(station.id) : station.id) ? 'fill-yellow-400' : ''}`} />
                                                             </Button>
                                                         </div>
                                                         <p className="text-xs text-muted-foreground">{station.districts.name}</p>
@@ -426,7 +349,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                         <div>
 
                                                             <p className="text-sm font-medium">{station.current_levels?.current_level} m</p>
-                                                            <p className="text-xs text-muted-foreground">{formatTimestamp(station.current_levels?.updated_at)}</p>
+                                                            <p className="text-xs text-muted-foreground">{station.current_levels?.updated_at ? formatTimestamp(station.current_levels.updated_at.toString()) : 'Unknown'}</p>
 
                                                         </div>
                                                         {/* <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.current_levels?.alert_level}</Badge> */}
@@ -470,7 +393,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                 </CardHeader>
                                                 <CardContent className="p-4 pt-0">
                                                     <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
-                                                    <p className="text-xs text-muted-foreground">Last updated: {formatTimestamp(selectedStation.current_levels?.updated_at)}</p>
+                                                    <p className="text-xs text-muted-foreground">Last updated: {selectedStation.current_levels?.updated_at ? formatTimestamp(selectedStation.current_levels.updated_at.toString()) : 'Unknown'}</p>
 
                                                 </CardContent>
                                             </Card>
@@ -492,9 +415,9 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                             </CardHeader>
                                             <CardContent className="p-4 pt-0">
                                                 {selectedStation?.cameras ?
-                                                    <div onClick={() => openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`)} className="relative cursor-pointer">
+                                                    <div onClick={() => openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`)} className="relative cursor-pointer">
                                                         <Image
-                                                            src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`}
+                                                            src={`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`}
                                                             width={500}
                                                             height={300}
                                                             alt="Live camera feed"
@@ -503,7 +426,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD0ykZgoyxAHqaomO5xhVkAOM7pMnPOT16dO/4UrxXDqm4OWwhyHAAIxnI9aALwIIyDkGiqaxTqA5Z92TnLZGNvp9aLKTezkFyoVfvPu55z/SgC5RRRQAUUUUAf/9k="
                                                             placeholder="blur"
                                                             unoptimized></Image>
-                                                        {/* <img src={`/api/proxy-image/${selectedStation?.cameras?.JPS_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md" /> */}
+                                                        {/* <img src={`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md" /> */}
                                                         <div className="absolute top-0 right-0 m-2">
                                                             <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
                                                         </div>
@@ -517,19 +440,19 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                 variant="outline"
                                                 size="icon"
                                                 onClick={handlePreviousStation}
-                                                disabled={selectedStation?.id === stations[0].id}
+                                                disabled={selectedStation?.id.toString() === stations[0]?.id.toString()}
                                             >
                                                 <ChevronLeft className="h-4 w-4" />
                                                 <span className="sr-only">Previous station</span>
                                             </Button>
                                             <div className="text-sm text-muted-foreground">
-                                                Station {stations.findIndex(s => s.id === selectedStation?.id) + 1} of {stations.length}
+                                                Station {stations.findIndex(s => s.id.toString() === selectedStation?.id.toString()) + 1} of {stations.length}
                                             </div>
                                             <Button
                                                 variant="outline"
                                                 size="icon"
                                                 onClick={handleNextStation}
-                                                disabled={selectedStation?.id === stations[stations.length - 1].id}
+                                                disabled={selectedStation?.id.toString() === stations[stations.length - 1]?.id.toString()}
                                             >
                                                 <ChevronRight className="h-4 w-4" />
                                                 <span className="sr-only">Next station</span>
@@ -563,13 +486,13 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                     size="sm"
                                                     onClick={() => toggleFavorite('camera', camera.id)}
                                                 >
-                                                    <Star className={`h-4 w-4 ${favorites.cameras.includes(camera.id) ? 'fill-yellow-400' : ''}`} />
+                                                    <Star className={`h-4 w-4 ${favorites.cameras.includes(typeof camera.id === 'string' ? parseInt(camera.id) : camera.id) ? 'fill-yellow-400' : ''}`} />
                                                 </Button>
                                             </div>
                                             <p className="text-xs text-muted-foreground">{camera.districts.name}</p>
                                         </CardHeader>
                                         <CardContent className="p-4 pt-0">
-                                            <Image src={`/api/proxy-image/${camera?.JPS_camera_id}`}
+                                            <Image src={`/api/proxy-image/${camera?.jps_camera_id}`}
                                                 width={600}
                                                 height={330}
                                                 alt={`${camera.camera_name} feed`}
@@ -580,7 +503,7 @@ export default function Component({ stations, cameras }: ComponentProps) {
                                                 unoptimized></Image>
 
 
-                                            {/* <img src={`/api/proxy-image/${camera?.JPS_camera_id}`} width={500}
+                                            {/* <img src={`/api/proxy-image/${camera?.jps_camera_id}`} width={500}
                                                 height={200} alt={`${camera.camera_name} feed`} className="w-full rounded-md" /> */}
 
                                         </CardContent>
