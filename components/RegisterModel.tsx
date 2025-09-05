@@ -83,7 +83,7 @@ export default function RegisterModel({ open, onOpenChange }: RegisterModelProps
                         <Input id="register-email" name="email" type="email" placeholder="Enter your email" required />
                     </div>
                     <p className="text-sm text-gray-400">
-                        We'll send you a secure login link - no password needed!
+                        We&apos;ll send you a secure login link - no password needed!
                     </p>
                     <Button type="submit" className="w-full" disabled={status === 'loading'}>
                         {status === 'loading' ? (

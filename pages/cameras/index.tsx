@@ -127,9 +127,9 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
             </Head>
             <div className="flex flex-col h-screen bg-background">
                 {(
-                    <div className="flex-1 p-4 overflow-auto">
-                        <h2 className="text-2xl font-bold mb-4">Camera Feeds</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="flex-1 p-4 sm:p-6 overflow-auto">
+                        <h2 className="text-2xl sm:text-3xl font-bold mb-6">Camera Feeds</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                             {cameras.map((camera) => (
                                 <Card key={camera.id}>
                                     <CardHeader className="p-4">
@@ -137,10 +137,18 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                                             <CardTitle className="text-sm font-medium">{camera.camera_name}</CardTitle>
                                             <Button
                                                 variant="ghost"
-                                                size="sm"
+                                                size="touch"
                                                 onClick={() => toggleFavorite('camera', camera.id)}
+                                                className="shrink-0"
                                             >
-                                                <Star className={`h-4 w-4 ${favCameras.includes(camera.id.toString()) ? 'fill-yellow-400' : ''}`} />
+                                                <Star className={`w-5 h-5 transition-all duration-200 ${
+                                                    favCameras.includes(camera.id.toString()) 
+                                                        ? 'fill-yellow-400 text-yellow-400' 
+                                                        : 'text-gray-400 hover:text-yellow-400'
+                                                }`} />
+                                                <span className="sr-only">
+                                                    {favCameras.includes(camera.id.toString()) ? 'Remove from' : 'Add to'} favorites
+                                                </span>
                                             </Button>
                                         </div>
                                         <p className="text-xs text-muted-foreground">{camera.districts.name}</p>

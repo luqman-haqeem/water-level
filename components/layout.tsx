@@ -66,67 +66,62 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <>
             <div className="flex flex-col h-screen bg-background">
                 {/* Header */}
-                <header className="border-b px-4 py-2 flex justify-between items-center">
+                <header className="border-b px-4 py-3 flex justify-between items-center min-h-touch">
                     <div className="flex items-center">
                         <Tabs value={activeTab} onValueChange={handleTabChange}>
-                            <TabsList>
-                                <TabsTrigger value="stations">
-                                    <Droplets className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Stations</span>
+                            <TabsList className="h-10">
+                                <TabsTrigger value="stations" className="h-10 px-3 min-w-[60px]">
+                                    <Droplets className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+                                    <span className="hidden sm:inline sm:ml-1">Stations</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="cameras">
-                                    <Camera className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Cameras</span>
+                                <TabsTrigger value="cameras" className="h-10 px-3 min-w-[60px]">
+                                    <Camera className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+                                    <span className="hidden sm:inline sm:ml-1">Cameras</span>
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
                     </div>
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-1">
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                            className="mr-2"
+                            className="min-w-touch min-h-touch"
                         >
                             {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                            <span className="sr-only">Toggle theme</span>
                         </Button>
                         {isLoggedIn ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                        <CircleUser className="mr-2 h-4 w-4" />
-                                        <span className="hidden md:inline">My Account</span>
-                                        <ChevronDown className="ml-2 h-4 w-4" />
+                                    <Button variant="ghost" className="min-w-touch min-h-touch px-3">
+                                        <CircleUser className="w-5 h-5 sm:mr-2" />
+                                        <span className="sr-only sm:not-sr-only sm:ml-1">My Account</span>
+                                        <ChevronDown className="w-4 h-4 ml-1" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={() => setShowNotificationModel(true)} >
-                                        <BellRing className="mr-2 h-4 w-4" />
+                                <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem onClick={() => setShowNotificationModel(true)} className="py-3">
+                                        <BellRing className="mr-3 h-4 w-4" />
                                         Notification
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleLogout}>
-                                        <LogOut className="mr-2 h-4 w-4" />
+                                    <DropdownMenuItem onClick={handleLogout} className="py-3">
+                                        <LogOut className="mr-3 h-4 w-4" />
                                         Logout
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <div className="flex items-center">
-                                <Button variant="ghost" size="sm" onClick={() => setShowLoginModal(true)} className="flex items-center">
-                                    <LogIn className="mr-2 h-4 w-4" />
-                                    <span className="hidden md:inline">Login</span>
-                                </Button>
-                                {/* <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(true)} className="flex items-center">
-                                    <UserPlus className="mr-2 h-4 w-4" />
-                                    <span className="hidden md:inline">Register</span>
-                                </Button> */}
-                            </div>
+                            <Button variant="ghost" onClick={() => setShowLoginModal(true)} className="min-w-touch min-h-touch px-3">
+                                <LogIn className="w-5 h-5 sm:mr-2" />
+                                <span className="sr-only sm:not-sr-only sm:ml-1">Login</span>
+                            </Button>
                         )}
                     </div>
                 </header>
 
                 {/* Content */}
-                <main className="flex-1 flex overflow-hidden">
+                <main className="flex-1 flex overflow-hidden pb-safe-bottom">
                     {children}
                 </main>
                 <Toaster />

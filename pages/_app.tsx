@@ -34,16 +34,14 @@ export default function App({ Component, pageProps }: AppProps) {
             <Head>
                 <title>River Water Level</title>
             </Head>
-            <ConvexProvider client={convex}>
-                <ConvexAuthProvider client={convex}>
-                    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-                        <Layout>
-                            <Component {...pageProps} />
-                        </Layout>
-                        <SpeedInsights />
-                    </ThemeProvider>
-                </ConvexAuthProvider>
-            </ConvexProvider>
+            <ConvexAuthProvider client={convex}>
+                <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+                    <Layout>
+                        <Component {...pageProps} />
+                    </Layout>
+                    <SpeedInsights />
+                </ThemeProvider>
+            </ConvexAuthProvider>
         </>
     )
 }

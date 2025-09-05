@@ -29,7 +29,7 @@ interface ComponentProps {
         };
         current_levels: {
             current_level: number;
-            updated_at: string | number;
+            updated_at: string | number | undefined;
             alert_level: string;
         } | null;
         cameras: {

@@ -42,7 +42,7 @@ interface ComponentProps {
         };
         current_levels: {
             current_level: number;
-            updated_at: string | number;
+            updated_at: string | number | undefined;
             alert_level: string;
         } | null;
         cameras: {
@@ -261,24 +261,31 @@ export default function Component({ stations: initialStations }: ComponentProps)
             </Head>
             {(
                 <>
-                    {/* Collapsible Station list */}
-                    <div className={`border-r flex flex-col transition-all duration-300 ease-in-out ${isSideMenuExpanded ? (isMobile ? 'w-full absolute inset-0 z-10 bg-background' : 'w-full md:w-1/3') : 'w-0 md:w-16'}`}>
+                    {/* Mobile-First Station List */}
+                    <div className={`
+                        border-r flex flex-col transition-all duration-300 ease-in-out
+                        ${isSideMenuExpanded 
+                            ? 'w-full md:w-1/3 fixed inset-0 z-20 bg-background md:relative md:z-0' 
+                            : 'w-0 md:w-16'
+                        }
+                    `}>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="self-end m-2"
+                            className="self-end m-2 min-w-touch min-h-touch"
                             onClick={() => setIsSideMenuExpanded(!isSideMenuExpanded)}
                         >
-                            {isSideMenuExpanded ? <ChevronLeft /> : <ChevronRight />}
+                            {isSideMenuExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                            <span className="sr-only">{isSideMenuExpanded ? 'Close' : 'Open'} station list</span>
                         </Button>
                         {isSideMenuExpanded && (
                             <div className="p-4 flex-1 flex flex-col overflow-hidden">
-                                <div className="flex items-center mb-4">
+                                <div className="flex items-center mb-4 gap-2">
                                     <Input
                                         placeholder="Search stations..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="mr-2"
+                                        className="flex-1 min-h-touch"
                                     />
                                     <FilterDropdown
                                         activeFilter={activeFilter}
@@ -308,10 +315,14 @@ export default function Component({ stations: initialStations }: ComponentProps)
 
                                         <Card
                                             key={station.id}
-                                            className={`mb-2 cursor-pointer ${selectedStation?.id === station.id ? 'border-primary' : ''}`}
-
+                                            className={`
+                                                mb-3 cursor-pointer transition-all duration-200
+                                                ${selectedStation?.id === station.id 
+                                                    ? 'border-primary shadow-md ring-2 ring-primary/20' 
+                                                    : 'hover:border-primary/50 active:border-primary'
+                                                }
+                                            `}
                                             onClick={() => {
-                                                // setSelectedStation(station)
                                                 handleStationChange(station.id.toString())
                                                 if (isMobile) setIsSideMenuExpanded(false)
                                             }}
@@ -326,13 +337,21 @@ export default function Component({ stations: initialStations }: ComponentProps)
 
                                                     <Button
                                                         variant="ghost"
-                                                        size="sm"
+                                                        size="touch"
                                                         onClick={(e) => {
                                                             e.stopPropagation()
                                                             toggleFavorite('station', station.id)
                                                         }}
+                                                        className="shrink-0"
                                                     >
-                                                        <Star className={`h-4 w-4 ${favStations.includes(station.id.toString()) ? 'fill-yellow-400' : ''}`} />
+                                                        <Star className={`w-5 h-5 transition-all duration-200 ${
+                                                            favStations.includes(station.id.toString()) 
+                                                                ? 'fill-yellow-400 text-yellow-400' 
+                                                                : 'text-gray-400 hover:text-yellow-400'
+                                                        }`} />
+                                                        <span className="sr-only">
+                                                            {favStations.includes(station.id.toString()) ? 'Remove from' : 'Add to'} favorites
+                                                        </span>
                                                     </Button>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">{station.districts.name}</p>
@@ -355,11 +374,11 @@ export default function Component({ stations: initialStations }: ComponentProps)
                         )}
                     </div>
 
-                    {/* Filter Mobile */}
-                    <div className={`flex-1 p-2 md:p-4 overflow-auto ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
-                        <div className="flex items-center mb-4 block md:hidden pb-4">
+                    {/* Main Content Area - Mobile First */}
+                    <div className={`flex-1 p-4 overflow-auto ${isSideMenuExpanded && isMobile ? 'hidden' : 'block'}`}>
+                        <div className="flex items-center mb-4 md:hidden gap-2">
                             <Select value={selectedStation?.id.toString() || ''} onValueChange={handleStationChange}>
-                                <SelectTrigger className="w-full md:w-[300px] lg:w-[400px] mr-2">
+                                <SelectTrigger className="flex-1 min-h-touch">
                                     <SelectValue placeholder="Select station" />
                                 </SelectTrigger>
                                 <SelectContent> {filteredStations.length > 0 ? (
@@ -392,26 +411,33 @@ export default function Component({ stations: initialStations }: ComponentProps)
 
                         {/* Station details */}
                         {selectedStation ? (
-                            <div className={`flex-1  overflow-auto pb-16 md:pb-4 ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
+                            <div className={`flex-1 overflow-auto pb-24 md:pb-4 ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
 
 
-                                <h2 className="text-2xl font-bold mb-4 inline">{selectedStation.station_name}</h2>
+                                <h2 className="text-2xl sm:text-3xl font-bold mb-2 inline">{selectedStation.station_name}</h2>
 
                                 <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="touch"
                                     onClick={(e) => {
                                         e.stopPropagation()
                                         toggleFavorite('station', selectedStation.id)
                                     }}
-
+                                    className="ml-2"
                                 >
-                                    <Star className={`h-4 w-4 ${favStations.includes(selectedStation.id.toString()) ? 'fill-yellow-400' : ''}`} />
+                                    <Star className={`w-5 h-5 transition-all duration-200 ${
+                                        favStations.includes(selectedStation.id.toString()) 
+                                            ? 'fill-yellow-400 text-yellow-400' 
+                                            : 'text-gray-400 hover:text-yellow-400'
+                                    }`} />
+                                    <span className="sr-only">
+                                        {favStations.includes(selectedStation.id.toString()) ? 'Remove from' : 'Add to'} favorites
+                                    </span>
                                 </Button>
                                 {!selectedStation.station_status ? <Badge className='ml-2' variant="outline">Station disabled</Badge> : null}
 
-                                <p className="text-muted-foreground mb-4">{selectedStation.districts.name}</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <p className="text-muted-foreground text-base mb-6">{selectedStation.districts.name}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                                     <Card>
                                         <CardHeader className="p-4">
                                             <CardTitle className="text-sm font-medium">Current Water Level</CardTitle>
@@ -498,28 +524,29 @@ export default function Component({ stations: initialStations }: ComponentProps)
                                             : <p className="text-center text-muted-foreground">No camera feed available.</p>}
                                     </CardContent>
                                 </Card>
-                                {/* Navigation Footer */}
-                                <footer className="fixed bottom-0 left-0 w-full bg-background border-t p-2 flex justify-between items-center md:hidden">
+                                {/* Mobile Navigation Footer */}
+                                <footer className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 pb-safe-bottom flex justify-between items-center md:hidden z-10">
                                     <Button
                                         variant="outline"
-                                        size="icon"
                                         onClick={handlePreviousStation}
                                         disabled={selectedStation?.id.toString() === stations[0]?.id.toString()}
+                                        className="min-w-touch min-h-touch px-4"
                                     >
-                                        <ChevronLeft className="h-4 w-4" />
-                                        <span className="sr-only">Previous station</span>
+                                        <ChevronLeft className="w-5 h-5 mr-1" />
+                                        <span>Previous</span>
                                     </Button>
-                                    <div className="text-sm text-muted-foreground">
-                                        Station {filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString()) + 1} of {filteredStations.length}
+                                    <div className="text-sm text-muted-foreground text-center px-2">
+                                        <div className="font-medium">Station {filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString()) + 1}</div>
+                                        <div className="text-xs">of {filteredStations.length}</div>
                                     </div>
                                     <Button
                                         variant="outline"
-                                        size="icon"
                                         onClick={handleNextStation}
                                         disabled={selectedStation?.id.toString() === stations[stations.length - 1]?.id.toString()}
+                                        className="min-w-touch min-h-touch px-4"
                                     >
-                                        <ChevronRight className="h-4 w-4" />
-                                        <span className="sr-only">Next station</span>
+                                        <span>Next</span>
+                                        <ChevronRight className="w-5 h-5 ml-1" />
                                     </Button>
                                 </footer>
                             </div>
