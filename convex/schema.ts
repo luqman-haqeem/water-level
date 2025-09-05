@@ -4,13 +4,14 @@ import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
   ...authTables,
-  
+
   districts: defineTable({
+    jpsDistrictsId: v.optional(v.number()),
     name: v.string(),
   }),
 
   stations: defineTable({
-    jpsSelId: v.string(),
+    jpsSelId: v.any(),
     publicInfoId: v.optional(v.string()),
     districtId: v.id("districts"),
     stationName: v.string(),
@@ -24,11 +25,11 @@ export default defineSchema({
     warningWaterLevel: v.optional(v.number()),
     dangerWaterLevel: v.optional(v.number()),
     stationStatus: v.boolean(),
-    mode: v.optional(v.string()),
-    z1: v.optional(v.number()),
-    z2: v.optional(v.number()),
-    z3: v.optional(v.number()),
-    batteryLevel: v.optional(v.number()),
+    mode: v.optional(v.union(v.string(), v.boolean())),
+    z1: v.optional(v.union(v.number(), v.boolean())),
+    z2: v.optional(v.union(v.number(), v.boolean())),
+    z3: v.optional(v.union(v.number(), v.boolean())),
+    batteryLevel: v.optional(v.union(v.number(), v.null())),
   })
     .index("by_jps_sel_id", ["jpsSelId"])
     .index("by_district", ["districtId"])
@@ -39,8 +40,7 @@ export default defineSchema({
     currentLevel: v.number(),
     alertLevel: v.number(), // 0=normal, 1=alert, 2=warning, 3=danger
     updatedAt: v.optional(v.string()),
-  })
-    .index("by_station", ["stationId"]),
+  }).index("by_station", ["stationId"]),
 
   cameras: defineTable({
     jpsCameraId: v.string(),
@@ -76,23 +76,24 @@ export default defineSchema({
     .index("by_user_camera", ["userId", "cameraId"]),
 
   waterLevelSummaries: defineTable({
-    districts: v.array(v.object({
-      districtId: v.number(),
-      districtName: v.string(),
-      totalStations: v.number(),
-      normalCount: v.number(),
-      alertCount: v.number(),
-      warningCount: v.number(),
-      dangerCount: v.number(),
-      onlineStations: v.number(),
-      offlineStations: v.number(),
-      lastUpdated: v.string(),
-      allLastUpdated: v.string(),
-      timestamp: v.string(),
-    })),
+    districts: v.array(
+      v.object({
+        districtId: v.number(),
+        districtName: v.string(),
+        totalStations: v.number(),
+        normalCount: v.number(),
+        alertCount: v.number(),
+        warningCount: v.number(),
+        dangerCount: v.number(),
+        onlineStations: v.number(),
+        offlineStations: v.number(),
+        lastUpdated: v.string(),
+        allLastUpdated: v.string(),
+        timestamp: v.string(),
+      })
+    ),
     overallStatus: v.string(),
     scrapedAt: v.string(),
     timestamp: v.number(),
-  })
-    .index("by_timestamp", ["timestamp"]),
+  }).index("by_timestamp", ["timestamp"]),
 });

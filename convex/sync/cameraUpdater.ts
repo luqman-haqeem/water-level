@@ -19,28 +19,16 @@ export const updateCameras = action({
       
       for (const district of districts) {
         try {
-          // Use correct JPS CCTV API endpoint with JPS district ID
-          // Need to map district name to JPS district ID
-          let jpsDistrictId;
-          switch (district.name) {
-            case 'KUALA SELANGOR': jpsDistrictId = 1; break;
-            case 'SABAK BERNAM': jpsDistrictId = 2; break;
-            case 'HULU LANGAT': jpsDistrictId = 3; break;
-            case 'SEPANG': jpsDistrictId = 4; break;
-            case 'KUALA LANGAT': jpsDistrictId = 5; break;
-            case 'KLANG': jpsDistrictId = 6; break;
-            case 'PETALING': jpsDistrictId = 7; break;
-            case 'GOMBAK': jpsDistrictId = 8; break;
-            case 'HULU SELANGOR': jpsDistrictId = 9; break;
-            default: 
-              console.warn(`Unknown district: ${district.name}`);
-              continue;
+          // Skip districts without jpsDistrictsId
+          if (!district.jpsDistrictsId) {
+            console.warn(`District ${district.name} has no jpsDistrictsId, skipping`);
+            continue;
           }
           
           let response;
           let camerasJPS = [];
           
-          const endpoint = `${BASE_URL}/CCTVS/GetCCTVsByDistrict/${jpsDistrictId}`;
+          const endpoint = `${BASE_URL}/CCTVS/GetCCTVsByDistrict/${district.jpsDistrictsId}`;
           
           try {
             console.log(`📹 Fetching cameras from: ${endpoint}`);
@@ -49,44 +37,31 @@ export const updateCameras = action({
               camerasJPS = await response.json();
               console.log(`✅ Found ${camerasJPS.length || 0} cameras for district ${district.name}`);
             } else {
-              console.warn(`❌ Camera API returned ${response.status} for district ${district._id}`);
+              console.warn(`❌ Camera API returned ${response.status} for district ${district.name}`);
             }
           } catch (error) {
-            console.warn(`❌ Failed to fetch cameras for district ${district._id}:`, error);
+            console.warn(`❌ Failed to fetch cameras for district ${district.name}:`, error);
           }
           
           if (!response || !response.ok || !camerasJPS || !Array.isArray(camerasJPS)) {
-            console.warn(`No camera data found for district ${district._id}`);
-            // For now, create a placeholder entry to show the system works
-            camerasJPS = [{
-              id: `cam_${district._id}`,
-              cameraName: `Sample Camera - ${district.name}`,
-              cameraBrand: 'Generic',
-              imageUrl: '',
-              isEnabled: false,
-              isOnline: false,
-              latitude: 3.0,
-              longitude: 101.5,
-              mainRiverBasin: '',
-              subRiverBasin: '',
-            }];
-            console.log(`📷 Created placeholder camera for district ${district.name}`);
+            console.warn(`No camera data found for district ${district.name}`);
+            continue;
           }
         
           for (const cameraJPS of camerasJPS) {
             await ctx.runMutation(internal.sync.cameraUpdater.upsertCamera, {
               districtId: district._id,
               cameraData: {
-                jpsCameraId: (cameraJPS.id || cameraJPS.cameraId || '').toString(),
-                cameraBrand: cameraJPS.cameraBrand || cameraJPS.brand || '',
-                cameraName: cameraJPS.cameraName || cameraJPS.name || `Camera ${cameraJPS.id || ''}`,
-                imgUrl: cameraJPS.imageUrl || cameraJPS.imgUrl || cameraJPS.streamUrl || '',
-                isEnabled: cameraJPS.isEnabled !== false, // Default to true unless explicitly false
-                isOnline: cameraJPS.isOnline !== false, // Default to true unless explicitly false
-                latitude: parseFloat(cameraJPS.latitude || cameraJPS.lat || 0),
-                longitude: parseFloat(cameraJPS.longitude || cameraJPS.lng || 0),
-                mainBasin: cameraJPS.mainRiverBasin || cameraJPS.mainBasin || '',
-                subBasin: cameraJPS.subRiverBasin || cameraJPS.subBasin || '',
+                jpsCameraId: cameraJPS.id.toString(),
+                cameraBrand: cameraJPS.cameraBrand || '',
+                cameraName: cameraJPS.cameraName || `Camera ${cameraJPS.id}`,
+                imgUrl: cameraJPS.imageUrl || '',
+                isEnabled: cameraJPS.isEnabled ?? true,
+                isOnline: cameraJPS.isOnline ?? true,
+                latitude: parseFloat(cameraJPS.latitude) || 0,
+                longitude: parseFloat(cameraJPS.longitude) || 0,
+                mainBasin: cameraJPS.mainRiverBasin || '',
+                subBasin: cameraJPS.subRiverBasin || '',
               }
             });
             totalCamerasUpdated++;
@@ -115,6 +90,12 @@ export const updateCameras = action({
 export const getDistricts = internalMutation({
   handler: async (ctx) => {
     return await ctx.db.query("districts").collect();
+  },
+});
+
+export const getCameras = internalMutation({
+  handler: async (ctx) => {
+    return await ctx.db.query("cameras").take(5);
   },
 });
 
