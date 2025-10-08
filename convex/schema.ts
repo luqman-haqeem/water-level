@@ -75,6 +75,17 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_camera", ["userId", "cameraId"]),
 
+  waterLevelHistory: defineTable({
+    stationId: v.id("stations"),
+    currentLevel: v.number(),
+    alertLevel: v.number(), // 0=normal, 1=alert, 2=warning, 3=danger
+    timestamp: v.number(), // Unix timestamp for efficient querying
+    recordedAt: v.string(), // ISO string for display purposes (Malaysia time)
+  })
+    .index("by_station", ["stationId"])
+    .index("by_station_time", ["stationId", "timestamp"])
+    .index("by_timestamp", ["timestamp"]),
+
   waterLevelSummaries: defineTable({
     districts: v.array(
       v.object({

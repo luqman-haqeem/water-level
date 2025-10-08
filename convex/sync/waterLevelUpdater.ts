@@ -4,6 +4,51 @@ import { v } from "convex/values";
 
 const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
+// Type definitions for JPS API responses
+interface JpsDistrictSummary {
+  districtId: number;
+  district: string;
+  total_station: number;
+  normal: number;
+  alert: number;
+  warning: number;
+  danger: number;
+  online: number;
+  offline: number;
+  lastUpdated: string;
+  allLastUpdated: string;
+}
+
+interface JpsStationData {
+  id: number;
+  stationId: string;
+  stationName: string;
+  stationCode: string;
+  referenceName: string;
+  districtName: string;
+  waterLevel: number | null;
+  wlth_normal: number;
+  wlth_alert: number;
+  wlth_warning: number;
+  wlth_danger: number;
+  waterlevelStatus: number;
+  stationStatus: number;
+  lastUpdate: string;
+  latitude: string | number;
+  longitude: string | number;
+  batteryLevel: number | null;
+  gsmNumber: string;
+  markerType: string;
+  mode: string | boolean;
+  z1: number | boolean;
+  z2: number | boolean;
+  z3: number | boolean;
+}
+
+interface JpsDistrictStationsResponse {
+  stations: JpsStationData[];
+}
+
 // Helper function to convert JPS date format (DD/MM/YYYY HH:mm:ss) to ISO string
 // JPS provides Malaysian local time (UTC+8), we need to convert to UTC
 function convertJpsDateToIso(jpsDate: string): string {
@@ -60,11 +105,11 @@ export const updateWaterLevels = action({
         );
       }
 
-      const summaryData = await summaryResponse.json();
+      const summaryData: JpsDistrictSummary[] = await summaryResponse.json();
       const timestamp = new Date().toISOString();
 
       // Process summary data
-      const districts = summaryData.map((district: any) => ({
+      const districts = summaryData.map((district) => ({
         districtId: district.districtId,
         districtName: district.district,
         totalStations: district.total_station,
@@ -81,15 +126,15 @@ export const updateWaterLevels = action({
 
       // Calculate overall status
       const totalDanger = districts.reduce(
-        (sum: number, d: any) => sum + d.dangerCount,
+        (sum, d) => sum + d.dangerCount,
         0
       );
       const totalWarning = districts.reduce(
-        (sum: number, d: any) => sum + d.warningCount,
+        (sum, d) => sum + d.warningCount,
         0
       );
       const totalAlert = districts.reduce(
-        (sum: number, d: any) => sum + d.alertCount,
+        (sum, d) => sum + d.alertCount,
         0
       );
 
@@ -118,10 +163,10 @@ export const updateWaterLevels = action({
             `${BASE_URL}/StationRiverLevels/GetWLAllStationData/${district.districtId}`
           );
           if (districtResponse.ok) {
-            const stationData = await districtResponse.json();
+            const stationData: JpsDistrictStationsResponse = await districtResponse.json();
             const stationsData = stationData.stations || [];
             const stations = stationsData
-              .map((station: any) => ({
+              .map((station) => ({
                 id: station.id,
                 stationId: station.stationId || "",
                 name: station.stationName,
@@ -139,17 +184,17 @@ export const updateWaterLevels = action({
                 waterlevelStatus: station.waterlevelStatus || -1,
                 stationStatus: station.stationStatus || 0,
                 lastUpdate: convertJpsDateToIso(station.lastUpdate),
-                latitude: parseFloat(station.latitude) || 0,
-                longitude: parseFloat(station.longitude) || 0,
+                latitude: typeof station.latitude === 'string' ? parseFloat(station.latitude) || 0 : station.latitude || 0,
+                longitude: typeof station.longitude === 'string' ? parseFloat(station.longitude) || 0 : station.longitude || 0,
                 batteryLevel: station.batteryLevel === null ? undefined : station.batteryLevel,
                 gsmNumber: station.gsmNumber,
                 markerType: station.markerType,
-                mode: station.mode,
-                z1: station.z1,
-                z2: station.z2,
-                z3: station.z3,
+                mode: typeof station.mode === 'boolean' ? station.mode : undefined,
+                z1: typeof station.z1 === 'boolean' ? station.z1 : undefined,
+                z2: typeof station.z2 === 'boolean' ? station.z2 : undefined,
+                z3: typeof station.z3 === 'boolean' ? station.z3 : undefined,
               }))
-              .filter((station: any) => station.stationStatus == 1);
+              .filter((station) => station.stationStatus == 1);
 
             const result = await ctx.runMutation(
               internal.waterLevelData.storeDistrictStationsInternal,
@@ -221,7 +266,11 @@ export const upsertCurrentLevel = internalMutation({
       .withIndex("by_station", (q) => q.eq("stationId", stationId))
       .first();
 
-    const updateData: any = {
+    const updateData: {
+      currentLevel: number;
+      alertLevel: number;
+      updatedAt?: string;
+    } = {
       currentLevel,
       alertLevel,
     };
@@ -238,6 +287,30 @@ export const upsertCurrentLevel = internalMutation({
         stationId,
         ...updateData,
       });
+    }
+
+    // Store historical data (Malaysia time)
+    const now = new Date();
+    const malaysiaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // UTC+8
+    
+    await ctx.db.insert("waterLevelHistory", {
+      stationId,
+      currentLevel,
+      alertLevel,
+      timestamp: now.getTime(),
+      recordedAt: malaysiaTime.toISOString(),
+    });
+
+    // Cleanup old historical data (older than 3 hours)
+    const threeHoursAgo = now.getTime() - (3 * 60 * 60 * 1000);
+    const oldRecords = await ctx.db
+      .query("waterLevelHistory")
+      .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
+      .collect();
+
+    // Delete old records in batches to avoid hitting limits
+    for (const record of oldRecords) {
+      await ctx.db.delete(record._id);
     }
   },
 });

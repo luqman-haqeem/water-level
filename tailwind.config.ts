@@ -68,6 +68,10 @@ const config = {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        normal: {
+          DEFAULT: "hsl(var(--normal))",
+          foreground: "hsl(var(--normal-foreground))",
+        },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
@@ -76,6 +80,22 @@ const config = {
           DEFAULT: "hsl(var(--alert))",
           foreground: "hsl(var(--alert-foreground))",
         },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
+        },
+        // Water-themed colors
+        "water-blue": {
+          DEFAULT: "hsl(var(--water-blue))",
+          light: "hsl(var(--water-blue-light))",
+          dark: "hsl(var(--water-blue-dark))",
+        },
+        "water-teal": "hsl(var(--water-teal))",
+        "water-cyan": "hsl(var(--water-cyan))",
+        // High contrast colors
+        "high-contrast-bg": "hsl(var(--high-contrast-bg))",
+        "high-contrast-fg": "hsl(var(--high-contrast-fg))",
+        "high-contrast-border": "hsl(var(--high-contrast-border))",
       },
       borderRadius: {
         lg: "var(--radius)",

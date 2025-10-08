@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import Head from 'next/head';
 import { initializeOneSignal } from '../utils/oneSignalConfig';
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
+// import { ConvexAuthProvider } from "@convex-dev/auth/react";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -34,14 +34,15 @@ export default function App({ Component, pageProps }: AppProps) {
             <Head>
                 <title>River Water Level</title>
             </Head>
-            <ConvexAuthProvider client={convex}>
+            {/* ConvexAuthProvider commented out - using ConvexProvider without auth */}
+            <ConvexProvider client={convex}>
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
                     <Layout>
                         <Component {...pageProps} />
                     </Layout>
                     <SpeedInsights />
                 </ThemeProvider>
-            </ConvexAuthProvider>
+            </ConvexProvider>
         </>
     )
 }

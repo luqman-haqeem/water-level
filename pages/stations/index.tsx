@@ -8,21 +8,32 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
 import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
+import { WaterIcon, CameraIcon } from '@/components/icons/IconLibrary'
+import useSwipeGestures from '@/hooks/useSwipeGestures'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
+import StationCard from "@/components/StationCard";
+import WaterLevelGauge from "@/components/WaterLevelGauge";
+import SkeletonCard, { StationSkeleton } from "@/components/SkeletonCard";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge"
+import { haptics } from '@/utils/haptics'
 
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
-import LoginModal from '@/components/LoginModel';
+// import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
+import { useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUserStore } from '../../lib/convexStore';
 import { useAuthActions } from "@convex-dev/auth/react";
-import FilterDropdown from '@/components/FilterDropdown';
-import PullToRefresh from 'pulltorefreshjs';
-import ReactDOMServer from 'react-dom/server';
+import { useFilter } from '../../lib/FilterContext';
+import AdvancedFilter, { FilterOptions } from '@/components/AdvancedFilter';
+import FavoritesFilter from '@/components/FavoritesFilter';
+import ExpandableSection from '@/components/ExpandableSection';
+import usePullToRefresh from '@/hooks/usePullToRefresh';
+import PullToRefreshIndicator from '@/components/PullToRefreshIndicator';
 import {
     Popover,
     PopoverContent,
@@ -84,29 +95,36 @@ export default function Component({ stations: initialStations }: ComponentProps)
     const router = useRouter();
     const { stationId } = router.query;
     const [searchTerm, setSearchTerm] = useState("")
-    const [showLoginModal, setShowLoginModal] = useState(false)
+    // const [showLoginModal, setShowLoginModal] = useState(false)
     const { theme, setTheme } = useTheme()
 
-    const [selectedLocation, setSelectedLocation] = useState("All")
-    const [selectedStation, setSelectedStation] = useState<ComponentProps['stations'][0] | null>(null)
-    
     // Fetch data from Convex
-    const stations = useQuery(api.stations.getStationsWithDetails) || [];
-    const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
+    const convex = useConvex();
+    const stations = useQuery(api.stations.getStationsWithDetails);
+    const isLoadingStations = stations === undefined;
+    const stationsData = useMemo(() => stations || [], [stations]);
+    // const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
+    const isLoggedIn = false; // Commented out auth
+    const favStations = useMemo(() => [] as string[], []); // Commented out favorites
+    // const { showFavoritesOnly, toggleFavorites } = useFilter();
+    const showFavoritesOnly = false; // Commented out favorites filter
 
-    // const [favorites, setFavorites] = useState<{ stations: number[] }>({ stations: [] })
-    const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(false)
     const [isMobile, setIsMobile] = useState(true)
 
-    const [sortBy, setSortBy] = useState<"name" | "waterLevel">("name");
-    const [filterByStatus, setFilterByStatus] = useState<string | null>(null);
-    const [filterByFavorite, setFilterByFavorite] = useState<boolean>(false);
+    const [currentFilters, setCurrentFilters] = useState<FilterOptions | null>(null);
+    const [displayedStations, setDisplayedStations] = useState<typeof stationsData>([]);
+
+    // Update displayed stations when data changes or no filters applied
+    useEffect(() => {
+        if (!currentFilters) {
+            setDisplayedStations(stationsData);
+        }
+    }, [stationsData, currentFilters]);
 
     useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth < 768;
             setIsMobile(isMobileDevice);
-            setIsSideMenuExpanded(!isMobileDevice);
         }
         checkMobile();
         window.addEventListener('resize', checkMobile)
@@ -114,127 +132,78 @@ export default function Component({ stations: initialStations }: ComponentProps)
     }, [])
 
     useEffect(() => {
-        if (stationId) {
-            const station = stations.find(s => s.id.toString() === stationId);
-            if (station) setSelectedStation(station);
+        if (stationId && stationsData.length > 0) {
+            // Navigate to station detail page when stationId is in URL
+            router.push(`/stations/${stationId}`);
         }
-    }, [stationId, stations]);
+    }, [stationId, stationsData, router]);
 
 
-    useEffect(() => {
-
-        PullToRefresh.init({
-            mainElement: 'main',
-            onRefresh() {
-                // Custom refresh logic
-                return new Promise((resolve) => {
-                    setTimeout(() => {
-                        resolve();
-                        window.location.reload();
-                    }, 1000);
-                });
-            },
-            distThreshold: 60,
-            distMax: 80,
-            distReload: 50,
-            distIgnore: 0,
-            // iconArrow: '&#8675;',
-            iconArrow: ReactDOMServer.renderToString(
-                <div className={`flex justify-center items-center ${theme === 'dark' ? 'text-white' : 'text-stone-400'}`}>
-                    <RotateCw />
-                </div>
-            ),
-            iconRefreshing: ReactDOMServer.renderToString(
-                <div className={`flex justify-center items-center pt-4 ${theme === 'dark' ? 'text-white' : 'text-stone-400'}`}>
-                    <Ellipsis />
-                </div>
-            ),
-            instructionsPullToRefresh: ReactDOMServer.renderToString(
-                <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Pull down to refresh
-                </div>
-            ),
-            instructionsReleaseToRefresh: ReactDOMServer.renderToString(
-                <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Release to refresh
-                </div>
-            ),
-            instructionsRefreshing: ReactDOMServer.renderToString(
-                <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Refreshing
-                </div>
-            ),
-            refreshTimeout: 500,
-            shouldPullToRefresh: () => !window.scrollY
-        });
-        return () => PullToRefresh.destroyAll();
-    }, []);
-
-    const locations = useMemo(() => {
-        const uniqueLocations = new Set(stations.map(station => station.districts.name))
-        return ["All", ...Array.from(uniqueLocations)]
-    }, [stations])
-
-    const filteredStations = useMemo(() => {
-        let filtered = stations.filter(station =>
-            (selectedLocation === "All" || station.districts.name === selectedLocation) &&
-            (station.station_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                station.districts.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-
-        if (filterByStatus) {
-            filtered = filtered.filter(station => {
-                const match = station.current_levels?.alert_level == filterByStatus;
-                return match;
-            });
-        }
-        if (filterByFavorite) {
-            filtered = filtered.filter(station => favStations.includes(station.id.toString()));
-        }
-
-        return filtered.sort((a, b) => {
-            if (sortBy === "name") {
-                return a.station_name.localeCompare(b.station_name);
-            } else {
-                return (a.current_levels?.current_level || 0) - (b.current_levels?.current_level || 0);
+    // Pull-to-refresh functionality
+    const pullToRefresh = usePullToRefresh({
+        onRefresh: async () => {
+            try {
+                // Invalidate and refetch Convex data
+                await convex.query(api.stations.getStationsWithDetails);
+                // Small delay for smooth UX
+                await new Promise(resolve => setTimeout(resolve, 300))
+            } catch (error) {
+                console.error('Failed to refresh data:', error)
             }
-        });
-    }, [searchTerm, selectedLocation, filterByStatus, filterByFavorite, sortBy, favStations]);
-    const resetFilteredStations = () => {
-        setFilterByFavorite(false)
-        setFilterByStatus(null)
+        },
+        threshold: 80
+    })
+
+    // Handle advanced filter changes
+    const handleFilterChange = (filtered: typeof stationsData, filters: FilterOptions) => {
+        setDisplayedStations(filtered);
+        setCurrentFilters(filters);
+        haptics.tap();
     }
 
-    const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
-        if (!isLoggedIn) {
-            setShowLoginModal(true);
-            return;
+    // Apply filtering logic with proper search term handling
+    const filteredStations = useMemo(() => {
+        // Start with either advanced filtered stations or all stations
+        let stations = displayedStations.length > 0 || currentFilters ? displayedStations : stationsData;
+        
+        // Always apply search term filter if searchTerm exists
+        if (searchTerm.trim()) {
+            stations = stations.filter(station =>
+                station.station_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                station.districts.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
         }
+        
+        // Apply favorites filter if enabled
+        if (showFavoritesOnly && isLoggedIn) {
+            stations = stations.filter(station => favStations.includes(station.id.toString()));
+        }
+        
+        return stations;
+    }, [displayedStations, currentFilters, stationsData, searchTerm, showFavoritesOnly, isLoggedIn, favStations]);
 
-        const idString = id.toString();
-        if (favStations.includes(idString)) {
-            removeFavStation(idString);
-        } else {
-            addFavStation(idString);
-        }
+
+    // const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
+    //     if (!isLoggedIn) {
+    //         setShowLoginModal(true);
+    //         return;
+    //     }
+
+    //     const idString = id.toString();
+    //     if (favStations.includes(idString)) {
+    //         removeFavStation(idString);
+    //     } else {
+    //         addFavStation(idString);
+    //     }
+    // };
+    const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
+        // Favorites disabled - do nothing
+        return;
     };
 
-    const handleStationChange = (stationId: string) => {
-        const station = filteredStations.find(s => s.id.toString() === stationId);
-        if (station) {
-            setSelectedStation(station);
-            router.push(`/stations?stationId=${station.id.toString()}`, undefined, { shallow: true });
-        }
-    }
-
-    const handlePreviousStation = () => {
-        const currentIndex = filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString())
-        if (currentIndex > 0) handleStationChange(filteredStations[currentIndex - 1].id.toString())
-    }
-
-    const handleNextStation = () => {
-        const currentIndex = filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString())
-        if (currentIndex < filteredStations.length - 1) handleStationChange(filteredStations[currentIndex + 1].id.toString())
+    const handleStationClick = (station: ComponentProps['stations'][0]) => {
+        // Navigate to detailed station view
+        router.push(`/stations/${station.id.toString()}`);
     }
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
@@ -259,320 +228,75 @@ export default function Component({ stations: initialStations }: ComponentProps)
             <Head>
                 <title>Stations - River Water Level</title>
             </Head>
-            {(
-                <>
-                    {/* Mobile-First Station List */}
-                    <div className={`
-                        border-r flex flex-col transition-all duration-300 ease-in-out
-                        ${isSideMenuExpanded 
-                            ? 'w-full md:w-1/3 fixed inset-0 z-20 bg-background md:relative md:z-0' 
-                            : 'w-0 md:w-16'
-                        }
-                    `}>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="self-end m-2 min-w-touch min-h-touch"
-                            onClick={() => setIsSideMenuExpanded(!isSideMenuExpanded)}
-                        >
-                            {isSideMenuExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                            <span className="sr-only">{isSideMenuExpanded ? 'Close' : 'Open'} station list</span>
-                        </Button>
-                        {isSideMenuExpanded && (
-                            <div className="p-4 flex-1 flex flex-col overflow-hidden">
-                                <div className="flex items-center mb-4 gap-2">
-                                    <Input
-                                        placeholder="Search stations..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="flex-1 min-h-touch"
-                                    />
-                                    <FilterDropdown
-                                        activeFilter={activeFilter}
-                                        isLoggedIn={isLoggedIn}
-                                        handleFilterSelect={handleFilterSelect}
-                                        resetFilteredStations={resetFilteredStations}
-                                        setSortBy={setSortBy}
-                                        setFilterByStatus={setFilterByStatus}
-                                        setFilterByFavorite={setFilterByFavorite}
-                                        setActiveFilter={setActiveFilter}
+            <div className="flex-1 flex flex-col bg-background">
+                <div 
+                    ref={pullToRefresh.containerRef}
+                    className="flex-1 p-4 sm:p-6 overflow-auto relative min-h-0"
+                >
+                    <PullToRefreshIndicator
+                        isVisible={pullToRefresh.shouldShowIndicator}
+                        isRefreshing={pullToRefresh.isRefreshing}
+                        progress={pullToRefresh.refreshProgress}
+                        yOffset={pullToRefresh.indicatorY}
+                    />
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-heading-1">Water Level Stations</h2>
+                        <div className="flex items-center gap-2">
+                            <FavoritesFilter isLoggedIn={isLoggedIn} />
+                            <AdvancedFilter
+                                stations={stationsData as any}
+                                onFilterChange={handleFilterChange as any}
+                                isLoggedIn={isLoggedIn}
+                                favoriteStations={favStations}
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* Search Bar */}
+                    <div className="mb-6">
+                        <Input
+                            placeholder="Search stations or districts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="min-h-touch"
+                        />
+                    </div>
 
-                                    />
-                                </div>
-                                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                                    <SelectTrigger className="mb-4">
-                                        <SelectValue placeholder="Filter by location" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {locations.map(location => (
-                                            <SelectItem key={location} value={location}>{location}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <ScrollArea className="flex-1">
-                                    {filteredStations.map(station => (
-
-
-                                        <Card
-                                            key={station.id}
-                                            className={`
-                                                mb-3 cursor-pointer transition-all duration-200
-                                                ${selectedStation?.id === station.id 
-                                                    ? 'border-primary shadow-md ring-2 ring-primary/20' 
-                                                    : 'hover:border-primary/50 active:border-primary'
-                                                }
-                                            `}
-                                            onClick={() => {
-                                                handleStationChange(station.id.toString())
-                                                if (isMobile) setIsSideMenuExpanded(false)
-                                            }}
-                                        >
-
-                                            <CardHeader className="p-4">
-                                                <div className="flex justify-between items-center">
-                                                    <CardTitle className="text-sm font-medium ">{station.station_name}
-                                                        {!station.station_status ? <Badge className='ml-2' variant="outline">Station disabled</Badge> : null}
-
-                                                    </CardTitle>
-
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="touch"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            toggleFavorite('station', station.id)
-                                                        }}
-                                                        className="shrink-0"
-                                                    >
-                                                        <Star className={`w-5 h-5 transition-all duration-200 ${
-                                                            favStations.includes(station.id.toString()) 
-                                                                ? 'fill-yellow-400 text-yellow-400' 
-                                                                : 'text-gray-400 hover:text-yellow-400'
-                                                        }`} />
-                                                        <span className="sr-only">
-                                                            {favStations.includes(station.id.toString()) ? 'Remove from' : 'Add to'} favorites
-                                                        </span>
-                                                    </Button>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">{station.districts.name}</p>
-                                            </CardHeader>
-                                            <CardContent className="p-4 pt-0 flex justify-between items-center">
-                                                <div>
-
-                                                    <p className="text-sm font-medium">{station.current_levels?.current_level} m</p>
-                                                    <p className="text-xs text-muted-foreground">{station.current_levels?.updated_at ? formatTimestamp(station.current_levels.updated_at.toString()) : 'Unknown'}</p>
-
-                                                </div>
-                                                {/* <Badge variant={station.status === "Normal" ? "secondary" : "destructive"}>{station.current_levels?.alert_level}</Badge> */}
-                                                <AlertLevelBadge alert_level={Number(station.current_levels?.alert_level) || 0} />
-
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </ScrollArea>
+                    {/* Station Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                        {isLoadingStations ? (
+                            // Show skeleton loading states
+                            Array.from({ length: 6 }).map((_, index) => (
+                                <StationSkeleton key={`skeleton-${index}`} />
+                            ))
+                        ) : filteredStations.length > 0 ? (
+                            filteredStations.map((station) => (
+                                <StationCard
+                                    key={station.id}
+                                    station={station}
+                                    isSelected={false}
+                                    isFavorite={favStations.includes(station.id.toString())}
+                                    showGauge={false}
+                                    onSelect={(station) => handleStationClick(station)}
+                                    onToggleFavorite={(id) => toggleFavorite('station', id)}
+                                />
+                            ))
+                        ) : (
+                            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                                <p className="text-body-large text-muted-foreground mb-2">No stations found</p>
+                                <p className="text-body text-muted-foreground">Try adjusting your search or filters</p>
                             </div>
                         )}
                     </div>
+                    <div className="pb-20"></div>
+                </div>
+            </div>
 
-                    {/* Main Content Area - Mobile First */}
-                    <div className={`flex-1 p-4 overflow-auto ${isSideMenuExpanded && isMobile ? 'hidden' : 'block'}`}>
-                        <div className="flex items-center mb-4 md:hidden gap-2">
-                            <Select value={selectedStation?.id.toString() || ''} onValueChange={handleStationChange}>
-                                <SelectTrigger className="flex-1 min-h-touch">
-                                    <SelectValue placeholder="Select station" />
-                                </SelectTrigger>
-                                <SelectContent> {filteredStations.length > 0 ? (
-                                    filteredStations.map(station => (
-                                        <SelectItem key={station.id} value={station.id.toString()}>
-                                            {station.station_name}
-                                        </SelectItem>
-                                    ))
-                                ) : (
-                                    <SelectItem value="0" disabled>
-                                        No stations available
-                                    </SelectItem>
-                                )}
-                                </SelectContent>
-                            </Select>
-
-                            <FilterDropdown
-                                activeFilter={activeFilter}
-                                isLoggedIn={isLoggedIn}
-                                handleFilterSelect={handleFilterSelect}
-                                resetFilteredStations={resetFilteredStations}
-                                setSortBy={setSortBy}
-                                setFilterByStatus={setFilterByStatus}
-                                setFilterByFavorite={setFilterByFavorite}
-                                setActiveFilter={setActiveFilter}
-
-                            />
-                        </div>
-
-
-                        {/* Station details */}
-                        {selectedStation ? (
-                            <div className={`flex-1 overflow-auto pb-24 md:pb-4 ${isMobile && isSideMenuExpanded ? 'hidden' : 'block'}`}>
-
-
-                                <h2 className="text-2xl sm:text-3xl font-bold mb-2 inline">{selectedStation.station_name}</h2>
-
-                                <Button
-                                    variant="ghost"
-                                    size="touch"
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        toggleFavorite('station', selectedStation.id)
-                                    }}
-                                    className="ml-2"
-                                >
-                                    <Star className={`w-5 h-5 transition-all duration-200 ${
-                                        favStations.includes(selectedStation.id.toString()) 
-                                            ? 'fill-yellow-400 text-yellow-400' 
-                                            : 'text-gray-400 hover:text-yellow-400'
-                                    }`} />
-                                    <span className="sr-only">
-                                        {favStations.includes(selectedStation.id.toString()) ? 'Remove from' : 'Add to'} favorites
-                                    </span>
-                                </Button>
-                                {!selectedStation.station_status ? <Badge className='ml-2' variant="outline">Station disabled</Badge> : null}
-
-                                <p className="text-muted-foreground text-base mb-6">{selectedStation.districts.name}</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                                    <Card>
-                                        <CardHeader className="p-4">
-                                            <CardTitle className="text-sm font-medium">Current Water Level</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-4 pt-0">
-                                            <p className="text-2xl font-bold">{selectedStation.current_levels?.current_level} m</p>
-                                            <p className="text-xs text-muted-foreground">Last updated: {selectedStation.current_levels?.updated_at ? formatTimestamp(selectedStation.current_levels.updated_at.toString()) : 'Unknown'}</p>
-
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader className="p-4 md:pt-2">
-
-                                            <CardTitle className="text-sm font-medium  flex items-center">
-                                                Status
-                                                <Popover >
-                                                    <PopoverTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-white hover:bg-gray-700 ml-1 p-0">
-                                                            <Info className="h-4 w-4" />
-                                                            <span className="sr-only">Water level information</span>
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0 bg-gray-900 border-gray-800">
-                                                        <div className="p-4">
-                                                            <div className="flex items-center mb-1 last:mb-0">
-                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-secondary`} />
-                                                                <span className="text-white text-sm">Normal: {selectedStation?.normal_water_level} m</span>
-                                                            </div>
-                                                            <div className="flex items-center mb-1 last:mb-0">
-                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-alert`} />
-                                                                <span className="text-white text-sm">Alert: {selectedStation?.alert_water_level} m</span>
-                                                            </div>
-                                                            <div className="flex items-center mb-1 last:mb-0">
-                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-warning`} />
-                                                                <span className="text-white text-sm">Warning: {selectedStation?.warning_water_level} m</span>
-                                                            </div>
-                                                            <div className="flex items-center mb-1 last:mb-0">
-                                                                <div className={`w-3 h-3 rounded-full mr-2 bg-destructive`} />
-                                                                <span className="text-white text-sm">Danger: {selectedStation?.danger_water_level} m</span>
-                                                            </div>
-                                                        </div>
-                                                    </PopoverContent>
-                                                </Popover>
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-4 pt-0">
-
-                                            {/* <Badge variant={selectedStation.current_levels?.alert_level === "Normal" ? "secondary" : "destructive"} className="text-lg">{selectedStation.current_levels?.alert_level}</Badge> */}
-                                            <AlertLevelBadge className="text-lg" alert_level={Number(selectedStation.current_levels?.alert_level) || 0} />
-
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                                <Card>
-                                    <CardHeader className="p-4">
-                                        <CardTitle className="text-sm font-medium"> Camera Feed</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-4 pt-0">
-                                        {selectedStation?.cameras && selectedStation?.cameras?.is_enabled ?
-                                            <div onClick={() =>
-                                                // openFullscreen(`${bucketUrl}/images/${selectedStation?.cameras?.jps_camera_id}.jpg?` + selectedStation.current_levels?.updated_at)}
-                                                openFullscreen(`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`)}
-                                                className="relative cursor-pointer">
-                                                <Image
-                                                    // src={`${bucketUrl}/images/${selectedStation?.cameras?.jps_camera_id}.jpg?` + selectedStation.current_levels?.updated_at}
-                                                    key={selectedStation.current_levels?.updated_at}
-
-                                                    src={`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`}
-                                                    width={500}
-                                                    height={300}
-                                                    alt="Live camera feed"
-                                                    className="w-full rounded-md"
-                                                    onError={(e) => e.currentTarget.src = '/nocctv.png'}
-                                                    blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD0ykZgoyxAHqaomO5xhVkAOM7pMnPOT16dO/4UrxXDqm4OWwhyHAAIxnI9aALwIIyDkGiqaxTqA5Z92TnLZGNvp9aLKTezkFyoVfvPu55z/SgC5RRRQAUUUUAf/9k="
-                                                    placeholder="blur"
-                                                    unoptimized
-
-                                                ></Image>
-                                                {/* <img src={`/api/proxy-image/${selectedStation?.cameras?.jps_camera_id}`} width={500} height={300} alt="Live camera feed" className="w-full rounded-md" /> */}
-                                                <div className="absolute top-0 right-0 m-2">
-                                                    <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
-                                                </div>
-                                            </div>
-                                            : <p className="text-center text-muted-foreground">No camera feed available.</p>}
-                                    </CardContent>
-                                </Card>
-                                {/* Mobile Navigation Footer */}
-                                <footer className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 pb-safe-bottom flex justify-between items-center md:hidden z-10">
-                                    <Button
-                                        variant="outline"
-                                        onClick={handlePreviousStation}
-                                        disabled={selectedStation?.id.toString() === stations[0]?.id.toString()}
-                                        className="min-w-touch min-h-touch px-4"
-                                    >
-                                        <ChevronLeft className="w-5 h-5 mr-1" />
-                                        <span>Previous</span>
-                                    </Button>
-                                    <div className="text-sm text-muted-foreground text-center px-2">
-                                        <div className="font-medium">Station {filteredStations.findIndex(s => s.id.toString() === selectedStation?.id.toString()) + 1}</div>
-                                        <div className="text-xs">of {filteredStations.length}</div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleNextStation}
-                                        disabled={selectedStation?.id.toString() === stations[stations.length - 1]?.id.toString()}
-                                        className="min-w-touch min-h-touch px-4"
-                                    >
-                                        <span>Next</span>
-                                        <ChevronRight className="w-5 h-5 ml-1" />
-                                    </Button>
-                                </footer>
-                            </div>
-
-                        ) : (
-                            <div >
-                                <h1 className="text-center">No station selected. Please select a station to view details.</h1>
-
-                            </div>
-                        )}
-                    </div >
-
-                    <FullscreenModal open={isFullscreenOpen} onOpenChange={closeFullscreen} imageSrc={fullscreenImageSrc}></FullscreenModal>
-
-                    {/* Login Modal */}
-                    <LoginModal
-                        open={showLoginModal}
-                        onOpenChange={setShowLoginModal}
-                    />
-                </>
-
-
-            )
-            }
-
+            {/* Login Modal - Commented out */}
+            {/* <LoginModal
+                open={showLoginModal}
+                onOpenChange={setShowLoginModal}
+            /> */}
         </>
-
     )
 }

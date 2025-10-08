@@ -78,8 +78,10 @@ export default function Component({ stations: initialStations, cameras: initialC
     const { theme, setTheme } = useTheme()
     
     // Fetch data from Convex
-    const stations = useQuery(api.stations.getStationsWithDetails) || [];
-    const cameras = useQuery(api.cameras.getCamerasWithDetails) || [];
+    const stationsQuery = useQuery(api.stations.getStationsWithDetails);
+    const camerasQuery = useQuery(api.cameras.getCamerasWithDetails);
+    const stations = useMemo(() => stationsQuery || [], [stationsQuery]);
+    const cameras = useMemo(() => camerasQuery || [], [camerasQuery]);
     
     // Mock user state for now - will be properly implemented with Convex auth
     const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -138,7 +140,7 @@ export default function Component({ stations: initialStations, cameras: initialC
                 return (a.current_levels?.current_level || 0) - (b.current_levels?.current_level || 0);
             }
         });
-    }, [searchTerm, selectedLocation, filterByStatus, sortBy]);
+    }, [searchTerm, selectedLocation, filterByStatus, sortBy, stations]);
 
     const toggleFavorite = (type: 'station' | 'camera', id: Id<"stations"> | Id<"cameras"> | number) => {
         if (!isLoggedIn) {

@@ -23,6 +23,7 @@ import type * as sync_cameraUpdater from "../sync/cameraUpdater.js";
 import type * as sync_stationUpdater from "../sync/stationUpdater.js";
 import type * as sync_waterLevelUpdater from "../sync/waterLevelUpdater.js";
 import type * as waterLevelData from "../waterLevelData.js";
+import type * as waterLevelHistory from "../waterLevelHistory.js";
 import type * as waterLevelSummaries from "../waterLevelSummaries.js";
 
 /**
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   "sync/stationUpdater": typeof sync_stationUpdater;
   "sync/waterLevelUpdater": typeof sync_waterLevelUpdater;
   waterLevelData: typeof waterLevelData;
+  waterLevelHistory: typeof waterLevelHistory;
   waterLevelSummaries: typeof waterLevelSummaries;
 }>;
 export declare const api: FilterApi<

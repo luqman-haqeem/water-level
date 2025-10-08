@@ -37,3 +37,7 @@ yarn-error.log*
 next-env.d.ts
 public/images
 
+new_ui.md
+.mcp.json
+CLAUDE.md
+.claude/
