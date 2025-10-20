@@ -51,8 +51,8 @@ export const useSwipeGestures = ({
     const deltaX = touch.clientX - touchState.current.startX
     const deltaY = touch.clientY - touchState.current.startY
     
-    // Prevent default scroll behavior for horizontal swipes
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    // Prevent default scroll behavior only for intentional horizontal swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
       e.preventDefault()
     }
   }, [])
