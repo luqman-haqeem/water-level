@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
-import useUserStore from '../lib/store';
-import { supabase } from "../lib/supabaseClient";
+import { useAuthActions } from "@convex-dev/auth/react";
 
 interface RegisterModelProps {
     open: boolean;
@@ -17,7 +16,7 @@ interface RegisterModelProps {
 export default function RegisterModel({ open, onOpenChange }: RegisterModelProps) {
     const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
     const [message, setMessage] = useState('');
-    const { register } = useUserStore();
+    const { signIn } = useAuthActions();
     const { toast } = useToast();
 
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -25,35 +24,32 @@ export default function RegisterModel({ open, onOpenChange }: RegisterModelProps
         setStatus('loading');
         const form = e.currentTarget;
         const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-        const password = (form.elements.namedItem('password') as HTMLInputElement).value;
-        const confirmPassword = (form.elements.namedItem('confirm-password') as HTMLInputElement).value;
-        if (password !== confirmPassword) {
-            setStatus('error');
-            setMessage('Passwords do not match');
-            return;
-        }
-        const { error } = await register(email, password);
-
-        if (error) {
-            setStatus('error');
-            setMessage(error instanceof Error ? error.message : 'Registration failed');
-        } else {
+        
+        // With magic link auth, we don't need passwords for registration
+        // Just send a magic link to the email
+        try {
+            await signIn("resend", { email });
             toast({
-                variant: "success",
-                title: "Registration Successful",
-                description: "Please check your email for verification link",
-                duration: 2000,
+                variant: "default",
+                title: "Check Your Email",
+                description: "We've sent you a login link to get started.",
+                duration: 5000,
             });
             onOpenChange(false);
+        } catch (error) {
+            setStatus('error');
+            setMessage(error instanceof Error ? error.message : 'Registration failed');
         }
         setStatus('idle');
     };
     const handleSocialLogin = async (provider: 'google') => {
-        const { error } = await supabase.auth.signInWithOAuth({ provider });
-        if (error) {
-            console.error(`Error logging in with ${provider}:`, error.message);
-        } else {
+        try {
+            await signIn("google");
             onOpenChange(false);
+        } catch (error) {
+            console.error(`Error logging in with ${provider}:`, error);
+            setStatus('error');
+            setMessage('Google login failed');
         }
     };
 
@@ -86,14 +82,9 @@ export default function RegisterModel({ open, onOpenChange }: RegisterModelProps
                         <Label htmlFor="register-email">Email</Label>
                         <Input id="register-email" name="email" type="email" placeholder="Enter your email" required />
                     </div>
-                    <div>
-                        <Label htmlFor="register-password">Password</Label>
-                        <Input id="register-password" name="password" type="password" placeholder="Create a password" required />
-                    </div>
-                    <div>
-                        <Label htmlFor="confirm-password">Confirm Password</Label>
-                        <Input id="confirm-password" type="password" placeholder="Confirm your password" required />
-                    </div>
+                    <p className="text-sm text-gray-400">
+                        We&apos;ll send you a secure login link - no password needed!
+                    </p>
                     <Button type="submit" className="w-full" disabled={status === 'loading'}>
                         {status === 'loading' ? (
                             <>

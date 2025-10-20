@@ -4,14 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
-import useUserStore from '../lib/store';
 import Image from 'next/image';
 import Link from "next/link"
 import RegisterModel from './RegisterModel';
-
 import { useToast } from "@/hooks/use-toast";
-
-import { supabase } from "../lib/supabaseClient";
+import { useAuthActions } from "@convex-dev/auth/react";
 
 interface LoginModalProps {
     open: boolean;
@@ -19,7 +16,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
-    const { isSubscribed, setIsSubscribed, user, login, loginWithMagicLink } = useUserStore();
+    const { signIn } = useAuthActions();
     const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
     const [message, setMessage] = useState('')
     const [showRegisterModal, setShowRegisterModal] = useState(false)
@@ -32,12 +29,8 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
         const form = e.currentTarget;
         const email = (form.elements.namedItem('email') as HTMLInputElement).value;
 
-        const { error } = await loginWithMagicLink(email);
-
-        if (error) {
-            setStatus('error');
-            setMessage(error instanceof Error ? error.message : 'Login failed');
-        } else {
+        try {
+            await signIn("resend", { email });
             setStatus('idle');
             onOpenChange(false);
             toast({
@@ -45,19 +38,21 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 title: "Check Your Email",
                 description: "We've sent you a login link. Please check your inbox and follow the instructions.",
                 duration: 5000,
-
             });
-
+        } catch (error) {
+            setStatus('error');
+            setMessage(error instanceof Error ? error.message : 'Login failed');
         }
-
     };
 
     const handleSocialLogin = async (provider: 'google') => {
-        const { error } = await supabase.auth.signInWithOAuth({ provider });
-        if (error) {
-            console.error(`Error logging in with ${provider}:`, error.message);
-        } else {
+        try {
+            await signIn("google");
             onOpenChange(false);
+        } catch (error) {
+            console.error(`Error logging in with ${provider}:`, error);
+            setStatus('error');
+            setMessage('Google login failed');
         }
     };
     const openRegisterDialog = async () => {

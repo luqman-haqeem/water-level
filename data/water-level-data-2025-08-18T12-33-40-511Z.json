@@ -1,0 +1,642 @@
+{
+  "summary": {
+    "timestamp": "2025-08-18T12:33:40.356Z",
+    "districts": [
+      {
+        "districtId": 1,
+        "districtName": "KUALA SELANGOR",
+        "totalStations": 9,
+        "normalCount": 1,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 9,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.355Z"
+      },
+      {
+        "districtId": 4,
+        "districtName": "SEPANG",
+        "totalStations": 6,
+        "normalCount": 2,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 6,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 2,
+        "districtName": "SABAK BERNAM",
+        "totalStations": 2,
+        "normalCount": 0,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 2,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 3,
+        "districtName": "HULU LANGAT",
+        "totalStations": 16,
+        "normalCount": 4,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 16,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 5,
+        "districtName": "KUALA LANGAT",
+        "totalStations": 2,
+        "normalCount": 0,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 2,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:15:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 6,
+        "districtName": "KLANG",
+        "totalStations": 11,
+        "normalCount": 4,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 11,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 7,
+        "districtName": "PETALING",
+        "totalStations": 7,
+        "normalCount": 3,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 7,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 9,
+        "districtName": "HULU SELANGOR",
+        "totalStations": 9,
+        "normalCount": 5,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 9,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      },
+      {
+        "districtId": 8,
+        "districtName": "GOMBAK",
+        "totalStations": 6,
+        "normalCount": 3,
+        "alertCount": 0,
+        "warningCount": 0,
+        "dangerCount": 0,
+        "onlineStations": 6,
+        "offlineStations": 0,
+        "lastUpdated": "2025-08-18T20:30:00",
+        "allLastUpdated": "2025-08-18T20:30:00",
+        "timestamp": "2025-08-18T12:33:40.356Z"
+      }
+    ],
+    "totalDistricts": 9,
+    "overallStatus": "NORMAL"
+  },
+  "details": [
+    {
+      "districtId": 1,
+      "districtName": "KUALA SELANGOR",
+      "timestamp": "2025-08-18T12:33:40.460Z",
+      "stations": [
+        {
+          "id": 158,
+          "name": "TELUK PENYAMUN (JETI)",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 161,
+          "name": "RANTAU PANJANG",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 217,
+          "name": "KG. ASAHAN",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 219,
+          "name": "PARIT MAHANG",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 250,
+          "name": "P/A PEKAN TG. KARANG",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 253,
+          "name": "P/A SG. YU 1",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 876,
+          "name": "SG. KAJANG, TG. KARANG",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 877,
+          "name": "KG. LUBUK JAYA",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        },
+        {
+          "id": 878,
+          "name": "KG. BUKIT KERAYONG",
+          "districtId": 1,
+          "districtName": "KUALA SELANGOR"
+        }
+      ],
+      "stationCount": 9
+    },
+    {
+      "districtId": 4,
+      "districtName": "SEPANG",
+      "timestamp": "2025-08-18T12:33:40.490Z",
+      "stations": [
+        {
+          "id": 176,
+          "name": "DENGKIL",
+          "districtId": 4,
+          "districtName": "SEPANG"
+        },
+        {
+          "id": 177,
+          "name": "KG. LABU LANJUT K.L.I.A",
+          "districtId": 4,
+          "districtName": "SEPANG"
+        },
+        {
+          "id": 206,
+          "name": "KG. SALAK TINGGI",
+          "districtId": 4,
+          "districtName": "SEPANG"
+        },
+        {
+          "id": 260,
+          "name": "JENDERAM HILIR",
+          "districtId": 4,
+          "districtName": "SEPANG"
+        },
+        {
+          "id": 287,
+          "name": "TMN DESA MERPATI",
+          "districtId": 4,
+          "districtName": "SEPANG"
+        },
+        {
+          "id": 832,
+          "name": "JENDERAM HULU",
+          "districtId": 4,
+          "districtName": "SEPANG"
+        }
+      ],
+      "stationCount": 6
+    },
+    {
+      "districtId": 2,
+      "districtName": "SABAK BERNAM",
+      "timestamp": "2025-08-18T12:33:40.494Z",
+      "stations": [
+        {
+          "id": 221,
+          "name": "SG. AIR TAWAR",
+          "districtId": 2,
+          "districtName": "SABAK BERNAM"
+        },
+        {
+          "id": 833,
+          "name": "RIMBA KDR",
+          "districtId": 2,
+          "districtName": "SABAK BERNAM"
+        }
+      ],
+      "stationCount": 2
+    },
+    {
+      "districtId": 3,
+      "districtName": "HULU LANGAT",
+      "timestamp": "2025-08-18T12:33:40.452Z",
+      "stations": [
+        {
+          "id": 171,
+          "name": "T.N.B PANGSUN",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 172,
+          "name": "KG. SG. LUI",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 173,
+          "name": "KG. PASIR",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 174,
+          "name": "PEKAN KAJANG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 175,
+          "name": "SG. RINCHING",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 188,
+          "name": "SG. KANTAN, KAJANG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 189,
+          "name": "TAMAN T.T.D.I GROVE, KAJANG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 190,
+          "name": "TAMAN WEST COUNTRY, KAJANG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 226,
+          "name": "PEKAN BANGI LAMA",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 235,
+          "name": "BATU 15, HULU LANGAT",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 236,
+          "name": "BATU 20, HULU LANGAT",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 237,
+          "name": "KG. LEMBAH JAYA UTARA, AMPANG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 241,
+          "name": "JALAN SRI TANJUNG, SEMENYIH",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 248,
+          "name": "KG. BARU BALAKONG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 275,
+          "name": "PEKAN BERANANG",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        },
+        {
+          "id": 851,
+          "name": "KG. SESAPAN BKT. REMBAU",
+          "districtId": 3,
+          "districtName": "HULU LANGAT"
+        }
+      ],
+      "stationCount": 16
+    },
+    {
+      "districtId": 5,
+      "districtName": "KUALA LANGAT",
+      "timestamp": "2025-08-18T12:33:40.490Z",
+      "stations": [
+        {
+          "id": 205,
+          "name": "BUKIT CHANGGANG",
+          "districtId": 5,
+          "districtName": "KUALA LANGAT"
+        },
+        {
+          "id": 225,
+          "name": "KG. KUNDANG",
+          "districtId": 5,
+          "districtName": "KUALA LANGAT"
+        },
+        {
+          "id": 831,
+          "name": "RS BATU 8",
+          "districtId": 5,
+          "districtName": "KUALA LANGAT"
+        }
+      ],
+      "stationCount": 3
+    },
+    {
+      "districtId": 6,
+      "districtName": "KLANG",
+      "timestamp": "2025-08-18T12:33:40.442Z",
+      "stations": [
+        {
+          "id": 153,
+          "name": "TAMAN SRI MUDA",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 157,
+          "name": "BANDAR KLANG",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 213,
+          "name": "PEKAN MERU",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 214,
+          "name": "KG. DELEK",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 228,
+          "name": "TUGU KERIS, KLANG",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 229,
+          "name": "KG. JAWA, KLANG",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 261,
+          "name": "P/A PANDAMARAN",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 274,
+          "name": "TAMAN DESA KEMUNING",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 852,
+          "name": "KG. PEREPAT, KAPAR",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 873,
+          "name": "P/A KG. SG. KANDIS",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 890,
+          "name": "BUKIT RIMAU",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 891,
+          "name": "KG. JOHAN SETIA",
+          "districtId": 6,
+          "districtName": "KLANG"
+        },
+        {
+          "id": 893,
+          "name": "KUNCI AIR JLN. PAPAN",
+          "districtId": 6,
+          "districtName": "KLANG"
+        }
+      ],
+      "stationCount": 13
+    },
+    {
+      "districtId": 7,
+      "districtName": "PETALING",
+      "timestamp": "2025-08-18T12:33:40.491Z",
+      "stations": [
+        {
+          "id": 156,
+          "name": "T.T.D.I JAYA, SHAH ALAM",
+          "districtId": 7,
+          "districtName": "PETALING"
+        },
+        {
+          "id": 192,
+          "name": "KG. MELAYU SUBANG",
+          "districtId": 7,
+          "districtName": "PETALING"
+        },
+        {
+          "id": 196,
+          "name": "PUCHONG DROP",
+          "districtId": 7,
+          "districtName": "PETALING"
+        },
+        {
+          "id": 199,
+          "name": "JALAN 222",
+          "districtId": 7,
+          "districtName": "PETALING"
+        },
+        {
+          "id": 204,
+          "name": "SERI KEMBANGAN",
+          "districtId": 7,
+          "districtName": "PETALING"
+        },
+        {
+          "id": 871,
+          "name": "SRI MANJA ",
+          "districtId": 7,
+          "districtName": "PETALING"
+        },
+        {
+          "id": 875,
+          "name": "MERBAU SEMPAK",
+          "districtId": 7,
+          "districtName": "PETALING"
+        }
+      ],
+      "stationCount": 7
+    },
+    {
+      "districtId": 9,
+      "districtName": "HULU SELANGOR",
+      "timestamp": "2025-08-18T12:33:40.511Z",
+      "stations": [
+        {
+          "id": 162,
+          "name": "SERENDAH",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 165,
+          "name": "ULU YAM",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 167,
+          "name": "BATANG KALI",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 168,
+          "name": "AMPANG PECAH",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 170,
+          "name": "KERLING",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 202,
+          "name": "TANJUNG MALIM",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 201,
+          "name": "JAMBATAN S.K.C",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 232,
+          "name": "KG. TIMAH, BUKIT BERUNTUNG",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 239,
+          "name": "KG. SG. BUAYA",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        },
+        {
+          "id": 240,
+          "name": "KG. SG. SELISIK",
+          "districtId": 9,
+          "districtName": "HULU SELANGOR"
+        }
+      ],
+      "stationCount": 10
+    },
+    {
+      "districtId": 8,
+      "districtName": "GOMBAK",
+      "timestamp": "2025-08-18T12:33:40.491Z",
+      "stations": [
+        {
+          "id": 203,
+          "name": "TAMAN TUN TEJA, RAWANG",
+          "districtId": 8,
+          "districtName": "GOMBAK"
+        },
+        {
+          "id": 238,
+          "name": "COUNTRY HOMES, RAWANG",
+          "districtId": 8,
+          "districtName": "GOMBAK"
+        },
+        {
+          "id": 242,
+          "name": "KG. MELAYU SERI KUNDANG",
+          "districtId": 8,
+          "districtName": "GOMBAK"
+        },
+        {
+          "id": 254,
+          "name": "BATU 10 GOMBAK",
+          "districtId": 8,
+          "districtName": "GOMBAK"
+        },
+        {
+          "id": 255,
+          "name": "RAWANG TIN",
+          "districtId": 8,
+          "districtName": "GOMBAK"
+        },
+        {
+          "id": 850,
+          "name": "KG. KEMENSAH",
+          "districtId": 8,
+          "districtName": "GOMBAK"
+        }
+      ],
+      "stationCount": 6
+    }
+  ],
+  "scrapedAt": "2025-08-18T12:33:40.511Z"
+}

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 import { BellRing } from "lucide-react";
 import { Switch } from "@/components/ui/switch"
-import useUserStore from '../lib/store';
+import { useUserStore } from '../lib/convexStore';
 
 import { subscribeUser, unsubscribeUser } from '../utils/oneSignalConfig';
 import { checkNotificationPermission, requestNotificationPermission, saveUserPreferences, getUserPreferences, UserPreferences } from '../utils/permissions';
@@ -15,7 +15,7 @@ interface NotificationHandlerProps {
 }
 
 const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open, onOpenChange }) => {
-    const { isLoggedIn, isSubscribed, setIsSubscribed, user, login, logout } = useUserStore(); // 
+    const { isLoggedIn, isSubscribed, setIsSubscribed, user } = useUserStore(); 
 
     const [preferences, setPreferences] = useState<UserPreferences>({
         notifications: false,
@@ -23,22 +23,22 @@ const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open,
         criticalAlerts: false,
     });
 
-    useEffect(() => {
-        loadUserPreferences();
-    }, [isSubscribed]);
-
     const checkSubscriptionStatus = async (): Promise<void> => {
         const permission = await checkNotificationPermission();
         // console.log('permission', permission);
         setIsSubscribed(permission);
     };
 
-    const loadUserPreferences = async (): Promise<void> => {
+    const loadUserPreferences = useCallback(async (): Promise<void> => {
         const userPreferences = await getUserPreferences(userId);
         if (userPreferences) {
             setPreferences(userPreferences);
         }
-    };
+    }, [userId]);
+
+    useEffect(() => {
+        loadUserPreferences();
+    }, [isSubscribed, loadUserPreferences]);
 
     const handleSubscribe = async (): Promise<void> => {
 

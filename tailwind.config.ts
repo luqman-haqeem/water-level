@@ -12,10 +12,22 @@ const config = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.5rem", 
+        md: "2rem",
+      },
       screens: {
         "2xl": "1400px",
       },
+    },
+    screens: {
+      'xs': '320px',
+      'sm': '640px',
+      'md': '768px', 
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
     },
     extend: {
       colors: {
@@ -56,6 +68,10 @@ const config = {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        normal: {
+          DEFAULT: "hsl(var(--normal))",
+          foreground: "hsl(var(--normal-foreground))",
+        },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
@@ -64,6 +80,22 @@ const config = {
           DEFAULT: "hsl(var(--alert))",
           foreground: "hsl(var(--alert-foreground))",
         },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
+        },
+        // Water-themed colors
+        "water-blue": {
+          DEFAULT: "hsl(var(--water-blue))",
+          light: "hsl(var(--water-blue-light))",
+          dark: "hsl(var(--water-blue-dark))",
+        },
+        "water-teal": "hsl(var(--water-teal))",
+        "water-cyan": "hsl(var(--water-cyan))",
+        // High contrast colors
+        "high-contrast-bg": "hsl(var(--high-contrast-bg))",
+        "high-contrast-fg": "hsl(var(--high-contrast-fg))",
+        "high-contrast-border": "hsl(var(--high-contrast-border))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -83,6 +115,17 @@ const config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      spacing: {
+        'touch': '44px', // Minimum touch target size
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-top': 'env(safe-area-inset-top)',
+      },
+      minHeight: {
+        'touch': '44px',
+      },
+      minWidth: {
+        'touch': '44px',
       },
     },
   },

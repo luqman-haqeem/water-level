@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx convex dev:*)",
+      "Bash(rm:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx tsc:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe /c \"taskkill /f /pid 19696\")",
+      "Bash(del \"C:\\Users\\Luqman Haqeem\\Documents\\GitHub\\water-level\\convex\\auth.config.ts\")",
+      "Bash(timeout 30 npx convex dev)",
+      "Bash(npm ls:*)",
+      "WebSearch",
+      "Bash(npm run seed:data:mock:*)",
+      "WebFetch(domain:infobanjirjps.selangor.gov.my)",
+      "Bash(node:*)",
+      "Bash(npm run scrape:water-level:*)",
+      "Bash(npx convex run:*)",
+      "Bash(npx convex deploy)",
+      "Bash(grep:*)",
+      "Bash(test:*)",
+      "Bash(npx convex env:*)",
+      "WebFetch(domain:capable-crane-384.convex.cloud)",
+      "WebFetch(domain:capable-crane-384.convex.cloud)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
