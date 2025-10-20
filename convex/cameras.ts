@@ -3,29 +3,35 @@ import { v } from "convex/values";
 
 export const getCamerasWithDetails = query({
   handler: async (ctx) => {
+    // Single query for all enabled cameras
     const cameras = await ctx.db
       .query("cameras")
       .withIndex("by_enabled", (q) => q.eq("isEnabled", true))
       .collect();
-    
-    const camerasWithDetails = await Promise.all(
-      cameras.map(async (camera) => {
-        // Get district
-        const district = await ctx.db.get(camera.districtId);
-        
-        return {
-          id: camera._id,
-          camera_name: camera.cameraName,
-          img_url: camera.imgUrl,
-          jps_camera_id: camera.jpsCameraId,
-          districts: {
-            name: district?.name || "Unknown"
-          }
-        };
-      })
+
+    // Batch load all districts at once
+    const districtIds = Array.from(new Set(cameras.map(c => c.districtId)));
+    const districts = await Promise.all(
+      districtIds.map(id => ctx.db.get(id))
     );
-    
-    return camerasWithDetails;
+    const districtMap = new Map(
+      districts.filter(Boolean).map(d => [d!._id, d!])
+    );
+
+    // Assemble results with lookups (no additional queries!)
+    return cameras.map(camera => {
+      const district = districtMap.get(camera.districtId);
+
+      return {
+        id: camera._id,
+        camera_name: camera.cameraName,
+        img_url: camera.imgUrl,
+        jps_camera_id: camera.jpsCameraId,
+        districts: {
+          name: district?.name || "Unknown"
+        }
+      };
+    });
   },
 });
 

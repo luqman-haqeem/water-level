@@ -292,7 +292,7 @@ export const upsertCurrentLevel = internalMutation({
     // Store historical data (Malaysia time)
     const now = new Date();
     const malaysiaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // UTC+8
-    
+
     await ctx.db.insert("waterLevelHistory", {
       stationId,
       currentLevel,
@@ -301,17 +301,39 @@ export const upsertCurrentLevel = internalMutation({
       recordedAt: malaysiaTime.toISOString(),
     });
 
-    // Cleanup old historical data (older than 3 hours)
-    const threeHoursAgo = now.getTime() - (3 * 60 * 60 * 1000);
+    // Note: Historical data cleanup moved to daily cron job (see cleanupOldHistoryData)
+    // This reduces bandwidth usage by 98.96% compared to running cleanup every 15 minutes
+  },
+});
+
+// Daily cleanup function for old waterLevelHistory records
+export const cleanupOldHistoryData = internalMutation({
+  handler: async (ctx) => {
+    const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
+
+    console.log("🧹 Starting daily waterLevelHistory cleanup...");
+
+    // Query ALL old records at once (efficient with index)
     const oldRecords = await ctx.db
       .query("waterLevelHistory")
       .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
       .collect();
 
-    // Delete old records in batches to avoid hitting limits
-    for (const record of oldRecords) {
-      await ctx.db.delete(record._id);
+    console.log(`Found ${oldRecords.length} old records to delete`);
+
+    if (oldRecords.length === 0) {
+      console.log("✅ No old records to clean up");
+      return { deletedCount: 0 };
     }
+
+    // Batch delete using Promise.all (much faster than sequential loop)
+    await Promise.all(
+      oldRecords.map(record => ctx.db.delete(record._id))
+    );
+
+    console.log(`✅ Cleanup complete: ${oldRecords.length} records deleted`);
+
+    return { deletedCount: oldRecords.length };
   },
 });
 

@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const crons = cronJobs();
 
@@ -22,6 +22,14 @@ crons.weekly(
   "update cameras",
   { dayOfWeek: "sunday", hourUTC: 3, minuteUTC: 0 },
   api.sync.cameraUpdater.updateCameras
+);
+
+// Cleanup old water level history data daily (1 AM UTC = 9 AM Malaysia time)
+// This runs once per day instead of every 15 minutes, reducing operations by 98.96%
+crons.daily(
+  "cleanup old water level history",
+  { hourUTC: 1, minuteUTC: 0 },
+  internal.sync.waterLevelUpdater.cleanupOldHistoryData
 );
 
 export default crons;
