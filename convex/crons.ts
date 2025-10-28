@@ -5,9 +5,13 @@ const crons = cronJobs();
 
 // Only register cron jobs in production environment
 // In development, crons can be manually triggered with: npx convex run <function>
-// Check for dev deployment name pattern (e.g., "capable-crane-384" vs production names)
+// Production deployment: quick-warbler-518 (or prod:quick-warbler-518)
 const deploymentName = process.env.CONVEX_DEPLOYMENT || "";
-const isDev = deploymentName.length === 0 || deploymentName.includes("-") || deploymentName.match(/^[a-z]+-[a-z]+-\d+$/);
+const PRODUCTION_DEPLOYMENT = "quick-warbler-518";
+const isProduction = deploymentName === PRODUCTION_DEPLOYMENT || deploymentName === `prod:${PRODUCTION_DEPLOYMENT}`;
+const isDev = !isProduction;
+
+console.log(`Deployment: ${deploymentName}, isDev: ${isDev}, isProduction: ${isProduction}`);
 
 if (!isDev) {
     // Update water levels every 15 minutes

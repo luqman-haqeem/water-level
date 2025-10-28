@@ -8,6 +8,8 @@ import Head from 'next/head';
 import { initializeOneSignal } from '../utils/oneSignalConfig';
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 // import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import posthog from 'posthog-js'
+import { PostHogProvider } from 'posthog-js/react'
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -29,8 +31,20 @@ export default function App({ Component, pageProps }: AppProps) {
                 .catch((err) => console.error('Service Worker registration failed', err));
         }
     }, []);
+    useEffect(() => {
+        posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
+            api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+            person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
+            defaults: '2025-05-24',
+            // Enable debug mode in development
+            loaded: (posthog) => {
+                if (process.env.NODE_ENV === 'development') posthog.debug()
+            }
+        })
+    }, [])
     return (
-        <>
+        <PostHogProvider client={posthog}>
+
             <Head>
                 <title>River Water Level</title>
             </Head>
@@ -43,6 +57,6 @@ export default function App({ Component, pageProps }: AppProps) {
                     <SpeedInsights />
                 </ThemeProvider>
             </ConvexProvider>
-        </>
+        </PostHogProvider>
     )
 }
