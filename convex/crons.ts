@@ -7,13 +7,10 @@ const crons = cronJobs();
 // In development, crons can be manually triggered with: npx convex run <function>
 // Production deployment: quick-warbler-518 (or prod:quick-warbler-518)
 const deploymentName = process.env.CONVEX_DEPLOYMENT || "";
-const PRODUCTION_DEPLOYMENT = "quick-warbler-518";
-const isProduction = deploymentName === PRODUCTION_DEPLOYMENT || deploymentName === `prod:${PRODUCTION_DEPLOYMENT}`;
-const isDev = !isProduction;
 
-console.log(`Deployment: ${deploymentName}, isDev: ${isDev}, isProduction: ${isProduction}`);
+console.log(`Deployment: ${deploymentName}`);
 
-if (!isDev) {
+if (deploymentName == 'production') {
     // Update water levels every 15 minutes
     crons.interval(
         "update water levels",
