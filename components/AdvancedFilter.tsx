@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,22 +23,9 @@ import {
     TimeIcon
 } from '@/components/icons/IconLibrary'
 import { Id } from "../convex/_generated/dataModel"
+import { useFilter, FilterOptions } from '../lib/FilterContext'
 
-export interface FilterOptions {
-    //   search: string
-    districts: string[]
-    alertLevels: string[]
-    sortBy: 'name' | 'waterLevel' | 'lastUpdated' | 'district'
-    sortOrder: 'asc' | 'desc'
-    showFavoritesOnly: boolean
-    showCameraOnly: boolean
-    showOfflineStations: boolean
-    waterLevelRange: {
-        min: number | null
-        max: number | null
-    }
-}
-
+// Remove the duplicate FilterOptions interface since it's now imported from FilterContext
 interface Station {
     id: Id<"stations"> | number
     station_name: string
@@ -64,18 +51,6 @@ interface AdvancedFilterProps {
     className?: string
 }
 
-const DEFAULT_FILTERS: FilterOptions = {
-    //   search: '',
-    districts: [],
-    alertLevels: [],
-    sortBy: 'name',
-    sortOrder: 'asc',
-    showFavoritesOnly: false,
-    showCameraOnly: false,
-    showOfflineStations: true,
-    waterLevelRange: { min: null, max: null }
-}
-
 export default function AdvancedFilter({
     stations,
     onFilterChange,
@@ -84,7 +59,9 @@ export default function AdvancedFilter({
     className
 }: AdvancedFilterProps) {
     const [isOpen, setIsOpen] = useState(false)
-    const [filters, setFilters] = useState<FilterOptions>(DEFAULT_FILTERS)
+
+    // Use the global filter context instead of local state
+    const { advancedFilters: filters, updateAdvancedFilters, clearAdvancedFilters, hasActiveAdvancedFilters } = useFilter()
 
     // Get unique districts
     const availableDistricts = useMemo(() => {
@@ -102,58 +79,49 @@ export default function AdvancedFilter({
         return stats
     }, [stations])
 
-    // Apply filters and return filtered stations
-    const filteredStations = useMemo(() => {
-        let filtered = [...stations]
-
-        // Search filter
-        // if (filters.search.trim()) {
-        //   const searchTerm = filters.search.toLowerCase()
-        //   filtered = filtered.filter(station =>
-        //     station.station_name.toLowerCase().includes(searchTerm) ||
-        //     station.districts.name.toLowerCase().includes(searchTerm)
-        //   )
-        // }
+    // Helper function to apply filters to stations
+    const applyFiltersToStations = useCallback((stationsToFilter: Station[], filtersToApply: FilterOptions) => {
+        let filtered = [...stationsToFilter]
 
         // District filter
-        if (filters.districts.length > 0) {
+        if (filtersToApply.districts.length > 0) {
             filtered = filtered.filter(station =>
-                filters.districts.includes(station.districts.name)
+                filtersToApply.districts.includes(station.districts.name)
             )
         }
 
         // Alert level filter
-        if (filters.alertLevels.length > 0) {
+        if (filtersToApply.alertLevels.length > 0) {
             filtered = filtered.filter(station =>
-                filters.alertLevels.includes(station.current_levels?.alert_level || '0')
+                filtersToApply.alertLevels.includes(station.current_levels?.alert_level || '0')
             )
         }
 
         // Favorites filter
-        if (filters.showFavoritesOnly && isLoggedIn) {
+        if (filtersToApply.showFavoritesOnly && isLoggedIn) {
             filtered = filtered.filter(station =>
                 favoriteStations.includes(station.id.toString())
             )
         }
 
         // Camera filter
-        if (filters.showCameraOnly) {
+        if (filtersToApply.showCameraOnly) {
             filtered = filtered.filter(station => station.cameras !== null)
         }
 
         // Offline stations filter
-        if (!filters.showOfflineStations) {
+        if (!filtersToApply.showOfflineStations) {
             filtered = filtered.filter(station => station.station_status)
         }
 
         // Water level range filter
-        if (filters.waterLevelRange.min !== null || filters.waterLevelRange.max !== null) {
+        if (filtersToApply.waterLevelRange.min !== null || filtersToApply.waterLevelRange.max !== null) {
             filtered = filtered.filter(station => {
                 const level = station.current_levels?.current_level
                 if (level === undefined) return false
 
-                const minValid = filters.waterLevelRange.min === null || level >= filters.waterLevelRange.min
-                const maxValid = filters.waterLevelRange.max === null || level <= filters.waterLevelRange.max
+                const minValid = filtersToApply.waterLevelRange.min === null || level >= filtersToApply.waterLevelRange.min
+                const maxValid = filtersToApply.waterLevelRange.max === null || level <= filtersToApply.waterLevelRange.max
                 return minValid && maxValid
             })
         }
@@ -162,7 +130,7 @@ export default function AdvancedFilter({
         filtered.sort((a, b) => {
             let comparison = 0
 
-            switch (filters.sortBy) {
+            switch (filtersToApply.sortBy) {
                 case 'name':
                     comparison = a.station_name.localeCompare(b.station_name)
                     break
@@ -181,16 +149,20 @@ export default function AdvancedFilter({
                     break
             }
 
-            return filters.sortOrder === 'desc' ? -comparison : comparison
+            return filtersToApply.sortOrder === 'desc' ? -comparison : comparison
         })
 
         return filtered
-    }, [stations, filters, isLoggedIn, favoriteStations])
+    }, [isLoggedIn, favoriteStations])
 
-    // Update filters and trigger callback
+    // Apply filters and return filtered stations
+    const filteredStations = useMemo(() => {
+        return applyFiltersToStations(stations, filters)
+    }, [stations, filters, applyFiltersToStations])
+
+    // Update filters - no need to call onFilterChange since we use global context
     const updateFilters = (newFilters: Partial<FilterOptions>) => {
-        const updatedFilters = { ...filters, ...newFilters }
-        setFilters(updatedFilters)
+        updateAdvancedFilters(newFilters)
     }
 
     // Apply filters
@@ -207,22 +179,41 @@ export default function AdvancedFilter({
         if (typeof window !== 'undefined') {
             haptics.tap()
         }
-        setFilters(DEFAULT_FILTERS)
-        onFilterChange(stations, DEFAULT_FILTERS)
+        clearAdvancedFilters()
+        onFilterChange(stations, {
+            districts: [],
+            alertLevels: [],
+            sortBy: 'name',
+            sortOrder: 'asc',
+            showFavoritesOnly: false,
+            showCameraOnly: false,
+            showOfflineStations: false, // Updated to match new default
+            waterLevelRange: { min: 0, max: null } // Updated to match new default
+        })
     }
 
-    // Count active filters
-    const activeFilterCount = useMemo(() => {
-        let count = 0
-        // if (filters.search.trim()) count++
-        if (filters.districts.length > 0) count++
-        if (filters.alertLevels.length > 0) count++
-        if (filters.showFavoritesOnly) count++
-        if (filters.showCameraOnly) count++
-        if (!filters.showOfflineStations) count++
-        if (filters.waterLevelRange.min !== null || filters.waterLevelRange.max !== null) count++
-        return count
-    }, [filters])
+    // Count active filters - use the context function
+    const activeFilterCount = hasActiveAdvancedFilters ? Object.keys(filters).reduce((count, key) => {
+        const filterKey = key as keyof FilterOptions
+        switch (filterKey) {
+            case 'districts':
+            case 'alertLevels':
+                return count + (filters[filterKey].length > 0 ? 1 : 0)
+            case 'showFavoritesOnly':
+            case 'showCameraOnly':
+                return count + (filters[filterKey] ? 1 : 0)
+            case 'showOfflineStations':
+                return count + (filters[filterKey] !== false ? 1 : 0) // Updated: false is now default
+            case 'waterLevelRange':
+                return count + ((filters[filterKey].min !== null && filters[filterKey].min !== 0) || filters[filterKey].max !== null ? 1 : 0) // Updated: 0 is now default
+            case 'sortBy':
+                return count + (filters[filterKey] !== 'name' ? 1 : 0)
+            case 'sortOrder':
+                return count + (filters[filterKey] !== 'asc' ? 1 : 0)
+            default:
+                return count
+        }
+    }, 0) : 0
 
     const toggleDistrict = (district: string) => {
         const newDistricts = filters.districts.includes(district)
@@ -266,13 +257,13 @@ export default function AdvancedFilter({
                     size="sm"
                     className={cn(
                         "relative theme-transition-colors",
-                        activeFilterCount > 0 && "border-primary bg-primary/5",
+                        hasActiveAdvancedFilters && "border-primary bg-primary/5",
                         className
                     )}
                 >
                     <FilterIcon size="sm" />
                     <span className="hidden sm:inline sm:ml-2">Filter</span>
-                    {activeFilterCount > 0 && (
+                    {hasActiveAdvancedFilters && (
                         <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs">
                             {activeFilterCount}
                         </Badge>
