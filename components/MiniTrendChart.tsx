@@ -65,10 +65,28 @@ export default function MiniTrendChart({
         const chartWidth = width - (padding * 2)
         const chartHeight = height - (padding * 2)
 
-        // Find data range
+        // Find data range with dynamic scaling for better visibility
         const levels = points.map(p => p.currentLevel)
-        const minLevel = Math.min(...levels, thresholds.normal)
-        const maxLevel = Math.max(...levels, thresholds.danger)
+        const dataMin = Math.min(...levels)
+        const dataMax = Math.max(...levels)
+        const dataRange = dataMax - dataMin
+
+        // Apply dynamic range enhancement for small variations
+        const MINIMUM_RANGE = 2.0 // Minimum 2m range for visibility
+        const RANGE_MULTIPLIER = 1.5 // Amplify small ranges by 50%
+
+        let effectiveRange = dataRange
+        if (dataRange < MINIMUM_RANGE) {
+            effectiveRange = MINIMUM_RANGE
+        } else if (dataRange < 5.0) {
+            // For ranges 0-5m, apply amplification
+            effectiveRange = Math.max(dataRange * RANGE_MULTIPLIER, MINIMUM_RANGE)
+        }
+
+        // Center the enhanced range around the data
+        const dataMidpoint = (dataMax + dataMin) / 2
+        const minLevel = Math.max(dataMidpoint - effectiveRange / 2, Math.min(thresholds.normal, dataMin - 0.5))
+        const maxLevel = Math.min(dataMidpoint + effectiveRange / 2, Math.max(thresholds.danger, dataMax + 0.5))
         const levelRange = maxLevel - minLevel || 1
 
         // Create SVG path points
@@ -99,6 +117,16 @@ export default function MiniTrendChart({
                 alert: getThresholdY(thresholds.alert),
                 warning: getThresholdY(thresholds.warning),
                 danger: getThresholdY(thresholds.danger)
+            },
+            // Add trend analysis
+            trend: {
+                direction: points.length >= 2 ?
+                    (points[points.length - 1].currentLevel > points[0].currentLevel ? 'up' :
+                        points[points.length - 1].currentLevel < points[0].currentLevel ? 'down' : 'stable') : 'stable',
+                change: points.length >= 2 ?
+                    points[points.length - 1].currentLevel - points[0].currentLevel : 0,
+                recentChange: points.length >= 2 ?
+                    points[points.length - 1].currentLevel - points[points.length - 2].currentLevel : 0
             }
         }
     }, [trendData, height, thresholds])
@@ -116,6 +144,22 @@ export default function MiniTrendChart({
 
     const currentAlertLevel = chartData?.points[chartData.points.length - 1]?.alertLevel || 0
     const lineColorClass = getAlertColor(currentAlertLevel)
+
+    // Trend arrow component
+    const TrendArrow = ({ direction, change }: { direction: string, change: number }) => {
+        if (direction === 'stable' || Math.abs(change) < 0.1) return null
+
+        const isUp = direction === 'up'
+        const arrowColor = isUp ? 'text-red-600' : 'text-green-600'
+        const changeText = `${isUp ? '+' : ''}${change.toFixed(1)}m`
+
+        return (
+            <div className={`absolute top-1 right-1 flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-medium ${arrowColor} bg-background/80 backdrop-blur-sm border`}>
+                <span className="text-xs">{isUp ? '↗' : '↘'}</span>
+                <span>{changeText}</span>
+            </div>
+        )
+    }
 
     // Handle point interaction - memoized for performance
     const handlePointInteraction = useCallback((point: TrendDataPoint, event: React.MouseEvent) => {
@@ -165,6 +209,14 @@ export default function MiniTrendChart({
 
     return (
         <div className={cn("relative bg-background rounded-lg border", className)} style={{ height }}>
+            {/* Trend indicator */}
+            {chartData.trend && (
+                <TrendArrow
+                    direction={chartData.trend.direction}
+                    change={chartData.trend.change}
+                />
+            )}
+
             <svg
                 width={chartData.width}
                 height={height}
@@ -214,23 +266,35 @@ export default function MiniTrendChart({
                         key={index}
                         cx={point.x}
                         cy={point.y}
-                        r={6}
-                        className="fill-transparent cursor-pointer hover:fill-primary/20 transition-colors"
+                        r={8}
+                        className="fill-transparent cursor-pointer hover:fill-primary/20 transition-all duration-200"
                         onMouseEnter={(e) => handlePointInteraction(point, e)}
                         onClick={(e) => handlePointInteraction(point, e)}
                     />
                 ))}
 
-                {/* Visible data points */}
-                {chartData.points.map((point, index) => (
-                    <circle
-                        key={`visible-${index}`}
-                        cx={point.x}
-                        cy={point.y}
-                        r={2}
-                        className={`${getAlertColor(point.alertLevel)} fill-current pointer-events-none`}
-                    />
-                ))}
+                {/* Enhanced visible data points */}
+                {chartData.points.map((point, index) => {
+                    const isLatest = index === chartData.points.length - 1
+                    return (
+                        <g key={`visible-${index}`}>
+                            <circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={isLatest ? 4 : 2.5}
+                                className={`${getAlertColor(point.alertLevel)} fill-current pointer-events-none transition-all duration-300`}
+                                filter={isLatest ? "url(#glow)" : undefined}
+                            />
+                            {/* White inner dot for better contrast */}
+                            <circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={isLatest ? 1.5 : 1}
+                                className="fill-background pointer-events-none"
+                            />
+                        </g>
+                    )
+                })}
             </svg>
 
             {/* Tooltip */}
