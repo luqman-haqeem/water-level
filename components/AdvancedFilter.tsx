@@ -271,15 +271,15 @@ export default function AdvancedFilter({
                 </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto theme-transition-colors">
-                <DialogHeader>
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col theme-transition-colors">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
                         <FilterIcon size="md" />
                         Advanced Filters
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-6">
+                <div className="flex-1 overflow-y-auto space-y-6 pr-1">
                     {/* Search */}
                     {/* <div className="space-y-2">
             <label className="text-sm font-medium">Search Stations</label>
@@ -426,7 +426,7 @@ export default function AdvancedFilter({
                     <Separator />
 
                     {/* Water Level Range */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 pb-4">
                         <label className="text-sm font-medium">Water Level Range (meters)</label>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -463,26 +463,31 @@ export default function AdvancedFilter({
                     </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex justify-between pt-4 border-t">
-                    <Button
-                        variant="outline"
-                        onClick={clearFilters}
-                        className="theme-transition-colors"
-                    >
-                        <CloseIcon size="sm" className="mr-2" />
-                        Clear All
-                    </Button>
-                    <div className="flex gap-2">
+                {/* Sticky Action Buttons */}
+                <div className="flex-shrink-0 border-t bg-background/95 backdrop-blur-sm p-4 -mx-6 -mb-6 mt-4">
+                    <div className="flex justify-between items-center">
                         <Button
                             variant="outline"
-                            onClick={() => setIsOpen(false)}
+                            onClick={clearFilters}
+                            className="theme-transition-colors"
                         >
-                            Cancel
+                            <CloseIcon size="sm" className="mr-2" />
+                            Clear All
                         </Button>
-                        <Button onClick={applyFilters}>
-                            Apply Filters ({filteredStations.length} results)
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={applyFilters}
+                                className="font-medium"
+                            >
+                                Apply Filters ({filteredStations.length} results)
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </DialogContent>
