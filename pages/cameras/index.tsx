@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import Head from 'next/head';
 import { Star, Expand, RotateCw, Ellipsis } from 'lucide-react'
 import useSwipeGestures from '@/hooks/useSwipeGestures'
@@ -47,6 +48,10 @@ export async function getStaticProps() {
 
 export default function Component({ cameras: initialCameras }: ComponentProps) {
 
+    // Search state
+    const [searchTerm, setSearchTerm] = useState("")
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
+
     // Fetch data from Convex
     const convex = useConvex();
     const cameras = useQuery(api.cameras.getCamerasWithDetails);
@@ -62,13 +67,37 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
     const { theme, setTheme } = useTheme()
 
-    // Apply favorites filter if enabled
+    // Debounce search term for better performance
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm)
+        }, 300) // 300ms debounce
+
+        return () => clearTimeout(timer)
+    }, [searchTerm])
+
+    // Apply search and favorites filter
     const filteredCameras = useMemo(() => {
-        if (showFavoritesOnly && isLoggedIn) {
-            return camerasData.filter(camera => favCameras.includes(camera.id.toString()));
+        let cameras = camerasData;
+
+        // Apply search filter using debounced search term
+        if (debouncedSearchTerm.trim()) {
+            const searchLower = debouncedSearchTerm.toLowerCase()
+            cameras = cameras.filter(camera => {
+                // Cache the lowercase versions to avoid repeated toLowerCase calls
+                const cameraNameLower = camera.camera_name.toLowerCase()
+                const districtNameLower = camera.districts.name.toLowerCase()
+                return cameraNameLower.includes(searchLower) || districtNameLower.includes(searchLower)
+            })
         }
-        return camerasData;
-    }, [camerasData, showFavoritesOnly, isLoggedIn, favCameras]);
+
+        // Apply favorites filter if enabled
+        if (showFavoritesOnly && isLoggedIn) {
+            cameras = cameras.filter(camera => favCameras.includes(camera.id.toString()));
+        }
+
+        return cameras;
+    }, [camerasData, debouncedSearchTerm, showFavoritesOnly, isLoggedIn, favCameras]);
 
     const openFullscreen = (src: string) => {
         setFullscreenImageSrc(src)
@@ -113,7 +142,7 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
 
     // Camera navigation for fullscreen mode
     const getCurrentCameraIndex = () => {
-        return filteredCameras.findIndex(camera => 
+        return filteredCameras.findIndex(camera =>
             `/api/proxy-image/${camera.jps_camera_id}` === fullscreenImageSrc
         )
     }
@@ -147,7 +176,7 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
             </Head>
             <div className="flex-1 flex flex-col bg-background">
                 {(
-                    <div 
+                    <div
                         ref={pullToRefresh.containerRef}
                         className="flex-1 p-4 sm:p-6 overflow-auto relative min-h-0"
                     >
@@ -161,6 +190,17 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                             <h2 className="text-heading-1">Camera Feeds</h2>
                             <FavoritesFilter isLoggedIn={isLoggedIn} />
                         </div>
+
+                        {/* Search Bar */}
+                        <div className="mb-6">
+                            <Input
+                                placeholder="Search cameras or districts..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="min-h-touch"
+                            />
+                        </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                             {isLoadingCameras ? (
                                 // Show skeleton loading states
@@ -179,15 +219,29 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                                 ))
                             ) : (
                                 <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-                                    <p className="text-body-large text-muted-foreground mb-2">No cameras available</p>
-                                    <p className="text-body text-muted-foreground">Camera feeds will appear here when available</p>
+                                    {debouncedSearchTerm.trim() ? (
+                                        <>
+                                            <p className="text-body-large text-muted-foreground mb-2">No cameras found</p>
+                                            <p className="text-body text-muted-foreground">Try adjusting your search terms or clear the search</p>
+                                        </>
+                                    ) : showFavoritesOnly ? (
+                                        <>
+                                            <p className="text-body-large text-muted-foreground mb-2">No favorite cameras</p>
+                                            <p className="text-body text-muted-foreground">Add cameras to favorites to see them here</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-body-large text-muted-foreground mb-2">No cameras available</p>
+                                            <p className="text-body text-muted-foreground">Camera feeds will appear here when available</p>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>
                         <div className="pb-20"></div>
-                        <FullscreenModal 
-                            open={isFullscreenOpen} 
-                            onOpenChange={closeFullscreen} 
+                        <FullscreenModal
+                            open={isFullscreenOpen}
+                            onOpenChange={closeFullscreen}
                             imageSrc={fullscreenImageSrc}
                             cameraName={getCurrentCamera()?.camera_name || "Camera Feed"}
                             onSwipeLeft={() => navigateToCamera('next')}

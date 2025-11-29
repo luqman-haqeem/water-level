@@ -15,6 +15,7 @@ import {
 } from '@/components/icons/IconLibrary'
 import { Id } from "../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
+import React from 'react'
 
 interface Station {
     id: Id<"stations"> | number

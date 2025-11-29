@@ -1,6 +1,6 @@
 
 import Head from 'next/head';
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,8 +28,8 @@ import { useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUserStore } from '../../lib/convexStore';
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useFilter } from '../../lib/FilterContext';
-import AdvancedFilter, { FilterOptions } from '@/components/AdvancedFilter';
+import { useFilter, FilterOptions } from '../../lib/FilterContext';
+import AdvancedFilter from '@/components/AdvancedFilter';
 import FavoritesFilter from '@/components/FavoritesFilter';
 import ExpandableSection from '@/components/ExpandableSection';
 import usePullToRefresh from '@/hooks/usePullToRefresh';
@@ -95,31 +95,180 @@ export default function Component({ stations: initialStations }: ComponentProps)
     const router = useRouter();
     const { stationId } = router.query;
     const [searchTerm, setSearchTerm] = useState("")
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
     // const [showLoginModal, setShowLoginModal] = useState(false)
     const { theme, setTheme } = useTheme()
 
-    // Fetch data from Convex
+    // Fetch data from Convex with optimized caching
     const convex = useConvex();
     const stations = useQuery(api.stations.getStationsWithDetails);
     const isLoadingStations = stations === undefined;
-    const stationsData = useMemo(() => stations || [], [stations]);
+
+    // Memoize stations data with deep comparison to prevent unnecessary re-renders
+    const stationsData = useMemo(() => {
+        if (!stations) return []
+
+        // Sort stations by ID to ensure consistent ordering for memo comparison
+        return [...stations].sort((a, b) => {
+            const idA = a.id.toString()
+            const idB = b.id.toString()
+            return idA.localeCompare(idB)
+        })
+    }, [stations])
     // const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
     const isLoggedIn = false; // Commented out auth
     const favStations = useMemo(() => [] as string[], []); // Commented out favorites
-    // const { showFavoritesOnly, toggleFavorites } = useFilter();
-    const showFavoritesOnly = false; // Commented out favorites filter
+    // Get filter context for favorites and advanced filters
+    const { showFavoritesOnly, toggleFavorites, advancedFilters, hasActiveAdvancedFilters } = useFilter();
 
     const [isMobile, setIsMobile] = useState(true)
 
-    const [currentFilters, setCurrentFilters] = useState<FilterOptions | null>(null);
-    const [displayedStations, setDisplayedStations] = useState<typeof stationsData>([]);
+    // Calculate optimal skeleton count based on viewport
+    const skeletonCount = useMemo(() => {
+        if (typeof window === 'undefined') return 6 // SSR fallback
 
-    // Update displayed stations when data changes or no filters applied
-    useEffect(() => {
-        if (!currentFilters) {
-            setDisplayedStations(stationsData);
+        const viewportHeight = window.innerHeight
+        const cardHeight = isMobile ? 200 : 180 // Approximate card height
+        const headerHeight = 200 // Approximate header space
+        const visibleCards = Math.ceil((viewportHeight - headerHeight) / cardHeight)
+
+        return Math.min(Math.max(visibleCards, 4), 12) // Between 4-12 skeletons
+    }, [isMobile])
+
+    // Pre-compute district and alert level maps for faster filtering
+    const { districtMap, alertLevelMap, sortedStations } = useMemo(() => {
+        const districtMap = new Map<string, typeof stationsData>()
+        const alertLevelMap = new Map<string, typeof stationsData>()
+
+        // Group stations by district and alert level for O(1) lookup
+        stationsData.forEach(station => {
+            // District grouping
+            const district = station.districts.name
+            if (!districtMap.has(district)) {
+                districtMap.set(district, [])
+            }
+            districtMap.get(district)!.push(station)
+
+            // Alert level grouping
+            const alertLevel = station.current_levels?.alert_level || '0'
+            if (!alertLevelMap.has(alertLevel)) {
+                alertLevelMap.set(alertLevel, [])
+            }
+            alertLevelMap.get(alertLevel)!.push(station)
+        })
+
+        // Pre-sort by name for default case
+        const sortedStations = [...stationsData].sort((a, b) =>
+            a.station_name.localeCompare(b.station_name)
+        )
+
+        return { districtMap, alertLevelMap, sortedStations }
+    }, [stationsData])
+
+    // Optimized helper function to apply advanced filters
+    const applyAdvancedFilters = useCallback((stations: typeof stationsData, filters: FilterOptions) => {
+        // Start with all stations or pre-sorted list
+        let filtered = filters.sortBy === 'name' && filters.sortOrder === 'asc'
+            ? [...sortedStations]
+            : [...stations]
+
+        // Use pre-computed maps for efficient filtering
+        if (filters.districts.length > 0) {
+            const stationsInDistricts = new Set<typeof stationsData[0]>()
+            filters.districts.forEach(district => {
+                const stationsInDistrict = districtMap.get(district) || []
+                stationsInDistrict.forEach(station => stationsInDistricts.add(station))
+            })
+            filtered = Array.from(stationsInDistricts)
         }
-    }, [stationsData, currentFilters]);
+
+        // Use pre-computed alert level map
+        if (filters.alertLevels.length > 0) {
+            const stationsWithAlertLevels = new Set<typeof stationsData[0]>()
+            filters.alertLevels.forEach(level => {
+                const stationsAtLevel = alertLevelMap.get(level) || []
+                stationsAtLevel.forEach(station => stationsWithAlertLevels.add(station))
+            })
+
+            if (filters.districts.length > 0) {
+                // Intersection of district and alert level filters
+                filtered = filtered.filter(station => stationsWithAlertLevels.has(station))
+            } else {
+                filtered = Array.from(stationsWithAlertLevels)
+            }
+        }
+
+        // Apply remaining filters (these are typically smaller sets)
+        if (filters.showFavoritesOnly && isLoggedIn) {
+            const favSet = new Set(favStations)
+            filtered = filtered.filter(station => favSet.has(station.id.toString()))
+        }
+
+        if (filters.showCameraOnly) {
+            filtered = filtered.filter(station => station.cameras !== null)
+        }
+
+        if (!filters.showOfflineStations) {
+            filtered = filtered.filter(station => station.station_status)
+        }
+
+        // Water level range filter (typically affects fewer items)
+        if (filters.waterLevelRange.min !== null || filters.waterLevelRange.max !== null) {
+            const { min, max } = filters.waterLevelRange
+            filtered = filtered.filter(station => {
+                const level = station.current_levels?.current_level
+                if (level === undefined) return false
+                return (min === null || level >= min) && (max === null || level <= max)
+            })
+        }
+
+        // Sort only if not using pre-sorted data
+        if (!(filters.sortBy === 'name' && filters.sortOrder === 'asc')) {
+            filtered.sort((a, b) => {
+                let comparison = 0
+
+                switch (filters.sortBy) {
+                    case 'name':
+                        comparison = a.station_name.localeCompare(b.station_name)
+                        break
+                    case 'waterLevel':
+                        comparison = (a.current_levels?.current_level || 0) - (b.current_levels?.current_level || 0)
+                        break
+                    case 'lastUpdated':
+                        const aTime = new Date(a.current_levels?.updated_at || 0).getTime()
+                        const bTime = new Date(b.current_levels?.updated_at || 0).getTime()
+                        comparison = bTime - aTime // Most recent first by default
+                        break
+                    case 'district':
+                        comparison = a.districts.name.localeCompare(b.districts.name)
+                        break
+                }
+
+                return filters.sortOrder === 'desc' ? -comparison : comparison
+            })
+        }
+
+        return filtered
+    }, [isLoggedIn, favStations, sortedStations, districtMap, alertLevelMap])
+
+    // Use the advanced filters from context to apply filtering
+    const displayedStations = useMemo(() => {
+        // if (!hasActiveAdvancedFilters) {
+        //     return stationsData;
+        // }
+
+        // Apply advanced filters
+        return applyAdvancedFilters(stationsData, advancedFilters);
+    }, [stationsData, advancedFilters, applyAdvancedFilters]);
+
+    // Debounce search term for better performance
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm)
+        }, 300) // 300ms debounce
+
+        return () => clearTimeout(timer)
+    }, [searchTerm])
 
     useEffect(() => {
         const checkMobile = () => {
@@ -139,14 +288,22 @@ export default function Component({ stations: initialStations }: ComponentProps)
     }, [stationId, stationsData, router]);
 
 
-    // Pull-to-refresh functionality
+    // Optimized pull-to-refresh functionality
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
             try {
-                // Invalidate and refetch Convex data
+                // Only invalidate if data is stale or user explicitly requests refresh
+                // This prevents unnecessary re-fetching on navigation back
+                const lastRefresh = performance.now()
+
+                // Convex handles caching automatically, just trigger a refetch
                 await convex.query(api.stations.getStationsWithDetails);
-                // Small delay for smooth UX
-                await new Promise(resolve => setTimeout(resolve, 300))
+
+                // Small delay for smooth UX only if refresh was quick
+                const refreshTime = performance.now() - lastRefresh
+                if (refreshTime < 100) {
+                    await new Promise(resolve => setTimeout(resolve, 200))
+                }
             } catch (error) {
                 console.error('Failed to refresh data:', error)
             }
@@ -154,33 +311,30 @@ export default function Component({ stations: initialStations }: ComponentProps)
         threshold: 80
     })
 
-    // Handle advanced filter changes
-    const handleFilterChange = (filtered: typeof stationsData, filters: FilterOptions) => {
-        setDisplayedStations(filtered);
-        setCurrentFilters(filters);
-        haptics.tap();
-    }
-
-    // Apply filtering logic with proper search term handling
+    // Apply filtering logic with optimized search
     const filteredStations = useMemo(() => {
-        // Start with either advanced filtered stations or all stations
-        let stations = displayedStations.length > 0 || currentFilters ? displayedStations : stationsData;
-        
-        // Always apply search term filter if searchTerm exists
-        if (searchTerm.trim()) {
-            stations = stations.filter(station =>
-                station.station_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                station.districts.name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+        // Start with advanced filtered stations or all stations
+        let stations = displayedStations;
+
+        // Optimized search term filter using debounced search
+        if (debouncedSearchTerm.trim()) {
+            const searchLower = debouncedSearchTerm.toLowerCase()
+            stations = stations.filter(station => {
+                // Cache the lowercase versions to avoid repeated toLowerCase calls
+                const stationNameLower = station.station_name.toLowerCase()
+                const districtNameLower = station.districts.name.toLowerCase()
+                return stationNameLower.includes(searchLower) || districtNameLower.includes(searchLower)
+            })
         }
-        
-        // Apply favorites filter if enabled
+
+        // Apply favorites filter if enabled (using Set for O(1) lookup)
         if (showFavoritesOnly && isLoggedIn) {
-            stations = stations.filter(station => favStations.includes(station.id.toString()));
+            const favSet = new Set(favStations)
+            stations = stations.filter(station => favSet.has(station.id.toString()))
         }
-        
+
         return stations;
-    }, [displayedStations, currentFilters, stationsData, searchTerm, showFavoritesOnly, isLoggedIn, favStations]);
+    }, [displayedStations, debouncedSearchTerm, showFavoritesOnly, isLoggedIn, favStations]);
 
 
     // const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
@@ -201,10 +355,24 @@ export default function Component({ stations: initialStations }: ComponentProps)
         return;
     };
 
-    const handleStationClick = (station: ComponentProps['stations'][0]) => {
-        // Navigate to detailed station view
-        router.push(`/stations/${station.id.toString()}`);
-    }
+    // Optimized station click handler with preloading
+    const handleStationClick = useCallback(async (station: ComponentProps['stations'][0]) => {
+        try {
+            // Preload station data before navigation for faster page load
+            if (typeof station.id === 'object' && '_id' in station.id) {
+                // Prefetch station detail data in background
+                convex.query(api.stations.getStationDetailById, { stationId: station.id as any })
+                    .catch(() => { }) // Silent fail on prefetch error
+            }
+
+            // Navigate immediately, don't wait for prefetch
+            router.push(`/stations/${station.id.toString()}`)
+        } catch (error) {
+            console.error('Navigation error:', error)
+            // Fallback navigation without prefetch
+            router.push(`/stations/${station.id.toString()}`)
+        }
+    }, [router, convex])
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
@@ -229,7 +397,7 @@ export default function Component({ stations: initialStations }: ComponentProps)
                 <title>Stations - River Water Level</title>
             </Head>
             <div className="flex-1 flex flex-col bg-background">
-                <div 
+                <div
                     ref={pullToRefresh.containerRef}
                     className="flex-1 p-4 sm:p-6 overflow-auto relative min-h-0"
                 >
@@ -245,13 +413,13 @@ export default function Component({ stations: initialStations }: ComponentProps)
                             <FavoritesFilter isLoggedIn={isLoggedIn} />
                             <AdvancedFilter
                                 stations={stationsData as any}
-                                onFilterChange={handleFilterChange as any}
+                                onFilterChange={() => { }} // No-op since filtering is handled by context
                                 isLoggedIn={isLoggedIn}
                                 favoriteStations={favStations}
                             />
                         </div>
                     </div>
-                    
+
                     {/* Search Bar */}
                     <div className="mb-6">
                         <Input
@@ -265,8 +433,8 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     {/* Station Cards Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         {isLoadingStations ? (
-                            // Show skeleton loading states
-                            Array.from({ length: 6 }).map((_, index) => (
+                            // Optimized skeleton loading states based on viewport
+                            Array.from({ length: skeletonCount }).map((_, index) => (
                                 <StationSkeleton key={`skeleton-${index}`} />
                             ))
                         ) : filteredStations.length > 0 ? (

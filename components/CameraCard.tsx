@@ -141,9 +141,9 @@ export default function CameraCard({
                         </div>
 
                         {/* Status indicators */}
-                        <div className="absolute top-2 left-2 flex flex-col gap-1">
-                            {/* Live/Offline indicator */}
-                            {hasImageError ? (
+                        {/* <div className="absolute top-2 left-2 flex flex-col gap-1"> */}
+                        {/* Live/Offline indicator */}
+                        {/* {hasImageError ? (
                                 <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
                                     <WifiOff className="h-3 w-3" />
                                     OFFLINE
@@ -153,8 +153,8 @@ export default function CameraCard({
                                     <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                                     LIVE
                                 </div>
-                            )}
-                        </div>
+                            )} */}
+                        {/* </div> */}
 
                         {/* Connection quality indicator */}
                         {!hasImageError && (
