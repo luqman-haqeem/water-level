@@ -41,3 +41,6 @@ new_ui.md
 .mcp.json
 CLAUDE.md
 .claude/
+
+# Local Netlify folder
+.netlify

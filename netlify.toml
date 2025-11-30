@@ -1,0 +1,38 @@
+[build]
+  command = "npm run build"
+  functions = "netlify/functions"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Next.js plugin
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Edge Functions configuration
+[functions]
+  external_node_modules = ["@next/swc-wasm-nodejs"]
+
+# Headers for better caching
+[[headers]]
+  for = "/og/station/*"
+  [headers.values]
+    Cache-Control = "public, s-maxage=300, max-age=300"
+    Content-Type = "image/png"
+
+[[headers]]
+  for = "/api/stations/*"
+  [headers.values]
+    Cache-Control = "public, s-maxage=300, max-age=300"
+
+# Edge Functions
+[[edge_functions]]
+  path = "/og/station/*"
+  function = "og-image"
+
+# Redirects
+[[redirects]]
+  from = "/api/og/station/:stationId"
+  to = "/og/station/:stationId"
+  status = 301
