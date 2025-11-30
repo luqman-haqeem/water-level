@@ -430,7 +430,33 @@ export default function Component({ stations: initialStations }: ComponentProps)
     return (
         <>
             <Head>
-                <title>Stations - River Water Level</title>
+                <title>Water Level Stations - River Monitoring System</title>
+                <meta name="description" content="Monitor real-time water levels across Selangor rivers. Track flood alerts, warning levels, and danger zones with live updates every 15 minutes." />
+
+                {/* Open Graph meta tags for social sharing */}
+                <meta property="og:title" content="Water Level Stations - River Monitoring System" />
+                <meta property="og:description" content="Monitor real-time water levels across Selangor rivers. Track flood alerts, warning levels, and danger zones with live updates." />
+                <meta property="og:type" content="website" />
+                <meta property="og:url" content={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/stations`} />
+
+                {/* Static Open Graph image for stations overview */}
+                <meta property="og:image" content={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/images/og-stations-overview.png`} />
+                <meta property="og:image:width" content="1200" />
+                <meta property="og:image:height" content="630" />
+                <meta property="og:image:alt" content="Water Level Monitoring Stations Overview" />
+
+                {/* Twitter Card meta tags */}
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Water Level Stations - River Monitoring System" />
+                <meta name="twitter:description" content="Monitor real-time water levels across Selangor rivers. Track flood alerts and danger zones." />
+                <meta name="twitter:image" content={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/images/og-stations-overview.png`} />
+
+                {/* Additional SEO meta tags */}
+                <meta name="keywords" content="water level, flood monitoring, Selangor rivers, JPS, real-time alerts, flood warning" />
+                <meta name="author" content="Water Level Monitoring System" />
+
+                {/* Canonical URL */}
+                <link rel="canonical" href={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/stations`} />
             </Head>
             <div className="flex-1 flex flex-col bg-background">
                 <div

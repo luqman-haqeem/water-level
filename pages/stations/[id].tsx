@@ -128,20 +128,20 @@ export default function StationDetail() {
                 <title>{currentStation.station_name} - River Water Level</title>
                 <meta name="description" content={`Current water level: ${currentStation.current_levels?.current_level || '—'} m. Alert level: ${currentStation.current_levels?.alert_level === '0' ? 'Normal' : currentStation.current_levels?.alert_level === '1' ? 'Alert' : currentStation.current_levels?.alert_level === '2' ? 'Warning' : 'Danger'}. ${currentStation.districts.name} district.`} />
 
-                {/* Open Graph meta tags */}
+                {/* Open Graph meta tags - Using Edge Function */}
                 <meta property="og:title" content={`${currentStation.station_name} - Water Level Monitor`} />
                 <meta property="og:description" content={`Current water level: ${currentStation.current_levels?.current_level || '—'} m. Alert level: ${currentStation.current_levels?.alert_level === '0' ? 'Normal' : currentStation.current_levels?.alert_level === '1' ? 'Alert' : currentStation.current_levels?.alert_level === '2' ? 'Warning' : 'Danger'}. ${currentStation.districts.name} district.`} />
-                <meta property="og:image" content={`${process.env.NODE_ENV === 'production' ? 'https://water-level.netlify.app' : 'http://localhost:3000'}/api/og/station/${currentStation.id}`} />
+                <meta property="og:image" content={`${process.env.NODE_ENV === 'production' ? 'https://riverlevel.netlify.app' : 'http://localhost:3000'}/og/station/${currentStation.id}`} />
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content={`${process.env.NODE_ENV === 'production' ? 'https://water-level.netlify.app' : 'http://localhost:3000'}/stations/${currentStation.id}`} />
 
-                {/* Twitter Card meta tags */}
+                {/* Twitter Card meta tags - Using Edge Function */}
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content={`${currentStation.station_name} - Water Level Monitor`} />
                 <meta name="twitter:description" content={`Current water level: ${currentStation.current_levels?.current_level || '—'} m. Alert level: ${currentStation.current_levels?.alert_level === '0' ? 'Normal' : currentStation.current_levels?.alert_level === '1' ? 'Alert' : currentStation.current_levels?.alert_level === '2' ? 'Warning' : 'Danger'}. ${currentStation.districts.name} district.`} />
-                <meta name="twitter:image" content={`${process.env.NODE_ENV === 'production' ? 'https://water-level.netlify.app' : 'http://localhost:3000'}/api/og/station/${currentStation.id}`} />
+                <meta name="twitter:image" content={`${process.env.NODE_ENV === 'production' ? 'https://riverlevel.netlify.app' : 'http://localhost:3000'}/og/station/${currentStation.id}`} />
             </Head>
             <div className="flex-1 flex flex-col bg-background">
                 {/* Header with back button */}
