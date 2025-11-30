@@ -135,7 +135,7 @@ export default function StationDetail() {
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta property="og:type" content="website" />
-                <meta property="og:url" content={`${process.env.NODE_ENV === 'production' ? 'https://water-level.netlify.app' : 'http://localhost:3000'}/stations/${currentStation.id}`} />
+                <meta property="og:url" content={`${process.env.NODE_ENV === 'production' ? 'https://riverlevel.netlify.app' : 'http://localhost:3000'}/stations/${currentStation.id}`} />
 
                 {/* Twitter Card meta tags - Using Edge Function */}
                 <meta name="twitter:card" content="summary_large_image" />
