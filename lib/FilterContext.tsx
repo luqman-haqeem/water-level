@@ -4,7 +4,7 @@ import React, { createContext, useContext, ReactNode, useState, useEffect } from
 export interface FilterOptions {
     districts: string[]
     alertLevels: string[]
-    sortBy: 'name' | 'waterLevel' | 'lastUpdated' | 'district'
+    sortBy: 'name' | 'waterLevel' | 'lastUpdated' | 'district' | 'nearest'
     sortOrder: 'asc' | 'desc'
     showFavoritesOnly: boolean
     showCameraOnly: boolean

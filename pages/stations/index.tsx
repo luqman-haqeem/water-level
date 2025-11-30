@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
 import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
-import { WaterIcon, CameraIcon } from '@/components/icons/IconLibrary'
+import { WaterIcon, CameraIcon, LocationIcon } from '@/components/icons/IconLibrary'
 import useSwipeGestures from '@/hooks/useSwipeGestures'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import StationCard from "@/components/StationCard";
@@ -34,6 +34,8 @@ import FavoritesFilter from '@/components/FavoritesFilter';
 import ExpandableSection from '@/components/ExpandableSection';
 import usePullToRefresh from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/PullToRefreshIndicator';
+import { useLocation } from '@/hooks/useLocation';
+import { calculateDistance, formatDistance, Coordinates } from '@/utils/locationUtils';
 import {
     Popover,
     PopoverContent,
@@ -48,6 +50,8 @@ interface ComponentProps {
     stations: {
         id: Id<"stations"> | number;
         station_name: string;
+        latitude?: number;
+        longitude?: number;
         districts: {
             name: string;
         };
@@ -98,6 +102,10 @@ export default function Component({ stations: initialStations }: ComponentProps)
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
     // const [showLoginModal, setShowLoginModal] = useState(false)
     const { theme, setTheme } = useTheme()
+
+    // Location services for nearest sorting
+    const location = useLocation();
+
 
     // Fetch data from Convex with optimized caching
     const convex = useConvex();
@@ -242,6 +250,24 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     case 'district':
                         comparison = a.districts.name.localeCompare(b.districts.name)
                         break
+                    case 'nearest':
+                        if (!location.coordinates) {
+                            // Fallback to alphabetical if location not available
+                            comparison = a.station_name.localeCompare(b.station_name)
+                        } else {
+                            // Calculate distances for both stations
+                            const userCoords = location.coordinates
+
+                            const distanceA = a.latitude && a.longitude ?
+                                calculateDistance(userCoords, { latitude: a.latitude, longitude: a.longitude }) :
+                                Infinity
+                            const distanceB = b.latitude && b.longitude ?
+                                calculateDistance(userCoords, { latitude: b.latitude, longitude: b.longitude }) :
+                                Infinity
+
+                            comparison = distanceA - distanceB
+                        }
+                        break
                 }
 
                 return filters.sortOrder === 'desc' ? -comparison : comparison
@@ -249,7 +275,7 @@ export default function Component({ stations: initialStations }: ComponentProps)
         }
 
         return filtered
-    }, [isLoggedIn, favStations, sortedStations, districtMap, alertLevelMap])
+    }, [isLoggedIn, favStations, sortedStations, districtMap, alertLevelMap, location.coordinates])
 
     // Use the advanced filters from context to apply filtering
     const displayedStations = useMemo(() => {
@@ -270,7 +296,17 @@ export default function Component({ stations: initialStations }: ComponentProps)
         return () => clearTimeout(timer)
     }, [searchTerm])
 
+    // Request location when 'nearest' sort is selected
     useEffect(() => {
+        if (advancedFilters.sortBy === 'nearest' && !location.coordinates && !location.isLoading) {
+            location.requestLocation();
+        }
+    }, [advancedFilters.sortBy, location]);
+
+    // Debug location changes
+    useEffect(() => {
+        // Location state changes - no debug needed
+    }, [location.coordinates, location.error]); useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth < 768;
             setIsMobile(isMobileDevice);
@@ -361,8 +397,8 @@ export default function Component({ stations: initialStations }: ComponentProps)
             // Preload station data before navigation for faster page load
             if (typeof station.id === 'object' && '_id' in station.id) {
                 // Prefetch station detail data in background
-                convex.query(api.stations.getStationDetailById, { stationId: station.id as any })
-                    .catch(() => { }) // Silent fail on prefetch error
+                convex.query(api.stations.getStationDetailById, { stationId: station.id as Id<"stations"> })
+                    .catch((err) => { console.error('Prefetch station detail error:', err); })
             }
 
             // Navigate immediately, don't wait for prefetch
@@ -430,6 +466,46 @@ export default function Component({ stations: initialStations }: ComponentProps)
                         />
                     </div>
 
+                    {/* Location Status Indicator for Nearest Sorting */}
+                    {advancedFilters.sortBy === 'nearest' && (
+                        <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <LocationIcon size="sm" />
+                                    <span className="text-sm font-medium">
+                                        {location.isLoading ? (
+                                            'Getting your location...'
+                                        ) : location.coordinates ? (
+                                            'Sorting by distance from your location'
+                                        ) : location.error ? (
+                                            'Unable to get location'
+                                        ) : (
+                                            'Location permission needed'
+                                        )}
+                                    </span>
+                                </div>
+                                {!location.coordinates && !location.isLoading && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            haptics.tap();
+                                            location.requestLocation();
+                                        }}
+                                        className="text-xs"
+                                    >
+                                        {location.error ? 'Retry' : 'Allow Location'}
+                                    </Button>
+                                )}
+                            </div>
+                            {location.error && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    {location.error}. Showing alphabetical order as fallback.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {/* Station Cards Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         {isLoadingStations ? (
@@ -438,17 +514,25 @@ export default function Component({ stations: initialStations }: ComponentProps)
                                 <StationSkeleton key={`skeleton-${index}`} />
                             ))
                         ) : filteredStations.length > 0 ? (
-                            filteredStations.map((station) => (
-                                <StationCard
-                                    key={station.id}
-                                    station={station}
-                                    isSelected={false}
-                                    isFavorite={favStations.includes(station.id.toString())}
-                                    showGauge={false}
-                                    onSelect={(station) => handleStationClick(station)}
-                                    onToggleFavorite={(id) => toggleFavorite('station', id)}
-                                />
-                            ))
+                            filteredStations.map((station) => {
+                                // Calculate distance for display if location is available and we're sorting by nearest
+                                const distance = (advancedFilters.sortBy === 'nearest' && location.coordinates && station.latitude && station.longitude)
+                                    ? calculateDistance(location.coordinates, { latitude: station.latitude, longitude: station.longitude })
+                                    : undefined;
+
+                                return (
+                                    <StationCard
+                                        key={station.id}
+                                        station={station}
+                                        isSelected={false}
+                                        isFavorite={favStations.includes(station.id.toString())}
+                                        showGauge={false}
+                                        distance={distance}
+                                        onSelect={(station) => handleStationClick(station)}
+                                        onToggleFavorite={(id) => toggleFavorite('station', id)}
+                                    />
+                                );
+                            })
                         ) : (
                             <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                                 <p className="text-body-large text-muted-foreground mb-2">No stations found</p>

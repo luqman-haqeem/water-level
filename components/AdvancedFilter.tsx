@@ -363,6 +363,7 @@ export default function AdvancedFilter({
                                         <SelectItem value="waterLevel">Water Level</SelectItem>
                                         <SelectItem value="lastUpdated">Last Updated</SelectItem>
                                         <SelectItem value="district">District</SelectItem>
+                                        {/* <SelectItem value="nearest">Nearest to Me</SelectItem> */}
                                     </SelectContent>
                                 </Select>
                             </div>

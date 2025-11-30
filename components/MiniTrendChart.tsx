@@ -174,7 +174,7 @@ export default function MiniTrendChart({
     // Format time for tooltip - memoized for performance
     const formatTime = useCallback((recordedAt: string) => {
         try {
-            // Parse timestamp (already in Malaysian time) and format as 24-hour time
+            // Parse timestamp (already in Malaysian time) and format as 12-hour time
             // Remove 'Z' from timestamp since it's already in Malaysian time, not UTC
             const cleanTimestamp = recordedAt.replace('Z', '')
             return dayjs(cleanTimestamp).format('h:mm A') // 12-hour format like "8:33 PM"
