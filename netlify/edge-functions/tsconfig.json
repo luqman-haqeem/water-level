@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "target": "esnext",
         "lib": [
             "dom",
             "dom.iterable",
@@ -14,21 +15,16 @@
         "moduleResolution": "bundler",
         "resolveJsonModule": true,
         "isolatedModules": true,
-        "jsx": "preserve",
+        "jsx": "react-jsx",
         "incremental": true,
-        "paths": {
-            "@/*": [
-                "./*"
-            ]
-        }
+        "allowImportingTsExtensions": true,
+        "noResolve": false
     },
     "include": [
-        "next-env.d.ts",
-        "**/*.ts",
-        "**/*.tsx"
+        "./**/*.ts",
+        "./**/*.tsx"
     ],
     "exclude": [
-        "node_modules",
-        "netlify/edge-functions/**/*"
+        "node_modules"
     ]
 }
