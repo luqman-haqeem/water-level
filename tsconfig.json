@@ -28,7 +28,6 @@
         "**/*.tsx"
     ],
     "exclude": [
-        "node_modules",
-        "netlify/edge-functions/**/*"
+        "node_modules"
     ]
 }
