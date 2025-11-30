@@ -306,7 +306,7 @@ export default function Component({ stations: initialStations }: ComponentProps)
     // Debug location changes
     useEffect(() => {
         // Location state changes - no debug needed
-    }, [location.coordinates, location.error]);    useEffect(() => {
+    }, [location.coordinates, location.error]); useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth < 768;
             setIsMobile(isMobileDevice);

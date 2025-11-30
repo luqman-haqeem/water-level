@@ -2,9 +2,9 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getStationsWithDetails = query({
-  handler: async (ctx) => {
-    // Single query for all stations
-    const stations = await ctx.db.query("stations").collect();        // Batch load all districts at once
+    handler: async (ctx) => {
+        // Single query for all stations
+        const stations = await ctx.db.query("stations").collect();        // Batch load all districts at once
         const districtIds = Array.from(new Set(stations.map(s => s.districtId)));
         const districts = await Promise.all(
             districtIds.map(id => ctx.db.get(id))
@@ -30,56 +30,56 @@ export const getStationsWithDetails = query({
                 .map(c => [c.stationId!, c])
         );
 
-    // Assemble results with lookups (no additional queries!)
-    return stations.map(station => {
-      const district = districtMap.get(station.districtId);
-      const currentLevel = levelMap.get(station._id);
-      const stationCamera = cameraMap.get(station._id);
+        // Assemble results with lookups (no additional queries!)
+        return stations.map(station => {
+            const district = districtMap.get(station.districtId);
+            const currentLevel = levelMap.get(station._id);
+            const stationCamera = cameraMap.get(station._id);
 
-      // Convert string coordinates to numbers if needed
-      const convertToNumber = (value: any): number | undefined => {
-        if (typeof value === 'number') return value;
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          const parsed = parseFloat(trimmed);
-          return isNaN(parsed) ? undefined : parsed;
-        }
-        if (value === null || value === undefined) {
-          return undefined;
-        }
-        return undefined;
-      };
+            // Convert string coordinates to numbers if needed
+            const convertToNumber = (value: any): number | undefined => {
+                if (typeof value === 'number') return value;
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    const parsed = parseFloat(trimmed);
+                    return isNaN(parsed) ? undefined : parsed;
+                }
+                if (value === null || value === undefined) {
+                    return undefined;
+                }
+                return undefined;
+            };
 
-      const latitude = convertToNumber(station.latitude);
-      const longitude = convertToNumber(station.longitude);
+            const latitude = convertToNumber(station.latitude);
+            const longitude = convertToNumber(station.longitude);
 
-      return {
-        id: station._id,
-        station_name: station.stationName,
-        latitude: latitude,
-        longitude: longitude,
-        districts: {
-          name: district?.name || "Unknown"
-        },
-        current_levels: currentLevel ? {
-          current_level: currentLevel.currentLevel,
-          updated_at: currentLevel.updatedAt,
-          alert_level: currentLevel.alertLevel.toString()
-        } : null,
-        cameras: stationCamera ? {
-          img_url: stationCamera.imgUrl,
-          jps_camera_id: stationCamera.jpsCameraId,
-          is_enabled: stationCamera.isEnabled
-        } : null,
-        normal_water_level: station.normalWaterLevel || 0,
-        alert_water_level: station.alertWaterLevel || 0,
-        warning_water_level: station.warningWaterLevel || 0,
-        danger_water_level: station.dangerWaterLevel || 0,
-        station_status: station.stationStatus
-      };
-    });
-  },
-});export const getStationsByDistrict = query({
+            return {
+                id: station._id,
+                station_name: station.stationName,
+                latitude: latitude,
+                longitude: longitude,
+                districts: {
+                    name: district?.name || "Unknown"
+                },
+                current_levels: currentLevel ? {
+                    current_level: currentLevel.currentLevel,
+                    updated_at: currentLevel.updatedAt,
+                    alert_level: currentLevel.alertLevel.toString()
+                } : null,
+                cameras: stationCamera ? {
+                    img_url: stationCamera.imgUrl,
+                    jps_camera_id: stationCamera.jpsCameraId,
+                    is_enabled: stationCamera.isEnabled
+                } : null,
+                normal_water_level: station.normalWaterLevel || 0,
+                alert_water_level: station.alertWaterLevel || 0,
+                warning_water_level: station.warningWaterLevel || 0,
+                danger_water_level: station.dangerWaterLevel || 0,
+                station_status: station.stationStatus
+            };
+        });
+    },
+}); export const getStationsByDistrict = query({
     args: { districtId: v.id("districts") },
     handler: async (ctx, { districtId }) => {
         return await ctx.db
