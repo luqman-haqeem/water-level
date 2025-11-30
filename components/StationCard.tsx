@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from '@/lib/utils'
 import formatTimestamp from '@/utils/timeUtils'
+import { formatDistance } from '@/utils/locationUtils'
 import AlertLevelBadge from "@/components/AlertLevelBadge"
 import WaterLevelGauge from "@/components/WaterLevelGauge"
 import { haptics } from '@/utils/haptics'
@@ -15,7 +16,6 @@ import {
 } from '@/components/icons/IconLibrary'
 import { Id } from "../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
-import React from 'react'
 
 interface Station {
     id: Id<"stations"> | number
@@ -49,6 +49,7 @@ interface StationCardProps {
     className?: string
     showGauge?: boolean
     compact?: boolean
+    distance?: number // Distance in km for nearest sorting
 }
 
 export default function StationCard({
@@ -59,7 +60,8 @@ export default function StationCard({
     onToggleFavorite,
     className,
     showGauge = false,
-    compact = false
+    compact = false,
+    distance
 }: StationCardProps) {
     const getStatusColor = (alertLevel: string) => {
         const level = parseInt(alertLevel)
@@ -108,7 +110,14 @@ export default function StationCard({
                                 <CameraIcon size="sm" className="text-muted-foreground flex-shrink-0" />
                             )}
                         </div>
-                        <p className="text-metadata truncate">{station.districts.name}</p>
+                        <div className="flex items-center justify-between">
+                            <p className="text-metadata truncate">{station.districts.name}</p>
+                            {distance !== undefined && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                    {formatDistance(distance)}
+                                </Badge>
+                            )}
+                        </div>
                     </div>
 
                     {/* <Button
