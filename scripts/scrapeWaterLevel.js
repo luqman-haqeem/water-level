@@ -15,6 +15,7 @@ if (!convexUrl) {
 
 const convex = new ConvexHttpClient(convexUrl);
 
+
 class WaterLevelScraper {
     constructor() {
         this.baseURL = BASE_URL;
@@ -23,7 +24,7 @@ class WaterLevelScraper {
     async getWaterLevelSummary() {
         try {
             const response = await axios.get(`${this.baseURL}/StationRiverLevels/GetWLStationSummary`);
-            
+
             if (!response.data) {
                 throw new Error('No data received from API');
             }
@@ -60,7 +61,7 @@ class WaterLevelScraper {
     async getDistrictDetails(districtId) {
         try {
             const response = await axios.get(`${this.baseURL}/StationRiverLevels/GetWLAllStationData/${districtId}`);
-            
+
             if (!response.data) {
                 throw new Error(`No station data found for district ${districtId}`);
             }
@@ -110,8 +111,8 @@ class WaterLevelScraper {
     async getAllWaterLevelData() {
         try {
             const summary = await this.getWaterLevelSummary();
-            
-            const districtDetailsPromises = summary.districts.map(district => 
+
+            const districtDetailsPromises = summary.districts.map(district =>
                 this.getDistrictDetails(district.districtId)
             );
 
@@ -143,7 +144,7 @@ class WaterLevelScraper {
     async saveToConvex(data) {
         try {
             console.log('💾 Saving data to Convex...');
-            
+
             // Save summary data
             const summaryId = await convex.mutation("waterLevelData:storeWaterLevelSummary", {
                 districts: data.summary.districts,
@@ -161,7 +162,7 @@ class WaterLevelScraper {
                     districtName: districtDetail.districtName,
                     stations: districtDetail.stations,
                 });
-                
+
                 if (result.success) {
                     totalStationsSaved += result.stationsCount;
                 }
@@ -185,17 +186,17 @@ class WaterLevelScraper {
     async saveToFile(data, filename = null) {
         const fs = require('fs').promises;
         const path = require('path');
-        
+
         if (!filename) {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             filename = `water-level-data-${timestamp}.json`;
         }
 
         const filepath = path.join(__dirname, '..', 'data', filename);
-        
+
         // Ensure data directory exists
         await fs.mkdir(path.dirname(filepath), { recursive: true });
-        
+
         await fs.writeFile(filepath, JSON.stringify(data, null, 2));
         console.log(`Data saved to: ${filepath}`);
         return filepath;
@@ -205,10 +206,10 @@ class WaterLevelScraper {
 // CLI usage
 async function main() {
     const scraper = new WaterLevelScraper();
-    
+
     try {
         console.log('🌊 Starting water level data scraping...');
-        
+
         const args = process.argv.slice(2);
         const command = args[0] || 'all';
 
@@ -220,7 +221,7 @@ async function main() {
                 console.log(`Overall Status: ${summary.overallStatus}`);
                 console.log(`Total Districts: ${summary.totalDistricts}`);
                 console.log(`Timestamp: ${summary.timestamp}\n`);
-                
+
                 summary.districts.forEach(district => {
                     console.log(`${district.districtName}:`);
                     console.log(`  Total Stations: ${district.totalStations} (Online: ${district.onlineStations}, Offline: ${district.offlineStations})`);
@@ -244,10 +245,10 @@ async function main() {
                 console.log('🔍 Fetching complete water level data...');
                 const fileData = await scraper.getAllWaterLevelData();
                 console.log(`✅ Retrieved data for ${fileData.details.length} districts`);
-                
+
                 const filepath = await scraper.saveToFile(fileData);
                 console.log(`💾 Data saved to: ${filepath}`);
-                
+
                 console.log('\n=== FILE SAVE SUMMARY ===');
                 console.log(`Overall Status: ${fileData.summary.overallStatus}`);
                 console.log(`Total Districts: ${fileData.summary.totalDistricts}`);
@@ -259,9 +260,9 @@ async function main() {
                 console.log('🔍 Fetching complete water level data...');
                 const allData = await scraper.getAllWaterLevelData();
                 console.log(`✅ Retrieved data for ${allData.details.length} districts`);
-                
+
                 const convexResult = await scraper.saveToConvex(allData);
-                
+
                 console.log('\n=== CONVEX SAVE SUMMARY ===');
                 console.log(`Summary ID: ${convexResult.summaryId}`);
                 console.log(`Districts Saved: ${convexResult.districtsCount}`);

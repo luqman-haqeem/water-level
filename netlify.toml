@@ -5,6 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  NEXT_PUBLIC_CONVEX_URL = "https://quick-warbler-518.convex.cloud"
 
 # Next.js plugin
 [[plugins]]
