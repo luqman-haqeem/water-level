@@ -4,16 +4,8 @@ require('dotenv').config({ path: '.env.local' });
 
 const BASE_URL = 'https://infobanjirjps.selangor.gov.my/JPSAPI/api';
 
-// Initialize Convex client
-const convexUrl = process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL;
-console.log('Using Convex URL:', convexUrl);
-
-if (!convexUrl) {
-    console.error('CONVEX_URL or NEXT_PUBLIC_CONVEX_URL environment variable is required');
-    process.exit(1);
-}
-
-const convex = new ConvexHttpClient(convexUrl);
+// Initialize Convex client - no URL needed, uses CONVEX_DEPLOY_KEY
+const convex = new ConvexHttpClient();
 
 class WaterLevelScraper {
     constructor() {
