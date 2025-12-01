@@ -1,6 +1,6 @@
-import type { Config, Context } from "https://edge.netlify.com/v1/mod.ts";
+import type { Config, Context } from "@netlify/edge-functions";
 import { ImageResponse } from "https://deno.land/x/og_edge/mod.ts";
-import React from "https://esm.sh/react@18.2.0";
+import React from "https://esm.sh/react";
 
 // Styles for the Open Graph image
 const STYLES = {
