@@ -23,8 +23,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Return the station data for the edge function
-        res.setHeader('Cache-Control', 'public, s-maxage=300, max-age=300');
+        res.setHeader('Cache-Control', 'public, s-maxage=1800, max-age=1800, stale-while-revalidate=3600'); // Cache for 30 minutes, allow stale for 1 hour
         res.status(200).json(stationData);
+
     } catch (error) {
         console.error('Error fetching station data:', error);
         res.status(500).json({ error: 'Failed to fetch station data' });
