@@ -1,196 +1,4 @@
 import type { Config, Context } from "https://edge.netlify.com/v1/mod.ts";
-import { ImageResponse } from "https://deno.land/x/og_edge/mod.ts";
-import React from "https://esm.sh/react@18.2.0";
-
-// Styles for the Open Graph image
-const STYLES = {
-    wrapper: {
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column" as const,
-        backgroundColor: "#ffffff",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-    },
-
-    // Centered layout (no camera)
-    centeredWrapper: {
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column" as const,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        backgroundColor: "#ffffff",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        padding: "40px",
-    },
-
-    // Two-column layout (with camera)
-    twoColumnWrapper: {
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "row" as const,
-        backgroundColor: "#ffffff",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        padding: "40px",
-    },
-
-    leftColumn: {
-        display: "flex",
-        flexDirection: "column" as const,
-        flex: 1,
-        paddingRight: "40px",
-    },
-
-    rightColumn: {
-        display: "flex",
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        width: "420px",
-    },
-
-    // Typography
-    stationName: {
-        fontSize: 56,
-        fontWeight: 700,
-        color: "#1F2937",
-        marginBottom: "20px",
-        textAlign: "center" as const,
-    },
-
-    stationNameLeft: {
-        fontSize: 56,
-        fontWeight: 700,
-        color: "#1F2937",
-        marginBottom: "20px",
-    },
-
-    district: {
-        fontSize: 28,
-        color: "#6B7280",
-        marginBottom: "30px",
-        textAlign: "center" as const,
-    },
-
-    districtLeft: {
-        fontSize: 28,
-        color: "#6B7280",
-        marginBottom: "30px",
-    },
-
-    alertBadge: {
-        padding: "15px 30px",
-        borderRadius: "15px",
-        fontSize: 28,
-        fontWeight: 700,
-        color: "#FFFFFF",
-        marginBottom: "40px",
-        textAlign: "center" as const,
-        alignSelf: "center" as const,
-        width: "200px",
-    },
-
-    alertBadgeLeft: {
-        padding: "15px 30px",
-        borderRadius: "15px",
-        fontSize: 28,
-        fontWeight: 700,
-        color: "#FFFFFF",
-        marginBottom: "30px",
-        textAlign: "center" as const,
-        width: "200px",
-    },
-
-    waterLevel: {
-        fontSize: 140,
-        fontWeight: 700,
-        color: "#1F2937",
-        marginBottom: "20px",
-        textAlign: "center" as const,
-    },
-
-    waterLevelLeft: {
-        fontSize: 80,
-        fontWeight: 700,
-        color: "#1F2937",
-        marginBottom: "20px",
-    },
-
-    waterLevelLabel: {
-        fontSize: 32,
-        color: "#6B7280",
-        marginBottom: "40px",
-        textAlign: "center" as const,
-    },
-
-    waterLevelLabelLeft: {
-        fontSize: 28,
-        color: "#6B7280",
-        marginBottom: "30px",
-    },
-
-    lastUpdated: {
-        fontSize: 24,
-        color: "#6B7280",
-        marginBottom: "20px",
-        textAlign: "center" as const,
-    },
-
-    lastUpdatedLeft: {
-        fontSize: 22,
-        color: "#6B7280",
-        marginBottom: "20px",
-    },
-
-    status: {
-        fontSize: 26,
-        color: "#374151",
-        display: "flex",
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        gap: "12px",
-    },
-
-    statusLeft: {
-        fontSize: 24,
-        color: "#374151",
-        display: "flex",
-        alignItems: "center" as const,
-        gap: "12px",
-    },
-
-    statusDot: {
-        width: "16px",
-        height: "16px",
-        borderRadius: "50%",
-    },
-
-    cameraImage: {
-        width: "420px",
-        height: "420px",
-        borderRadius: "20px",
-        objectFit: "cover" as const,
-    },
-
-    cameraPlaceholder: {
-        width: "420px",
-        height: "420px",
-        borderRadius: "20px",
-        backgroundColor: "#F3F4F6",
-        display: "flex",
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        flexDirection: "column" as const,
-    },
-
-    cameraPlaceholderText: {
-        fontSize: 24,
-        color: "#9CA3AF",
-        fontWeight: 700,
-    },
-};
 
 // Alert level color mapping
 const ALERT_COLORS = {
@@ -201,142 +9,218 @@ const ALERT_COLORS = {
     "offline": { bg: "#6B7280", label: "OFFLINE" },
 };
 
-function formatDateTime(dateString?: string) {
-    if (!dateString) return "No recent data";
-
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleString("en-MY", {
-            timeZone: "Asia/Kuala_Lumpur",
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    } catch {
-        return "Invalid date";
-    }
-}
-
 function getAlertInfo(alertLevel: string, isOnline: boolean) {
     if (!isOnline) return ALERT_COLORS.offline;
     return ALERT_COLORS[alertLevel as keyof typeof ALERT_COLORS] || ALERT_COLORS.offline;
 }
 
-// Function to fetch only current water level (minimal API call)
-async function getCurrentWaterLevel(stationId: string) {
+// Secure function to fetch station data from your API
+async function getStationData(stationId: string, origin: string) {
     try {
-        // Only fetch current level - much smaller payload
-        const convexUrl = "https://quick-warbler-518.convex.cloud";
-        const response = await fetch(`${convexUrl}/api/query`, {
-            method: "POST",
+        console.log(`Fetching secure data for station: ${stationId}`);
+
+        // Use your API route to get verified station data
+        const apiUrl = `${origin}/api/stations/${stationId}`;
+        const response = await fetch(apiUrl, {
             headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                path: "waterLevelData:getCurrentLevelByStationId", // Assuming you have this function
-                args: { stationId: stationId }
-            })
+                'Accept': 'application/json',
+                'User-Agent': 'Netlify Edge Function OG Generator'
+            }
         });
 
         if (!response.ok) {
-            console.log(`Current level API failed: ${response.status}`);
+            console.error(`API response error: ${response.status}`);
             return null;
         }
 
-        const result = await response.json();
-        return result;
+        const data = await response.json();
+        console.log(`Successfully fetched verified data for station: ${stationId}`);
+        return data;
     } catch (error) {
-        console.log("Failed to fetch current level, using URL fallback");
+        console.error("Error fetching station data:", error);
         return null;
     }
 }
 
-export default async (request: Request, context: Context) => {
-    const { stationId } = context.params;
-    const url = new URL(request.url);
+const handler = async (request: Request, context: Context) => {
+    try {
+        const { stationId } = context.params;
+        const { origin } = new URL(request.url);
 
-    if (!stationId) {
-        return new Response("Station ID is required", { status: 400 });
-    }
+        if (!stationId) {
+            return new Response("Station ID is required", { status: 400 });
+        }
 
-    // Extract station data from URL parameters (reliable fallback)
-    const stationName = url.searchParams.get('name') || "Unknown Station";
-    const district = url.searchParams.get('district') || "Unknown District";
-    const fallbackLevel = parseFloat(url.searchParams.get('level') || "0");
-    const fallbackAlert = url.searchParams.get('alert') || "0";
-    const fallbackUpdated = url.searchParams.get('updated') || new Date().toISOString();
-    const fallbackOnline = url.searchParams.get('online') === 'true';
-    const cameraUrl = url.searchParams.get('camera') || null;
+        // SECURITY: Fetch data from verified API instead of URL parameters
+        const stationData = await getStationData(stationId, origin);
 
-    // Try to get real-time water level (optional enhancement)
-    const currentData = await getCurrentWaterLevel(stationId);
+        if (!stationData) {
+            // Fallback: Create a safe default image when API is unavailable
+            const svg = `
+                <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="1200" height="630" fill="#ffffff"/>
+                    <text x="600" y="280" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="48" font-weight="700" fill="#1F2937">
+                        Water Level Monitoring
+                    </text>
+                    <text x="600" y="340" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="32" fill="#6B7280">
+                        Station Data Loading...
+                    </text>
+                    <text x="600" y="400" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="24" fill="#9CA3AF">
+                        Please visit our website for live updates
+                    </text>
+                </svg>
+            `;
 
-    // Use real-time data if available, otherwise fallback to URL params
-    const currentLevel = currentData?.current_level ?? fallbackLevel;
-    const alertLevel = currentData?.alert_level ?? fallbackAlert;
-    const updatedAt = currentData?.updated_at ?? fallbackUpdated;
-    const isOnline = currentData ? (currentData.station_status ?? fallbackOnline) : fallbackOnline;
-    const hasCameraImage = cameraUrl && url.searchParams.get('cameraEnabled') === 'true';
+            return new Response(svg, {
+                headers: {
+                    'Content-Type': 'image/svg+xml',
+                    'Cache-Control': 'public, s-maxage=60, max-age=60' // Shorter cache for fallback
+                }
+            });
+        }
 
-    const alertInfo = getAlertInfo(alertLevel, isOnline);
-    const lastUpdated = formatDateTime(updatedAt);
+        // Extract verified data
+        const stationName = stationData.station_name || "Unknown Station";
+        const district = stationData.districts?.name || "Unknown District";
+        const currentLevel = stationData.current_levels?.current_level || 0;
+        const alertLevel = stationData.current_levels?.alert_level || "0";
+        const isOnline = stationData.station_status || false;
+        const cameraUrl = stationData.cameras?.img_url;
+        const cameraEnabled = stationData.cameras?.is_enabled;
 
-    // Choose layout based on camera availability
-    if (hasCameraImage) {
-        // Two-column layout with camera
-        return new ImageResponse(
-            (
-                <div style={STYLES.twoColumnWrapper}>
-                    <div style={STYLES.leftColumn}>
-                        <div style={STYLES.stationNameLeft}>
-                            {stationName.length > 25 ? stationName.substring(0, 22) + "..." : stationName}
-                        </div>
-                        <div style={STYLES.districtLeft}>{district} District</div>
-                        <div style={{ ...STYLES.alertBadgeLeft, backgroundColor: alertInfo.bg }}>
-                            {alertInfo.label}
-                        </div>
-                        <div style={STYLES.waterLevelLeft}>{currentLevel.toFixed(2)}m</div>
-                        <div style={STYLES.waterLevelLabelLeft}>Current Water Level</div>
-                        <div style={STYLES.lastUpdatedLeft}>Last Updated: {lastUpdated}</div>
-                        <div style={STYLES.statusLeft}>
-                            <div style={{ ...STYLES.statusDot, backgroundColor: isOnline ? "#10B981" : "#EF4444" }}></div>
-                            Station {isOnline ? "Online" : "Offline"}
-                        </div>
-                    </div>
-                    <div style={STYLES.rightColumn}>
-                        <img src={cameraUrl} alt="Live Camera" style={STYLES.cameraImage} />
-                    </div>
-                </div>
-            ),
-            { width: 1200, height: 630 }
-        );
-    } else {
-        // Centered layout without camera
-        return new ImageResponse(
-            (
-                <div style={STYLES.centeredWrapper}>
-                    <div style={STYLES.stationName}>
-                        {stationName.length > 25 ? stationName.substring(0, 22) + "..." : stationName}
-                    </div>
-                    <div style={STYLES.district}>{district} District</div>
-                    <div style={{ ...STYLES.alertBadge, backgroundColor: alertInfo.bg }}>
-                        {alertInfo.label}
-                    </div>
-                    <div style={STYLES.waterLevel}>{currentLevel.toFixed(2)}m</div>
-                    <div style={STYLES.waterLevelLabel}>Current Water Level</div>
-                    <div style={STYLES.lastUpdated}>Last Updated: {lastUpdated}</div>
-                    <div style={STYLES.status}>
-                        <div style={{ ...STYLES.statusDot, backgroundColor: isOnline ? "#10B981" : "#EF4444" }}></div>
-                        Station {isOnline ? "Online" : "Offline"}
-                    </div>
-                </div>
-            ),
-            { width: 1200, height: 630 }
-        );
+        const alertInfo = getAlertInfo(alertLevel, isOnline);
+        const statusColor = isOnline ? "#10B981" : "#EF4444";
+        const hasCameraImage = cameraUrl && cameraEnabled;
+
+        // Create SVG OG image with camera support
+        let svg: string;
+
+        if (hasCameraImage) {
+            // Two-column layout with camera
+            svg = `
+                <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Background -->
+                    <rect width="1200" height="630" fill="#ffffff"/>
+                    
+                    <!-- Left Column Content -->
+                    <!-- Station Name -->
+                    <text x="300" y="80" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="48" font-weight="700" fill="#1F2937">
+                        ${stationName.length > 20 ? stationName.substring(0, 17) + "..." : stationName}
+                    </text>
+                    
+                    <!-- District -->
+                    <text x="300" y="120" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="24" fill="#6B7280">
+                        ${district} District
+                    </text>
+                    
+                    <!-- Alert Badge -->
+                    <rect x="200" y="140" width="200" height="50" rx="12" fill="${alertInfo.bg}"/>
+                    <text x="300" y="172" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="24" font-weight="700" fill="#FFFFFF">
+                        ${alertInfo.label}
+                    </text>
+                    
+                    <!-- Water Level -->
+                    <text x="300" y="270" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="80" font-weight="700" fill="#1F2937">
+                        ${currentLevel.toFixed(2)}m
+                    </text>
+                    
+                    <!-- Water Level Label -->
+                    <text x="300" y="310" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="24" fill="#6B7280">
+                        Current Water Level
+                    </text>
+                    
+                    <!-- Status -->
+                    <circle cx="270" cy="360" r="6" fill="${statusColor}"/>
+                    <text x="285" y="365" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="20" fill="#374151">
+                        Station ${isOnline ? "Online" : "Offline"}
+                    </text>
+                    
+                    <!-- Camera Image -->
+                    <rect x="650" y="115" width="420" height="420" rx="20" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>
+                    <image x="650" y="115" width="420" height="420" href="${cameraUrl}" preserveAspectRatio="xMidYMid slice">
+                        <title>Live Camera Feed</title>
+                    </image>
+                    
+                    <!-- Camera Label -->
+                    <text x="860" y="570" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="18" fill="#6B7280">
+                        Live Camera
+                    </text>
+                </svg>
+            `;
+        } else {
+            // Centered layout without camera (original design)
+            svg = `
+                <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Background -->
+                    <rect width="1200" height="630" fill="#ffffff"/>
+                    
+                    <!-- Station Name -->
+                    <text x="600" y="120" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="56" font-weight="700" fill="#1F2937">
+                        ${stationName.length > 25 ? stationName.substring(0, 22) + "..." : stationName}
+                    </text>
+                    
+                    <!-- District -->
+                    <text x="600" y="170" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="28" fill="#6B7280">
+                        ${district} District
+                    </text>
+                    
+                    <!-- Alert Badge -->
+                    <rect x="500" y="200" width="200" height="60" rx="15" fill="${alertInfo.bg}"/>
+                    <text x="600" y="240" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="28" font-weight="700" fill="#FFFFFF">
+                        ${alertInfo.label}
+                    </text>
+                    
+                    <!-- Water Level -->
+                    <text x="600" y="360" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="140" font-weight="700" fill="#1F2937">
+                        ${currentLevel.toFixed(2)}m
+                    </text>
+                    
+                    <!-- Water Level Label -->
+                    <text x="600" y="420" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="32" fill="#6B7280">
+                        Current Water Level
+                    </text>
+                    
+                    <!-- Status -->
+                    <circle cx="570" cy="500" r="8" fill="${statusColor}"/>
+                    <text x="590" y="507" font-family="system-ui, -apple-system, sans-serif" 
+                          font-size="26" fill="#374151">
+                        Station ${isOnline ? "Online" : "Offline"}
+                    </text>
+                </svg>
+            `;
+        }
+
+        return new Response(svg, {
+            headers: {
+                'Content-Type': 'image/svg+xml',
+                'Cache-Control': 'public, s-maxage=300, max-age=300'
+            }
+        });
+    } catch (error) {
+        console.error('OG Image generation error:', error);
+        return new Response(`Error generating image`, {
+            status: 500,
+            headers: { 'Content-Type': 'text/plain' }
+        });
     }
 };
+
+export default handler;
 
 export const config: Config = {
     path: "/og/station/:stationId"

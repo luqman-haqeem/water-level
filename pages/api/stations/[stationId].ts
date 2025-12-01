@@ -3,7 +3,8 @@ import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../convex/_generated/api';
 import { Id } from '../../../convex/_generated/dataModel';
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Use the production Convex URL directly for reliability
+const convex = new ConvexHttpClient("https://quick-warbler-518.convex.cloud");
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { stationId } = req.query;

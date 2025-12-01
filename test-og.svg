@@ -1,0 +1,44 @@
+
+            <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+                <!-- Background -->
+                <rect width="1200" height="630" fill="#ffffff"/>
+                
+                <!-- Station Name -->
+                <text x="600" y="120" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                      font-size="56" font-weight="700" fill="#1F2937">
+                    Sungai Klang
+                </text>
+                
+                <!-- District -->
+                <text x="600" y="170" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                      font-size="28" fill="#6B7280">
+                    Selangor District
+                </text>
+                
+                <!-- Alert Badge -->
+                <rect x="500" y="200" width="200" height="60" rx="15" fill="#F59E0B"/>
+                <text x="600" y="240" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                      font-size="28" font-weight="700" fill="#FFFFFF">
+                    ALERT
+                </text>
+                
+                <!-- Water Level -->
+                <text x="600" y="360" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                      font-size="140" font-weight="700" fill="#1F2937">
+                    1.25m
+                </text>
+                
+                <!-- Water Level Label -->
+                <text x="600" y="420" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" 
+                      font-size="32" fill="#6B7280">
+                    Current Water Level
+                </text>
+                
+                <!-- Status -->
+                <circle cx="570" cy="500" r="8" fill="#10B981"/>
+                <text x="590" y="507" font-family="system-ui, -apple-system, sans-serif" 
+                      font-size="26" fill="#374151">
+                    Station Online
+                </text>
+            </svg>
+        

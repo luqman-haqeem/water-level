@@ -1,45 +1,33 @@
-// Utility to generate OG image URLs with station data as parameters
-// This ensures OG images always work, even if API is down
+// SECURE Utility to generate OG image URLs
+// No longer accepts user parameters - all data comes from verified API
 
-export function generateOGImageUrl(baseUrl: string, stationData: {
-    id: string;
-    station_name: string;
-    districts?: { name: string };
-    current_levels?: {
-        current_level: number;
-        alert_level: string;
-        updated_at: string;
-    };
-    station_status: boolean;
-    cameras?: {
-        img_url?: string;
-        is_enabled?: boolean;
-    };
-}): string {
-    const params = new URLSearchParams();
-
-    // Always include basic station info (fallback data)
-    params.set('name', stationData.station_name);
-    params.set('district', stationData.districts?.name || 'Unknown');
-    params.set('online', stationData.station_status.toString());
-
-    // Include current level data if available
-    if (stationData.current_levels) {
-        params.set('level', stationData.current_levels.current_level.toString());
-        params.set('alert', stationData.current_levels.alert_level);
-        params.set('updated', stationData.current_levels.updated_at);
-    }
-
-    // Include camera info if available
-    if (stationData.cameras?.img_url) {
-        params.set('camera', stationData.cameras.img_url);
-        params.set('cameraEnabled', stationData.cameras.is_enabled?.toString() || 'false');
-    }
-
-    return `${baseUrl}/og/station/${stationData.id}?${params.toString()}`;
+export function generateSecureOGImageUrl(baseUrl: string, stationId: string): string {
+    // SECURITY: Only station ID is needed, all data fetched from secure API
+    return `${baseUrl}/og/station/${stationId}`;
 }
 
 // Example usage in your station detail page:
+/*
+// pages/stations/[id].tsx
+export async function generateMetadata({ params }: { params: { id: string } }) {    
+    return {
+        openGraph: {
+            images: [generateSecureOGImageUrl('https://riverlevel.netlify.app', params.id)]
+        }
+    };
+}
+
+// URLs are now secure and simple:
+// /og/station/01GR7RMHC5S9TZQMHEBK5AV2KT (gets real data from API)
+// /og/station/invalid-id (shows fallback image)
+
+// Benefits:
+// ✅ No user manipulation possible
+// ✅ All data verified from database
+// ✅ Fallback for API issues
+// ✅ Clean, simple URLs
+// ✅ Cache-friendly
+*/// Example usage in your station detail page:
 /*
 // pages/stations/[id].tsx
 export async function generateMetadata({ params }: { params: { id: string } }) {
