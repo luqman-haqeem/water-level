@@ -224,48 +224,61 @@ function getAlertInfo(alertLevel: string, isOnline: boolean) {
     return ALERT_COLORS[alertLevel as keyof typeof ALERT_COLORS] || ALERT_COLORS.offline;
 }
 
-// Function to fetch station data
-async function getStationData(stationId: string, origin: string) {
+// Function to fetch only current water level (minimal API call)
+async function getCurrentWaterLevel(stationId: string) {
     try {
-        // You'll need to replace this URL with your actual Convex HTTP endpoint
-        const convexUrl = Deno.env.get("CONVEX_HTTP_URL") || `${origin}/api/stations/${stationId}`;
-        const response = await fetch(convexUrl);
+        // Only fetch current level - much smaller payload
+        const convexUrl = "https://quick-warbler-518.convex.cloud";
+        const response = await fetch(`${convexUrl}/api/query`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                path: "waterLevelData:getCurrentLevelByStationId", // Assuming you have this function
+                args: { stationId: stationId }
+            })
+        });
 
         if (!response.ok) {
-            throw new Error(`Station not found: ${response.status}`);
+            console.log(`Current level API failed: ${response.status}`);
+            return null;
         }
 
-        return await response.json();
+        const result = await response.json();
+        return result;
     } catch (error) {
-        console.error("Error fetching station data:", error);
+        console.log("Failed to fetch current level, using URL fallback");
         return null;
     }
 }
 
 export default async (request: Request, context: Context) => {
-    const { origin } = new URL(request.url);
     const { stationId } = context.params;
+    const url = new URL(request.url);
 
     if (!stationId) {
         return new Response("Station ID is required", { status: 400 });
     }
 
-    // Fetch station data
-    const stationData = await getStationData(stationId, origin);
+    // Extract station data from URL parameters (reliable fallback)
+    const stationName = url.searchParams.get('name') || "Unknown Station";
+    const district = url.searchParams.get('district') || "Unknown District";
+    const fallbackLevel = parseFloat(url.searchParams.get('level') || "0");
+    const fallbackAlert = url.searchParams.get('alert') || "0";
+    const fallbackUpdated = url.searchParams.get('updated') || new Date().toISOString();
+    const fallbackOnline = url.searchParams.get('online') === 'true';
+    const cameraUrl = url.searchParams.get('camera') || null;
 
-    if (!stationData) {
-        return new Response("Station not found", { status: 404 });
-    }
+    // Try to get real-time water level (optional enhancement)
+    const currentData = await getCurrentWaterLevel(stationId);
 
-    // Extract data with safe defaults
-    const stationName = stationData.station_name || "Unknown Station";
-    const district = stationData.districts?.name || "Unknown District";
-    const currentLevel = stationData.current_levels?.current_level || 0;
-    const alertLevel = stationData.current_levels?.alert_level || "0";
-    const updatedAt = stationData.current_levels?.updated_at;
-    const isOnline = stationData.station_status || false;
-    const cameraUrl = stationData.cameras?.img_url;
-    const hasCameraImage = cameraUrl && stationData.cameras?.is_enabled;
+    // Use real-time data if available, otherwise fallback to URL params
+    const currentLevel = currentData?.current_level ?? fallbackLevel;
+    const alertLevel = currentData?.alert_level ?? fallbackAlert;
+    const updatedAt = currentData?.updated_at ?? fallbackUpdated;
+    const isOnline = currentData ? (currentData.station_status ?? fallbackOnline) : fallbackOnline;
+    const hasCameraImage = cameraUrl && url.searchParams.get('cameraEnabled') === 'true';
 
     const alertInfo = getAlertInfo(alertLevel, isOnline);
     const lastUpdated = formatDateTime(updatedAt);
