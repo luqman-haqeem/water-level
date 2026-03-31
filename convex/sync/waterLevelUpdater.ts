@@ -311,13 +311,15 @@ export const upsertCurrentLevel = internalMutation({
 export const cleanupOldHistoryData = internalMutation({
     handler: async (ctx) => {
         const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
-        const BATCH_SIZE = 1000; // Process in smaller batches to avoid transaction limits
+        const BATCH_SIZE = 250;
+        const MAX_BATCHES_PER_RUN = 8;
         let totalDeleted = 0;
+        let batchesProcessed = 0;
 
         console.log("🧹 Starting daily waterLevelHistory cleanup...");
 
         try {
-            while (true) {
+            while (batchesProcessed < MAX_BATCHES_PER_RUN) {
                 // Query a limited batch of old records
                 const oldRecords = await ctx.db
                     .query("waterLevelHistory")
@@ -336,6 +338,7 @@ export const cleanupOldHistoryData = internalMutation({
                 );
 
                 totalDeleted += oldRecords.length;
+                batchesProcessed += 1;
 
                 // If we got fewer records than BATCH_SIZE, we're done
                 if (oldRecords.length < BATCH_SIZE) {
@@ -343,16 +346,35 @@ export const cleanupOldHistoryData = internalMutation({
                 }
             }
 
+            const hasMore = (
+                await ctx.db
+                    .query("waterLevelHistory")
+                    .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
+                    .take(1)
+            ).length > 0;
+
             if (totalDeleted === 0) {
                 console.log("✅ No old records to clean up");
             } else {
-                console.log(`✅ Cleanup complete: ${totalDeleted} records deleted in batches`);
+                console.log(
+                    `✅ Cleanup complete: ${totalDeleted} records deleted in ${batchesProcessed} batches${
+                        hasMore ? " (more records remain for next run)" : ""
+                    }`
+                );
             }
 
-            return { deletedCount: totalDeleted };
+            return {
+                deletedCount: totalDeleted,
+                batchesProcessed,
+                hasMore,
+            };
         } catch (error) {
             console.error("❌ Cleanup failed:", error);
-            return { deletedCount: totalDeleted, error: error instanceof Error ? error.message : String(error) };
+            return {
+                deletedCount: totalDeleted,
+                batchesProcessed,
+                error: error instanceof Error ? error.message : String(error),
+            };
         }
     },
 });

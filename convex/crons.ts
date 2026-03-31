@@ -32,11 +32,10 @@ if (deploymentName == 'production') {
         api.sync.cameraUpdater.updateCameras
     );
 
-    // Cleanup old water level history data daily (1 AM UTC = 9 AM Malaysia time)
-    // This runs once per day instead of every 15 minutes, reducing operations by 98.96%
-    crons.daily(
+    // Cleanup old water level history data every 4 hours
+    crons.interval(
         "cleanup old water level history",
-        { hourUTC: 1, minuteUTC: 0 },
+        { hours: 4 },
         internal.sync.waterLevelUpdater.cleanupOldHistoryData
     );
 } else {
