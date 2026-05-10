@@ -40,6 +40,16 @@ const NotificationHandler: React.FC<NotificationHandlerProps> = ({ userId, open,
         loadUserPreferences();
     }, [isSubscribed, loadUserPreferences]);
 
+    // Alias the OneSignal subscription to the Convex user ID on session restore.
+    // Without this, a user who granted permission in a previous session won't be
+    // targeted by external_id until they re-toggle the switch.
+    useEffect(() => {
+        if (!userId) return;
+        subscribeUser(userId).catch((err) =>
+            console.warn('OneSignal alias on session restore failed', err)
+        );
+    }, [userId]);
+
     const handleSubscribe = async (): Promise<void> => {
 
         const permission = await requestNotificationPermission() ?? true;

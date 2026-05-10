@@ -21,16 +21,15 @@ import BottomNavigation from '@/components/BottomNavigation';
 import { HighContrastToggle } from '@/components/HighContrastToggle';
 
 import { useRouter } from 'next/router'
-// import { useUserStore } from '../lib/convexStore';
-// import LoginModal from '@/components/LoginModel';
+import { useUserStore } from '../lib/convexStore';
+import LoginModal from '@/components/LoginModel';
 import { FilterProvider } from '../lib/FilterContext';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations")
-    // const { isLoggedIn, user, logout } = useUserStore(); // Use Convex store
-    const isLoggedIn = false; // Commented out login functionality
-    // const [showLoginModal, setShowLoginModal] = useState(false)
-    // const [showNotificationModel, setShowNotificationModel] = useState(false)
+    const { isLoggedIn, user, logout } = useUserStore();
+    const [showLoginModal, setShowLoginModal] = useState(false)
+    const [showNotificationModel, setShowNotificationModel] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
     const { theme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
@@ -69,9 +68,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }, [theme, setTheme, checkActiveTab])
 
 
-    // const handleLogout = async () => {
-    //     await logout();
-    // }
+    const handleLogout = async () => {
+        await logout();
+    }
 
     const handleTabChange = (value: string) => {
         setActiveTab(value)
@@ -141,8 +140,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             </div>
                             <span className="sr-only">Toggle theme</span>
                         </Button>
-                        {/* Login/Logout functionality commented out */}
-                        {/* {isLoggedIn ? (
+                        {isLoggedIn ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="min-w-touch min-h-touch px-3">
@@ -167,7 +165,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                                 <LoginIcon size="md" className="sm:mr-2" />
                                 <span className="sr-only sm:not-sr-only sm:ml-1">Login</span>
                             </Button>
-                        )} */}
+                        )}
                     </div>
                 </header>
 
@@ -190,14 +188,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 
                 <Toaster />
 
-                {/* Login Modal - Commented out */}
-                {/* <LoginModal
+                <LoginModal
                     open={showLoginModal}
                     onOpenChange={setShowLoginModal}
-
-                /> */}
-                {/* Notification Modal - Commented out */}
-                {/* <NotificationHandler userId={user?.id ?? ''} open={showNotificationModel} onOpenChange={setShowNotificationModel} /> */}
+                />
+                {isLoggedIn && user?.id && (
+                    <NotificationHandler
+                        userId={user.id}
+                        open={showNotificationModel}
+                        onOpenChange={setShowNotificationModel}
+                    />
+                )}
 
 
                 {/* Register Modal */}

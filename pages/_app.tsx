@@ -6,8 +6,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { useEffect } from 'react';
 import Head from 'next/head';
 import { initializeOneSignal } from '../utils/oneSignalConfig';
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-// import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { ConvexReactClient } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import posthog from 'posthog-js'
 import { PostHogProvider } from 'posthog-js/react'
 
@@ -48,15 +48,14 @@ export default function App({ Component, pageProps }: AppProps) {
             <Head>
                 <title>River Water Level</title>
             </Head>
-            {/* ConvexAuthProvider commented out - using ConvexProvider without auth */}
-            <ConvexProvider client={convex}>
+            <ConvexAuthProvider client={convex}>
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
                     <Layout>
                         <Component {...pageProps} />
                     </Layout>
                     <SpeedInsights />
                 </ThemeProvider>
-            </ConvexProvider>
+            </ConvexAuthProvider>
         </PostHogProvider>
     )
 }

@@ -266,6 +266,8 @@ export const upsertCurrentLevel = internalMutation({
             .withIndex("by_station", (q) => q.eq("stationId", stationId))
             .first();
 
+        const prevAlertLevel = existing?.alertLevel;
+
         const updateData: {
             currentLevel: number;
             alertLevel: number;
@@ -300,6 +302,18 @@ export const upsertCurrentLevel = internalMutation({
             timestamp: now.getTime(),
             recordedAt: malaysiaTime.toISOString(),
         });
+
+        // Fire push notification on rising transition into danger only.
+        // First-ever reading at danger (prev undefined) also triggers — a fresh station
+        // already at danger is a real danger state worth alerting on.
+        const crossedIntoDanger = (prevAlertLevel ?? 0) < 3 && alertLevel === 3;
+        if (crossedIntoDanger) {
+            await ctx.scheduler.runAfter(0, internal.notifications.notifyDangerForStation, {
+                stationId,
+                currentLevel,
+                updatedAt,
+            });
+        }
 
         // Note: Historical data cleanup moved to daily cron job (see cleanupOldHistoryData)
         // This reduces bandwidth usage by 98.96% compared to running cleanup every 15 minutes

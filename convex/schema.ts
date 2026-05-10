@@ -66,7 +66,8 @@ export default defineSchema({
     stationId: v.id("stations"),
   })
     .index("by_user", ["userId"])
-    .index("by_user_station", ["userId", "stationId"]),
+    .index("by_user_station", ["userId", "stationId"])
+    .index("by_station", ["stationId"]),
 
   favoriteCameras: defineTable({
     userId: v.id("users"),
@@ -85,6 +86,15 @@ export default defineSchema({
     .index("by_station", ["stationId"])
     .index("by_station_time", ["stationId", "timestamp"])
     .index("by_timestamp", ["timestamp"]),
+
+  notificationLog: defineTable({
+    userId: v.id("users"),
+    stationId: v.id("stations"),
+    notifiedAt: v.number(),
+    alertLevel: v.number(),
+  })
+    .index("by_user_station", ["userId", "stationId"])
+    .index("by_notified_at", ["notifiedAt"]),
 
   waterLevelSummaries: defineTable({
     districts: v.array(

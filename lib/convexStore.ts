@@ -38,6 +38,7 @@ export const useUserStore = () => {
   const localState = useConvexUserStore();
   
   // Convex queries and mutations
+  const currentUser = useQuery(api.users.getCurrentUser);
   const favoriteStations = useQuery(api.favorites.getFavoriteStations) || [];
   const favoriteCameras = useQuery(api.favorites.getFavoriteCameras) || [];
   const addFavoriteStationMutation = useMutation(api.favorites.addFavoriteStation);
@@ -119,7 +120,7 @@ export const useUserStore = () => {
   return {
     ...localState,
     isLoggedIn: isAuthenticated,
-    user: isAuthenticated ? { id: 'convex-user' } : null, // Simplified user object
+    user: isAuthenticated && currentUser ? { id: currentUser._id } : null,
     favStations,
     favCameras,
     loginWithMagicLink,

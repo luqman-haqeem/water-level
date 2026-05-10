@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { auth } from "./auth";
 
@@ -112,12 +112,23 @@ export const getFavoriteCameras = query({
     if (!userId) {
       return [];
     }
-    
+
     const favorites = await ctx.db
       .query("favoriteCameras")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    
+
     return favorites.map(fav => fav.cameraId);
+  },
+});
+
+export const getUsersWhoFavoritedStation = internalQuery({
+  args: { stationId: v.id("stations") },
+  handler: async (ctx, { stationId }) => {
+    const rows = await ctx.db
+      .query("favoriteStations")
+      .withIndex("by_station", (q) => q.eq("stationId", stationId))
+      .collect();
+    return rows.map((r) => r.userId);
   },
 });
