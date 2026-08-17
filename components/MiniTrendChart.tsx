@@ -1,9 +1,7 @@
 import { useMemo, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { haptics } from '@/utils/haptics'
-import { useQuery } from "convex/react"
-import { api } from "../convex/_generated/api"
-import { Id } from "../convex/_generated/dataModel"
+import { useStationTrend } from '@/hooks/useWaterLevelHistory'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
@@ -41,10 +39,8 @@ export default function MiniTrendChart({
     const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null)
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
-    // Fetch trend data from Convex
-    const trendData = useQuery(api.waterLevelHistory.getStationTrend, {
-        stationId: stationId as Id<"stations">
-    })
+    // Fetch trend data with TanStack Query
+    const { data: trendData, isLoading } = useStationTrend(stationId)
 
     // Calculate chart dimensions and data points
     const chartData = useMemo(() => {
@@ -184,7 +180,7 @@ export default function MiniTrendChart({
     }, [])
 
     // Loading state
-    if (trendData === undefined) {
+    if (isLoading) {
         return (
             <div className={cn("flex items-center justify-center bg-muted/20 rounded-lg animate-pulse", className)} style={{ height }}>
                 <div className="flex flex-col items-center space-y-2">

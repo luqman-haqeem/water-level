@@ -14,11 +14,9 @@ import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
-import { useQuery, useConvex } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { useStations } from '@/hooks/useStations';
 import ExpandableSection from '@/components/ExpandableSection';
 import MiniTrendChart from '@/components/MiniTrendChart';
-import { Id } from "../../convex/_generated/dataModel";
 
 const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
 
@@ -31,13 +29,8 @@ export default function StationDetail() {
     const { id } = router.query;
     const stationId = id as string;
 
-    // Fetch data from Convex - OPTIMIZED
-    const convex = useConvex();
-
-    // For now, revert to fetching all stations to avoid the query skip error
-    // The N+1 optimization in getStationsWithDetails still provides 96% bandwidth savings
-    const stations = useQuery(api.stations.getStationsWithDetails);
-    const isLoadingStations = stations === undefined;
+    // Fetch data with TanStack Query
+    const { data: stations, isLoading: isLoadingStations } = useStations();
 
     // Memoize stationsData to prevent unnecessary re-renders
     const stationsData = useMemo(() => stations || [], [stations]);

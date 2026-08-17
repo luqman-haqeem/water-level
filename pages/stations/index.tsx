@@ -22,9 +22,8 @@ import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
-import { useQuery } from "convex/react";
-import { useConvex } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { useStations } from '@/hooks/useStations';
 import { useFilter, FilterOptions } from '../../lib/FilterContext';
 import AdvancedFilter from '@/components/AdvancedFilter';
 import FavoritesFilter from '@/components/FavoritesFilter';
@@ -103,10 +102,9 @@ export default function Component({ stations: initialStations }: ComponentProps)
     const location = useLocation();
 
 
-    // Fetch data from Convex with optimized caching
-    const convex = useConvex();
-    const stations = useQuery(api.stations.getStationsWithDetails);
-    const isLoadingStations = stations === undefined;
+    // Fetch data with TanStack Query
+    const queryClientInstance = useQueryClient();
+    const { data: stations, isLoading: isLoadingStations, refetch: refetchStations } = useStations();
 
     // Memoize stations data with deep comparison to prevent unnecessary re-renders
     const stationsData = useMemo(() => {
@@ -315,18 +313,8 @@ export default function Component({ stations: initialStations }: ComponentProps)
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
             try {
-                // Only invalidate if data is stale or user explicitly requests refresh
-                // This prevents unnecessary re-fetching on navigation back
-                const lastRefresh = performance.now()
-
-                // Convex handles caching automatically, just trigger a refetch
-                await convex.query(api.stations.getStationsWithDetails);
-
-                // Small delay for smooth UX only if refresh was quick
-                const refreshTime = performance.now() - lastRefresh
-                if (refreshTime < 100) {
-                    await new Promise(resolve => setTimeout(resolve, 200))
-                }
+                // Invalidate and refetch stations data via TanStack Query
+                await queryClientInstance.invalidateQueries({ queryKey: ["stations"] });
             } catch (error) {
                 console.error('Failed to refresh data:', error)
             }
@@ -364,24 +352,17 @@ export default function Component({ stations: initialStations }: ComponentProps)
         return;
     };
 
-    // Optimized station click handler with preloading
+    // Optimized station click handler
     const handleStationClick = useCallback(async (station: ComponentProps['stations'][0]) => {
         try {
-            // Preload station data before navigation for faster page load
-            if (typeof station.id === 'object' && '_id' in station.id) {
-                // Prefetch station detail data in background
-                convex.query(api.stations.getStationDetailById, { stationId: station.id as Id<"stations"> })
-                    .catch((err) => { console.error('Prefetch station detail error:', err); })
-            }
-
-            // Navigate immediately, don't wait for prefetch
+            // Navigate to station detail page
+            // TanStack Query handles caching, no need for manual prefetch
             router.push(`/stations/${station.id.toString()}`)
         } catch (error) {
             console.error('Navigation error:', error)
-            // Fallback navigation without prefetch
             router.push(`/stations/${station.id.toString()}`)
         }
-    }, [router, convex])
+    }, [router])
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")

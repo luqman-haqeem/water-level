@@ -10,8 +10,8 @@ import FullscreenModal from '@/components/FullscreenModal';
 import CameraCard from '@/components/CameraCard';
 import { CameraSkeleton } from '@/components/SkeletonCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useQuery, useConvex } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCameras } from '@/hooks/useCameras';
 import { useTheme } from "next-themes"
 import { useFilter } from '../../lib/FilterContext';
 import FavoritesFilter from '@/components/FavoritesFilter';
@@ -50,10 +50,9 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
     const [searchTerm, setSearchTerm] = useState("")
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
 
-    // Fetch data from Convex
-    const convex = useConvex();
-    const cameras = useQuery(api.cameras.getCamerasWithDetails);
-    const isLoadingCameras = cameras === undefined;
+    // Fetch data with TanStack Query
+    const queryClientInstance = useQueryClient();
+    const { data: cameras, isLoading: isLoadingCameras, refetch: refetchCameras } = useCameras();
     const camerasData = useMemo(() => cameras || [], [cameras]);
     const isLoggedIn = false;
     const favCameras = useMemo(() => [] as string[], []);
@@ -107,10 +106,8 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
             try {
-                // Invalidate and refetch Convex data
-                await convex.query(api.cameras.getCamerasWithDetails);
-                // Small delay for smooth UX
-                await new Promise(resolve => setTimeout(resolve, 300))
+                // Invalidate and refetch cameras data via TanStack Query
+                await queryClientInstance.invalidateQueries({ queryKey: ["cameras"] });
             } catch (error) {
                 console.error('Failed to refresh cameras data:', error)
             }

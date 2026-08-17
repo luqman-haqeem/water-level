@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Migrate from direct Convex useQuery hooks to TanStack Query (@tanstack/react-query) for data fetching. This adds caching, background refetching, stale-while-revalidate, error/loading states management, and devtools. The Convex backend remains unchanged - TanStack Query wraps the Convex HTTP client or uses convex-tanstack adapter for fetching.",
+  "status": "in_progress",
+  "steps": [
+    "Install @tanstack/react-query and @tanstack/react-query-devtools as dependencies: npm install @tanstack/react-query @tanstack/react-query-devtools",
+    "Create a new file lib/queryClient.ts that exports a configured QueryClient with sensible defaults for this app (staleTime: 30 seconds for water level data that updates every 15 min, gcTime: 5 minutes, refetchOnWindowFocus: true, retry: 2).",
+    "Create a new file hooks/useStations.ts that exports custom hooks wrapping TanStack Query: useStations() for fetching all stations with details (replacing the direct useQuery(api.stations.getStationsWithDetails) call), useStationDetail(stationId) for fetching a single station detail. These hooks should use the ConvexHttpClient to call the Convex query functions and return the TanStack Query result object ({data, isLoading, error, refetch}).",
+    "Create a new file hooks/useCameras.ts that exports useCameras() hook wrapping TanStack Query for fetching cameras with details (replacing useQuery(api.cameras.getCamerasWithDetails)).",
+    "Create a new file hooks/useWaterLevelHistory.ts that exports useStationTrend(stationId) hook wrapping TanStack Query for fetching water level trend data (replacing useQuery(api.waterLevelHistory.getStationTrend)).",
+    "Update pages/_app.tsx: Remove ConvexProvider wrapper. Add QueryClientProvider from @tanstack/react-query wrapping the app. Add ReactQueryDevtools in development mode. Keep the ConvexReactClient instantiation but only for the HTTP client used by the hooks.",
+    "Update pages/stations/index.tsx: Replace `const stations = useQuery(api.stations.getStationsWithDetails)` with `const { data: stations, isLoading: isLoadingStations } = useStations()`. Remove the `useConvex` import and `convex` variable. Update the pull-to-refresh handler to use the `refetch` function from the hook instead of calling convex.query directly. Remove unused Convex imports.",
+    "Update pages/stations/[id].tsx: Replace `const stations = useQuery(api.stations.getStationsWithDetails)` with `const { data: stations, isLoading: isLoadingStations } = useStations()`. Remove the `useConvex` import. Remove the convex.query prefetch call in navigation (TanStack Query handles caching).",
+    "Update pages/cameras/index.tsx: Replace `const cameras = useQuery(api.cameras.getCamerasWithDetails)` with `const { data: cameras, isLoading: isLoadingCameras } = useCameras()`. Remove the `useConvex` import. Update pull-to-refresh to use refetch.",
+    "Update components/MicroTrendChart.tsx: Replace `const trendData = useQuery(api.waterLevelHistory.getStationTrend, { stationId })` with `const { data: trendData } = useStationTrend(stationId)`.",
+    "Update components/MiniTrendChart.tsx: Replace the Convex useQuery call with `const { data: trendData } = useStationTrend(stationId)`.",
+    "Remove the 'convex' dependency from package.json since we now use ConvexHttpClient only. Actually, keep convex as it provides the HTTP client and generated API types. But remove 'convex/react' imports from all page/component files since we no longer use the reactive ConvexProvider.",
+    "Ensure the ConvexHttpClient is created once (singleton in lib/convexClient.ts) and used by all TanStack Query hooks.",
+    "Run npm run build to verify everything compiles correctly."
+  ],
+  "acceptance_criteria": [
+    "npm run build succeeds",
+    "All data fetching goes through TanStack Query hooks (no direct useQuery from convex/react)",
+    "QueryClientProvider wraps the app in _app.tsx",
+    "Custom hooks (useStations, useCameras, useStationTrend) exist and use TanStack Query's useQuery",
+    "Pull-to-refresh uses TanStack Query's refetch/invalidateQueries",
+    "Loading and error states are properly handled via TanStack Query's isLoading/error fields",
+    "ReactQueryDevtools is included for development"
+  ],
+  "verification": [
+    "cd ~/water-level && npm run build",
+    "cd ~/water-level && npm run lint"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
