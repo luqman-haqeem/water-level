@@ -18,7 +18,6 @@ import {
     StatusAlertIcon,
     StatusWarningIcon,
     StatusDangerIcon,
-    FavoriteIcon,
     CameraIcon,
     TimeIcon
 } from '@/components/icons/IconLibrary'
@@ -46,16 +45,12 @@ interface Station {
 interface AdvancedFilterProps {
     stations: Station[]
     onFilterChange: (filteredStations: Station[], activeFilters: FilterOptions) => void
-    isLoggedIn: boolean
-    favoriteStations: string[]
     className?: string
 }
 
 export default function AdvancedFilter({
     stations,
     onFilterChange,
-    isLoggedIn,
-    favoriteStations,
     className
 }: AdvancedFilterProps) {
     const [isOpen, setIsOpen] = useState(false)
@@ -94,13 +89,6 @@ export default function AdvancedFilter({
         if (filtersToApply.alertLevels.length > 0) {
             filtered = filtered.filter(station =>
                 filtersToApply.alertLevels.includes(station.current_levels?.alert_level || '0')
-            )
-        }
-
-        // Favorites filter
-        if (filtersToApply.showFavoritesOnly && isLoggedIn) {
-            filtered = filtered.filter(station =>
-                favoriteStations.includes(station.id.toString())
             )
         }
 
@@ -153,7 +141,7 @@ export default function AdvancedFilter({
         })
 
         return filtered
-    }, [isLoggedIn, favoriteStations])
+    }, [])
 
     // Apply filters and return filtered stations
     const filteredStations = useMemo(() => {
@@ -185,7 +173,6 @@ export default function AdvancedFilter({
             alertLevels: [],
             sortBy: 'name',
             sortOrder: 'asc',
-            showFavoritesOnly: false,
             showCameraOnly: false,
             showOfflineStations: false, // Updated to match new default
             waterLevelRange: { min: 0, max: null } // Updated to match new default
@@ -199,7 +186,6 @@ export default function AdvancedFilter({
             case 'districts':
             case 'alertLevels':
                 return count + (filters[filterKey].length > 0 ? 1 : 0)
-            case 'showFavoritesOnly':
             case 'showCameraOnly':
                 return count + (filters[filterKey] ? 1 : 0)
             case 'showOfflineStations':
@@ -387,19 +373,6 @@ export default function AdvancedFilter({
                     {/* Toggle Filters */}
                     <div className="space-y-4">
                         <label className="text-sm font-medium">Filter Options</label>
-
-                        {isLoggedIn && (
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <FavoriteIcon size="sm" />
-                                    <span>Favorites only</span>
-                                </div>
-                                <Switch
-                                    checked={filters.showFavoritesOnly}
-                                    onCheckedChange={(checked) => updateFilters({ showFavoritesOnly: checked })}
-                                />
-                            </div>
-                        )}
 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">

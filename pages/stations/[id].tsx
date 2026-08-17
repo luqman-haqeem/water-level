@@ -1,50 +1,32 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Head from 'next/head';
-import { Star, ChevronLeft, ChevronRight, Expand } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Expand } from 'lucide-react'
 import { WaterIcon } from '@/components/icons/IconLibrary'
 import useSwipeGestures from '@/hooks/useSwipeGestures'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import WaterLevelGauge from "@/components/WaterLevelGauge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge"
-import { haptics } from '@/utils/haptics'
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
 import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
-import { useQuery, useConvex } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { useUserStore } from '../../lib/convexStore';
+import { useStations } from '@/hooks/useStations';
 import ExpandableSection from '@/components/ExpandableSection';
 import MiniTrendChart from '@/components/MiniTrendChart';
-import { Id } from "../../convex/_generated/dataModel";
-
-const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
-
-interface StationDetailProps {
-    stationId: string;
-}
 
 export default function StationDetail() {
     const router = useRouter();
     const { id } = router.query;
     const stationId = id as string;
 
-    // Fetch data from Convex - OPTIMIZED
-    const convex = useConvex();
+    // Fetch data with TanStack Query
+    const { data: stations, isLoading: isLoadingStations } = useStations();
 
-    // For now, revert to fetching all stations to avoid the query skip error
-    // The N+1 optimization in getStationsWithDetails still provides 96% bandwidth savings
-    const stations = useQuery(api.stations.getStationsWithDetails);
-    const isLoadingStations = stations === undefined;
-
-    // Memoize stationsData to prevent unnecessary re-renders
+    // Memoize stationsData
     const stationsData = useMemo(() => stations || [], [stations]);
-    // const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
-    const isLoggedIn = false; // Commented out auth
-    const favStations: string[] = []; // Commented out favorites
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
@@ -52,27 +34,6 @@ export default function StationDetail() {
     // Find current station and its position in the list
     const currentStation = stationsData.find(s => s.id.toString() === stationId);
     const currentIndex = stationsData.findIndex(s => s.id.toString() === stationId);
-
-    useEffect(() => {
-        if (!isLoadingStations && stationsData.length > 0 && !currentStation) {
-            // Station not found, redirect to stations list
-            router.push('/stations');
-        }
-    }, [stationsData, currentStation, isLoadingStations, router]);
-
-    // const toggleFavorite = (id: Id<"stations"> | number) => {
-    //     const idString = id.toString();
-    //     if (favStations.includes(idString)) {
-    //         removeFavStation(idString);
-    //     } else {
-    //         addFavStation(idString);
-    //     }
-    //     haptics.tap();
-    // };
-    const toggleFavorite = (id: Id<"stations"> | number) => {
-        // Favorites disabled - do nothing
-        return;
-    };
 
     const navigateToStation = (direction: 'next' | 'prev') => {
         let newIndex: number;
@@ -126,22 +87,10 @@ export default function StationDetail() {
         <>
             <Head>
                 <title>{currentStation.station_name} - River Water Level</title>
-                <meta name="description" content={`Current water level: ${currentStation.current_levels?.current_level || '—'} m. Alert level: ${currentStation.current_levels?.alert_level === '1' ? 'Alert' : currentStation.current_levels?.alert_level === '2' ? 'Warning' : currentStation.current_levels?.alert_level === '3' ? 'Danger' : 'Normal'}. ${currentStation.districts.name} district.`} />
-
-                {/* Open Graph meta tags - Using Edge Function */}
+                <meta name="description" content={`Current water level: ${currentStation.current_levels?.current_level || '\u2014'} m. ${currentStation.districts.name} district.`} />
                 <meta property="og:title" content={`${currentStation.station_name} - Water Level Monitor`} />
-                <meta property="og:description" content={`Current water level: ${currentStation.current_levels?.current_level || '—'} m. Alert level: ${currentStation.current_levels?.alert_level === '1' ? 'Alert' : currentStation.current_levels?.alert_level === '2' ? 'Warning' : currentStation.current_levels?.alert_level === '3' ? 'Danger' : 'Normal'}. ${currentStation.districts.name} district.`} />
-                <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://riverlevel.netlify.app'}/og/station/${currentStation.id}`} />
-                <meta property="og:image:width" content="1200" />
-                <meta property="og:image:height" content="630" />
+                <meta property="og:description" content={`Current water level: ${currentStation.current_levels?.current_level || '\u2014'} m. ${currentStation.districts.name} district.`} />
                 <meta property="og:type" content="website" />
-                <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://riverlevel.netlify.app'}/stations/${currentStation.id}`} />
-
-                {/* Twitter Card meta tags - Using Edge Function */}
-                <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content={`${currentStation.station_name} - Water Level Monitor`} />
-                <meta name="twitter:description" content={`Current water level: ${currentStation.current_levels?.current_level || '—'} m. Alert level: ${currentStation.current_levels?.alert_level === '1' ? 'Alert' : currentStation.current_levels?.alert_level === '2' ? 'Warning' : currentStation.current_levels?.alert_level === '3' ? 'Danger' : 'Normal'}. ${currentStation.districts.name} district.`} />
-                <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://riverlevel.netlify.app'}/og/station/${currentStation.id}`} />
             </Head>
             <div className="flex-1 flex flex-col bg-background">
                 {/* Header with back button */}
@@ -159,20 +108,6 @@ export default function StationDetail() {
                         <h1 className="text-heading-2 truncate">{currentStation.station_name}</h1>
                         <p className="text-sm text-muted-foreground">{currentStation.districts.name}</p>
                     </div>
-                    {/* <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleFavorite(currentStation.id)}
-                        className="min-w-touch min-h-touch"
-                    >
-                        <Star className={`w-5 h-5 transition-all duration-200 ${favStations.includes(currentStation.id.toString())
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-gray-400 hover:text-yellow-400'
-                            }`} />
-                        <span className="sr-only">
-                            {favStations.includes(currentStation.id.toString()) ? 'Remove from' : 'Add to'} favorites
-                        </span>
-                    </Button> */}
                 </header>
 
                 {/* Main Content */}
@@ -196,7 +131,7 @@ export default function StationDetail() {
                                         <p className="text-sm font-medium text-muted-foreground">Current Water Level</p>
                                         <AlertLevelBadge alert_level={Number(currentStation.current_levels?.alert_level) || 0} />
                                     </div>
-                                    <p className="text-water-level">{currentStation.current_levels?.current_level || '—'} m</p>
+                                    <p className="text-water-level">{currentStation.current_levels?.current_level || '\u2014'} m</p>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>
                                             Last updated: {currentStation.current_levels?.updated_at
@@ -242,7 +177,7 @@ export default function StationDetail() {
                                     />
                                 </div>
 
-                                {/* Detailed Level Thresholds - Ultra Compact */}
+                                {/* Threshold Levels */}
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground mb-2">Threshold Levels</p>
                                     <div className="flex items-center justify-between gap-2">
@@ -269,7 +204,7 @@ export default function StationDetail() {
                                     </div>
                                 </div>
 
-                                {/* Visual Gauge - Vertical */}
+                                {/* Visual Gauge */}
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground mb-2">Current Level Gauge</p>
                                     <WaterLevelGauge
@@ -303,15 +238,15 @@ export default function StationDetail() {
                                     className="relative cursor-pointer"
                                 >
                                     <Image
-                                        key={currentStation.current_levels?.updated_at}
+                                        key={currentStation.current_levels?.updated_at?.toString()}
                                         src={`/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`}
                                         width={500}
                                         height={300}
                                         alt="Live camera feed"
                                         className="w-full rounded-md"
                                         onError={(e) => e.currentTarget.src = '/nocctv.png'}
-                                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD0ykZgoyxAHqaomO5xhVkAOM7pMnPOT16dO/4UrxXDqm4OWwhyHAAIxnI9aALwIIyDkGiqaxTqA5Z92TnLZGNvp9aLKTezkFyoVfvPu55z/SgC5RRRQAUUUUAf/9k="
                                         placeholder="blur"
+                                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD0ykZgoyxAHqaomO5xhVkAOM7pMnPOT16dO/4UrxXDqm4OWwhyHAAIxnI9aALwIIyDkGiqaxTqA5Z92TnLZGNvp9aLKTezkFyoVfvPu55z/SgC5RRRQAUUUUAf/9k="
                                         unoptimized
                                     />
                                     <div className="absolute top-0 right-0 m-2">

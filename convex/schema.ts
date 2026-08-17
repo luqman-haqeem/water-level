@@ -1,9 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
-  ...authTables,
 
   districts: defineTable({
     jpsDistrictsId: v.optional(v.number()),
@@ -60,20 +58,6 @@ export default defineSchema({
     .index("by_district", ["districtId"])
     .index("by_station", ["stationId"])
     .index("by_enabled", ["isEnabled"]),
-
-  favoriteStations: defineTable({
-    userId: v.id("users"),
-    stationId: v.id("stations"),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_station", ["userId", "stationId"]),
-
-  favoriteCameras: defineTable({
-    userId: v.id("users"),
-    cameraId: v.id("cameras"),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_camera", ["userId", "cameraId"]),
 
   waterLevelHistory: defineTable({
     stationId: v.id("stations"),

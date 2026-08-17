@@ -1,61 +1,47 @@
-import { useState, useEffect } from 'react'
-import { Button } from "@/components/ui/button"
-import { useRouter } from 'next/router'
-import { cn } from '@/lib/utils'
-import { haptics } from '@/utils/haptics'
-import {
-    WaterIcon,
-    CameraIcon,
-    FavoriteIcon,
-    FilterIcon
-} from '@/components/icons/IconLibrary'
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { haptics } from "@/utils/haptics";
+import { WaterIcon, CameraIcon } from "@/components/icons/IconLibrary";
 
 interface BottomNavigationProps {
-    activeTab: string
-    onTabChange: (tab: string) => void
-    onFavoritesToggle?: () => void
-    onFilterToggle?: () => void
-    showFavorites?: boolean
-    showFilters?: boolean
-    favoritesActive?: boolean
+    activeTab: string;
+    onTabChange: (tab: string) => void;
 }
 
 export default function BottomNavigation({
     activeTab,
     onTabChange,
-    onFavoritesToggle,
-    onFilterToggle,
-    showFavorites = true,
-    showFilters = true,
-    favoritesActive = false
 }: BottomNavigationProps) {
-    const [isVisible, setIsVisible] = useState(true)
-    const [lastScrollY, setLastScrollY] = useState(0)
+    const [isVisible, setIsVisible] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
 
     // Auto-hide bottom nav on scroll
     useEffect(() => {
         const controlNavbar = () => {
-            if (typeof window !== 'undefined') {
-                const currentScrollY = window.scrollY
+            if (typeof window !== "undefined") {
+                const currentScrollY = window.scrollY;
 
                 if (currentScrollY < lastScrollY || currentScrollY < 100) {
-                    setIsVisible(true)
-                } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
-                    setIsVisible(false)
+                    setIsVisible(true);
+                } else if (
+                    currentScrollY > lastScrollY &&
+                    currentScrollY > 100
+                ) {
+                    setIsVisible(false);
                 }
 
-                setLastScrollY(currentScrollY)
+                setLastScrollY(currentScrollY);
             }
-        }
+        };
 
-        if (typeof window !== 'undefined') {
-            window.addEventListener('scroll', controlNavbar)
-
+        if (typeof window !== "undefined") {
+            window.addEventListener("scroll", controlNavbar);
             return () => {
-                window.removeEventListener('scroll', controlNavbar)
-            }
+                window.removeEventListener("scroll", controlNavbar);
+            };
         }
-    }, [lastScrollY])
+    }, [lastScrollY]);
 
     return (
         <nav
@@ -68,70 +54,48 @@ export default function BottomNavigation({
             )}
         >
             <div className="flex items-center justify-around px-2 py-2">
-                {/* Main Navigation Tabs */}
                 <Button
-                    variant={activeTab === 'stations' ? 'default' : 'ghost'}
+                    variant={activeTab === "stations" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => {
-                        if (activeTab !== 'stations') {
-                            haptics.select()
+                        if (activeTab !== "stations") {
+                            haptics.select();
                         }
-                        onTabChange('stations')
+                        onTabChange("stations");
                     }}
                     className="flex-col h-12 min-w-[60px] px-2 gap-1"
                 >
-                    <WaterIcon size="md" className={cn(activeTab === 'stations' && "text-primary-foreground")} />
-
+                    <WaterIcon
+                        size="md"
+                        className={cn(
+                            activeTab === "stations" &&
+                                "text-primary-foreground"
+                        )}
+                    />
                     <span className="text-caption">Stations</span>
                 </Button>
 
                 <Button
-                    variant={activeTab === 'cameras' ? 'default' : 'ghost'}
+                    variant={activeTab === "cameras" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => {
-                        if (activeTab !== 'cameras') {
-                            haptics.select()
+                        if (activeTab !== "cameras") {
+                            haptics.select();
                         }
-                        onTabChange('cameras')
+                        onTabChange("cameras");
                     }}
                     className="flex-col h-12 min-w-[60px] px-2 gap-1"
                 >
-                    <CameraIcon size="md" className={cn(activeTab === 'cameras' && "text-primary-foreground")} />
+                    <CameraIcon
+                        size="md"
+                        className={cn(
+                            activeTab === "cameras" &&
+                                "text-primary-foreground"
+                        )}
+                    />
                     <span className="text-caption">Cameras</span>
                 </Button>
-
-                {/* Quick Action Buttons */}
-                {showFavorites && (
-                    <Button
-                        variant={favoritesActive ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => {
-                            haptics.tap()
-                            onFavoritesToggle?.()
-                        }}
-                        className="flex-col h-12 min-w-[60px] px-2 gap-1"
-                    >
-                        <FavoriteIcon size="md" />
-                        <span className="text-caption">Favorites</span>
-                    </Button>
-                )}
-
-                {showFilters && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            haptics.tap()
-                            onFilterToggle?.()
-                        }}
-                        className="flex-col h-12 min-w-[60px] px-2 gap-1"
-                    >
-                        <FilterIcon size="md" />
-                        <span className="text-caption">Filter</span>
-                    </Button>
-                )}
-
             </div>
         </nav>
-    )
+    );
 }

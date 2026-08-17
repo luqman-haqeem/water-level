@@ -1,163 +1,106 @@
-
 import Head from 'next/head';
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
-import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
-import { WaterIcon, CameraIcon, LocationIcon } from '@/components/icons/IconLibrary'
-import useSwipeGestures from '@/hooks/useSwipeGestures'
-import AlertLevelBadge from "@/components/AlertLevelBadge";
+import { LocationIcon } from '@/components/icons/IconLibrary'
 import StationCard from "@/components/StationCard";
-import WaterLevelGauge from "@/components/WaterLevelGauge";
-import SkeletonCard, { StationSkeleton } from "@/components/SkeletonCard";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { StationSkeleton } from "@/components/SkeletonCard";
 import { Badge } from "@/components/ui/badge"
 import { haptics } from '@/utils/haptics'
-
-import Image from 'next/image'
-import formatTimestamp from '@/utils/timeUtils'
-// import LoginModal from '@/components/LoginModel';
-import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
-import { useQuery, useConvexAuth } from "convex/react";
-import { useConvex } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { useUserStore } from '../../lib/convexStore';
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useStations } from '@/hooks/useStations';
 import { useFilter, FilterOptions } from '../../lib/FilterContext';
 import AdvancedFilter from '@/components/AdvancedFilter';
-import FavoritesFilter from '@/components/FavoritesFilter';
-import ExpandableSection from '@/components/ExpandableSection';
 import usePullToRefresh from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/PullToRefreshIndicator';
 import { useLocation } from '@/hooks/useLocation';
-import { calculateDistance, formatDistance, Coordinates } from '@/utils/locationUtils';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
-
-const bucketUrl = 'https://hnqhytdyrehyflbymaej.supabase.co/storage/v1/object/public/cameras';
-
+import { calculateDistance, formatDistance } from '@/utils/locationUtils';
 import { Id } from "../../convex/_generated/dataModel";
 
-interface ComponentProps {
-    stations: {
-        id: Id<"stations"> | number;
-        station_name: string;
-        latitude?: number;
-        longitude?: number;
-        districts: {
-            name: string;
-        };
-        current_levels: {
-            current_level: number;
-            updated_at: string | number | undefined;
-            alert_level: string;
-        } | null;
-        cameras: {
-            img_url: string | undefined;
-            jps_camera_id: string;
-            is_enabled: boolean;
-        } | null;
-        normal_water_level: number;
-        alert_water_level: number;
-        warning_water_level: number;
-        danger_water_level: number;
-        station_status: boolean;
-    }[];
+interface StationData {
+    id: Id<"stations"> | number;
+    station_name: string;
+    latitude?: number;
+    longitude?: number;
+    districts: {
+        name: string;
+    };
+    current_levels: {
+        current_level: number;
+        updated_at: string | number | undefined;
+        alert_level: string;
+    } | null;
     cameras: {
-        id: number;
-        camera_name: string;
-        img_url: string;
+        img_url: string | undefined;
         jps_camera_id: string;
-
-        districts: {
-            name: string;
-        };
-    }[];
+        is_enabled: boolean;
+    } | null;
+    normal_water_level: number;
+    alert_water_level: number;
+    warning_water_level: number;
+    danger_water_level: number;
+    station_status: boolean;
 }
 
-// Note: With Convex, we'll fetch data client-side using useQuery
-// Static generation can be implemented later with preloadQuery if needed
 export async function getStaticProps() {
     return {
-        props: {
-            stations: [] // Empty initial data, will be loaded by Convex
-        },
-        revalidate: 180 // 3 minutes
+        props: {},
+        revalidate: 180
     }
 }
 
-export default function Component({ stations: initialStations }: ComponentProps) {
-
+export default function StationsPage() {
     const router = useRouter();
     const { stationId } = router.query;
     const [searchTerm, setSearchTerm] = useState("")
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
-    // const [showLoginModal, setShowLoginModal] = useState(false)
-    const { theme, setTheme } = useTheme()
 
     // Location services for nearest sorting
     const location = useLocation();
 
+    // Fetch data with TanStack Query
+    const queryClientInstance = useQueryClient();
+    const { data: stations, isLoading: isLoadingStations } = useStations();
 
-    // Fetch data from Convex with optimized caching
-    const convex = useConvex();
-    const stations = useQuery(api.stations.getStationsWithDetails);
-    const isLoadingStations = stations === undefined;
-
-    // Memoize stations data with deep comparison to prevent unnecessary re-renders
+    // Memoize stations data
     const stationsData = useMemo(() => {
-        if (!stations) return []
-
-        // Sort stations by ID to ensure consistent ordering for memo comparison
+        if (!stations) return [] as StationData[]
         return [...stations].sort((a, b) => {
             const idA = a.id.toString()
             const idB = b.id.toString()
             return idA.localeCompare(idB)
-        })
+        }) as StationData[]
     }, [stations])
-    // const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
-    const isLoggedIn = false; // Commented out auth
-    const favStations = useMemo(() => [] as string[], []); // Commented out favorites
-    // Get filter context for favorites and advanced filters
-    const { showFavoritesOnly, toggleFavorites, advancedFilters, hasActiveAdvancedFilters } = useFilter();
+
+    // Get filter context
+    const { advancedFilters } = useFilter();
 
     const [isMobile, setIsMobile] = useState(true)
 
     // Calculate optimal skeleton count based on viewport
     const skeletonCount = useMemo(() => {
-        if (typeof window === 'undefined') return 6 // SSR fallback
-
+        if (typeof window === 'undefined') return 6
         const viewportHeight = window.innerHeight
-        const cardHeight = isMobile ? 200 : 180 // Approximate card height
-        const headerHeight = 200 // Approximate header space
+        const cardHeight = isMobile ? 200 : 180
+        const headerHeight = 200
         const visibleCards = Math.ceil((viewportHeight - headerHeight) / cardHeight)
-
-        return Math.min(Math.max(visibleCards, 4), 12) // Between 4-12 skeletons
+        return Math.min(Math.max(visibleCards, 4), 12)
     }, [isMobile])
 
     // Pre-compute district and alert level maps for faster filtering
     const { districtMap, alertLevelMap, sortedStations } = useMemo(() => {
-        const districtMap = new Map<string, typeof stationsData>()
-        const alertLevelMap = new Map<string, typeof stationsData>()
+        const districtMap = new Map<string, StationData[]>()
+        const alertLevelMap = new Map<string, StationData[]>()
 
-        // Group stations by district and alert level for O(1) lookup
         stationsData.forEach(station => {
-            // District grouping
             const district = station.districts.name
             if (!districtMap.has(district)) {
                 districtMap.set(district, [])
             }
             districtMap.get(district)!.push(station)
 
-            // Alert level grouping
             const alertLevel = station.current_levels?.alert_level || '0'
             if (!alertLevelMap.has(alertLevel)) {
                 alertLevelMap.set(alertLevel, [])
@@ -165,7 +108,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
             alertLevelMap.get(alertLevel)!.push(station)
         })
 
-        // Pre-sort by name for default case
         const sortedStations = [...stationsData].sort((a, b) =>
             a.station_name.localeCompare(b.station_name)
         )
@@ -173,16 +115,14 @@ export default function Component({ stations: initialStations }: ComponentProps)
         return { districtMap, alertLevelMap, sortedStations }
     }, [stationsData])
 
-    // Optimized helper function to apply advanced filters
-    const applyAdvancedFilters = useCallback((stations: typeof stationsData, filters: FilterOptions) => {
-        // Start with all stations or pre-sorted list
+    // Apply advanced filters
+    const applyAdvancedFilters = useCallback((stations: StationData[], filters: FilterOptions) => {
         let filtered = filters.sortBy === 'name' && filters.sortOrder === 'asc'
             ? [...sortedStations]
             : [...stations]
 
-        // Use pre-computed maps for efficient filtering
         if (filters.districts.length > 0) {
-            const stationsInDistricts = new Set<typeof stationsData[0]>()
+            const stationsInDistricts = new Set<StationData>()
             filters.districts.forEach(district => {
                 const stationsInDistrict = districtMap.get(district) || []
                 stationsInDistrict.forEach(station => stationsInDistricts.add(station))
@@ -190,26 +130,18 @@ export default function Component({ stations: initialStations }: ComponentProps)
             filtered = Array.from(stationsInDistricts)
         }
 
-        // Use pre-computed alert level map
         if (filters.alertLevels.length > 0) {
-            const stationsWithAlertLevels = new Set<typeof stationsData[0]>()
+            const stationsWithAlertLevels = new Set<StationData>()
             filters.alertLevels.forEach(level => {
                 const stationsAtLevel = alertLevelMap.get(level) || []
                 stationsAtLevel.forEach(station => stationsWithAlertLevels.add(station))
             })
 
             if (filters.districts.length > 0) {
-                // Intersection of district and alert level filters
                 filtered = filtered.filter(station => stationsWithAlertLevels.has(station))
             } else {
                 filtered = Array.from(stationsWithAlertLevels)
             }
-        }
-
-        // Apply remaining filters (these are typically smaller sets)
-        if (filters.showFavoritesOnly && isLoggedIn) {
-            const favSet = new Set(favStations)
-            filtered = filtered.filter(station => favSet.has(station.id.toString()))
         }
 
         if (filters.showCameraOnly) {
@@ -220,7 +152,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
             filtered = filtered.filter(station => station.station_status)
         }
 
-        // Water level range filter (typically affects fewer items)
         if (filters.waterLevelRange.min !== null || filters.waterLevelRange.max !== null) {
             const { min, max } = filters.waterLevelRange
             filtered = filtered.filter(station => {
@@ -230,7 +161,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
             })
         }
 
-        // Sort only if not using pre-sorted data
         if (!(filters.sortBy === 'name' && filters.sortOrder === 'asc')) {
             filtered.sort((a, b) => {
                 let comparison = 0
@@ -245,26 +175,20 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     case 'lastUpdated':
                         const aTime = new Date(a.current_levels?.updated_at || 0).getTime()
                         const bTime = new Date(b.current_levels?.updated_at || 0).getTime()
-                        comparison = bTime - aTime // Most recent first by default
+                        comparison = bTime - aTime
                         break
                     case 'district':
                         comparison = a.districts.name.localeCompare(b.districts.name)
                         break
                     case 'nearest':
                         if (!location.coordinates) {
-                            // Fallback to alphabetical if location not available
                             comparison = a.station_name.localeCompare(b.station_name)
                         } else {
-                            // Calculate distances for both stations
                             const userCoords = location.coordinates
-
                             const distanceA = a.latitude && a.longitude ?
-                                calculateDistance(userCoords, { latitude: a.latitude, longitude: a.longitude }) :
-                                Infinity
+                                calculateDistance(userCoords, { latitude: a.latitude, longitude: a.longitude }) : Infinity
                             const distanceB = b.latitude && b.longitude ?
-                                calculateDistance(userCoords, { latitude: b.latitude, longitude: b.longitude }) :
-                                Infinity
-
+                                calculateDistance(userCoords, { latitude: b.latitude, longitude: b.longitude }) : Infinity
                             comparison = distanceA - distanceB
                         }
                         break
@@ -275,24 +199,17 @@ export default function Component({ stations: initialStations }: ComponentProps)
         }
 
         return filtered
-    }, [isLoggedIn, favStations, sortedStations, districtMap, alertLevelMap, location.coordinates])
+    }, [sortedStations, districtMap, alertLevelMap, location.coordinates])
 
-    // Use the advanced filters from context to apply filtering
     const displayedStations = useMemo(() => {
-        // if (!hasActiveAdvancedFilters) {
-        //     return stationsData;
-        // }
-
-        // Apply advanced filters
         return applyAdvancedFilters(stationsData, advancedFilters);
     }, [stationsData, advancedFilters, applyAdvancedFilters]);
 
-    // Debounce search term for better performance
+    // Debounce search term
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchTerm(searchTerm)
-        }, 300) // 300ms debounce
-
+        }, 300)
         return () => clearTimeout(timer)
     }, [searchTerm])
 
@@ -303,13 +220,9 @@ export default function Component({ stations: initialStations }: ComponentProps)
         }
     }, [advancedFilters.sortBy, location]);
 
-    // Debug location changes
     useEffect(() => {
-        // Location state changes - no debug needed
-    }, [location.coordinates, location.error]); useEffect(() => {
         const checkMobile = () => {
-            const isMobileDevice = window.innerWidth < 768;
-            setIsMobile(isMobileDevice);
+            setIsMobile(window.innerWidth < 768);
         }
         checkMobile();
         window.addEventListener('resize', checkMobile)
@@ -318,28 +231,15 @@ export default function Component({ stations: initialStations }: ComponentProps)
 
     useEffect(() => {
         if (stationId && stationsData.length > 0) {
-            // Navigate to station detail page when stationId is in URL
             router.push(`/stations/${stationId}`);
         }
     }, [stationId, stationsData, router]);
 
-
-    // Optimized pull-to-refresh functionality
+    // Pull-to-refresh
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
             try {
-                // Only invalidate if data is stale or user explicitly requests refresh
-                // This prevents unnecessary re-fetching on navigation back
-                const lastRefresh = performance.now()
-
-                // Convex handles caching automatically, just trigger a refetch
-                await convex.query(api.stations.getStationsWithDetails);
-
-                // Small delay for smooth UX only if refresh was quick
-                const refreshTime = performance.now() - lastRefresh
-                if (refreshTime < 100) {
-                    await new Promise(resolve => setTimeout(resolve, 200))
-                }
+                await queryClientInstance.invalidateQueries({ queryKey: ["stations"] });
             } catch (error) {
                 console.error('Failed to refresh data:', error)
             }
@@ -347,116 +247,36 @@ export default function Component({ stations: initialStations }: ComponentProps)
         threshold: 80
     })
 
-    // Apply filtering logic with optimized search
+    // Apply search filter
     const filteredStations = useMemo(() => {
-        // Start with advanced filtered stations or all stations
-        let stations = displayedStations;
+        let result = displayedStations;
 
-        // Optimized search term filter using debounced search
         if (debouncedSearchTerm.trim()) {
             const searchLower = debouncedSearchTerm.toLowerCase()
-            stations = stations.filter(station => {
-                // Cache the lowercase versions to avoid repeated toLowerCase calls
+            result = result.filter(station => {
                 const stationNameLower = station.station_name.toLowerCase()
                 const districtNameLower = station.districts.name.toLowerCase()
                 return stationNameLower.includes(searchLower) || districtNameLower.includes(searchLower)
             })
         }
 
-        // Apply favorites filter if enabled (using Set for O(1) lookup)
-        if (showFavoritesOnly && isLoggedIn) {
-            const favSet = new Set(favStations)
-            stations = stations.filter(station => favSet.has(station.id.toString()))
-        }
+        return result;
+    }, [displayedStations, debouncedSearchTerm]);
 
-        return stations;
-    }, [displayedStations, debouncedSearchTerm, showFavoritesOnly, isLoggedIn, favStations]);
-
-
-    // const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
-    //     if (!isLoggedIn) {
-    //         setShowLoginModal(true);
-    //         return;
-    //     }
-
-    //     const idString = id.toString();
-    //     if (favStations.includes(idString)) {
-    //         removeFavStation(idString);
-    //     } else {
-    //         addFavStation(idString);
-    //     }
-    // };
-    const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
-        // Favorites disabled - do nothing
-        return;
-    };
-
-    // Optimized station click handler with preloading
-    const handleStationClick = useCallback(async (station: ComponentProps['stations'][0]) => {
-        try {
-            // Preload station data before navigation for faster page load
-            if (typeof station.id === 'object' && '_id' in station.id) {
-                // Prefetch station detail data in background
-                convex.query(api.stations.getStationDetailById, { stationId: station.id as Id<"stations"> })
-                    .catch((err) => { console.error('Prefetch station detail error:', err); })
-            }
-
-            // Navigate immediately, don't wait for prefetch
-            router.push(`/stations/${station.id.toString()}`)
-        } catch (error) {
-            console.error('Navigation error:', error)
-            // Fallback navigation without prefetch
-            router.push(`/stations/${station.id.toString()}`)
-        }
-    }, [router, convex])
-
-    const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
-    const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
-
-    const openFullscreen = (src: string) => {
-        setFullscreenImageSrc(src)
-        setIsFullscreenOpen(true)
-    }
-    const closeFullscreen = () => {
-        setIsFullscreenOpen(false)
-        setFullscreenImageSrc("")
-    }
-
-    const handleFilterSelect = (filterId: string) => {
-        setActiveFilter(filterId === activeFilter ? null : filterId)
-    }
-    const [activeFilter, setActiveFilter] = useState<string | null>(null)
+    // Station click handler
+    const handleStationClick = useCallback(async (station: StationData) => {
+        router.push(`/stations/${station.id.toString()}`)
+    }, [router])
 
     return (
         <>
             <Head>
                 <title>Water Level Stations - River Monitoring System</title>
                 <meta name="description" content="Monitor real-time water levels across Selangor rivers. Track flood alerts, warning levels, and danger zones with live updates every 15 minutes." />
-
-                {/* Open Graph meta tags for social sharing */}
                 <meta property="og:title" content="Water Level Stations - River Monitoring System" />
                 <meta property="og:description" content="Monitor real-time water levels across Selangor rivers. Track flood alerts, warning levels, and danger zones with live updates." />
                 <meta property="og:type" content="website" />
-                <meta property="og:url" content={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/stations`} />
-
-                {/* Static Open Graph image for stations overview */}
-                <meta property="og:image" content={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/images/og-stations-overview.png`} />
-                <meta property="og:image:width" content="1200" />
-                <meta property="og:image:height" content="630" />
-                <meta property="og:image:alt" content="Water Level Monitoring Stations Overview" />
-
-                {/* Twitter Card meta tags */}
-                <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content="Water Level Stations - River Monitoring System" />
-                <meta name="twitter:description" content="Monitor real-time water levels across Selangor rivers. Track flood alerts and danger zones." />
-                <meta name="twitter:image" content={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/images/og-stations-overview.png`} />
-
-                {/* Additional SEO meta tags */}
                 <meta name="keywords" content="water level, flood monitoring, Selangor rivers, JPS, real-time alerts, flood warning" />
-                <meta name="author" content="Water Level Monitoring System" />
-
-                {/* Canonical URL */}
-                <link rel="canonical" href={`${process.env.NODE_ENV === 'production' ? 'https://your-app-name.netlify.app' : 'http://localhost:3000'}/stations`} />
             </Head>
             <div className="flex-1 flex flex-col bg-background">
                 <div
@@ -472,12 +292,9 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-heading-1">Water Level Stations</h2>
                         <div className="flex items-center gap-2">
-                            <FavoritesFilter isLoggedIn={isLoggedIn} />
                             <AdvancedFilter
-                                stations={stationsData as any}
-                                onFilterChange={() => { }} // No-op since filtering is handled by context
-                                isLoggedIn={isLoggedIn}
-                                favoriteStations={favStations}
+                                stations={stationsData}
+                                onFilterChange={() => { }}
                             />
                         </div>
                     </div>
@@ -535,27 +352,23 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     {/* Station Cards Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         {isLoadingStations ? (
-                            // Optimized skeleton loading states based on viewport
                             Array.from({ length: skeletonCount }).map((_, index) => (
                                 <StationSkeleton key={`skeleton-${index}`} />
                             ))
                         ) : filteredStations.length > 0 ? (
                             filteredStations.map((station) => {
-                                // Calculate distance for display if location is available and we're sorting by nearest
                                 const distance = (advancedFilters.sortBy === 'nearest' && location.coordinates && station.latitude && station.longitude)
                                     ? calculateDistance(location.coordinates, { latitude: station.latitude, longitude: station.longitude })
                                     : undefined;
 
                                 return (
                                     <StationCard
-                                        key={station.id}
+                                        key={station.id.toString()}
                                         station={station}
                                         isSelected={false}
-                                        isFavorite={favStations.includes(station.id.toString())}
                                         showGauge={false}
                                         distance={distance}
-                                        onSelect={(station) => handleStationClick(station)}
-                                        onToggleFavorite={(id) => toggleFavorite('station', id)}
+                                        onSelect={(s) => handleStationClick(s)}
                                     />
                                 );
                             })
@@ -569,12 +382,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     <div className="pb-20"></div>
                 </div>
             </div>
-
-            {/* Login Modal - Commented out */}
-            {/* <LoginModal
-                open={showLoginModal}
-                onOpenChange={setShowLoginModal}
-            /> */}
         </>
     )
 }

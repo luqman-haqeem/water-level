@@ -1,8 +1,6 @@
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import { useQuery } from "convex/react"
-import { api } from "../convex/_generated/api"
-import { Id } from "../convex/_generated/dataModel"
+import { useStationTrend } from '@/hooks/useWaterLevelHistory'
 
 interface MicroTrendChartProps {
     stationId: string
@@ -17,10 +15,8 @@ export default function MicroTrendChart({
     alertLevel,
     className
 }: MicroTrendChartProps) {
-    // Fetch trend data from Convex
-    const trendData = useQuery(api.waterLevelHistory.getStationTrend, {
-        stationId: stationId as Id<"stations">
-    })
+    // Fetch trend data via TanStack Query
+    const { data: trendData } = useStationTrend(stationId)
 
     // Calculate micro chart path
     const chartPath = useMemo(() => {
@@ -35,7 +31,7 @@ export default function MicroTrendChart({
         const range = maxLevel - minLevel || 1
 
         // Create micro SVG path (40x24 viewBox)
-        const pathPoints = points.map((level, index) => {
+        const pathPoints = points.map((level: number, index: number) => {
             const x = 8 + (index / (points.length - 1)) * 24 // 8px padding, 24px width
             const y = 4 + (1 - (level - minLevel) / range) * 16 // 4px padding, 16px height
             return `${index === 0 ? 'M' : 'L'} ${x} ${y}`

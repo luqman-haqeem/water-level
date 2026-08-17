@@ -1,9 +1,7 @@
 import { useMemo, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { haptics } from '@/utils/haptics'
-import { useQuery } from "convex/react"
-import { api } from "../convex/_generated/api"
-import { Id } from "../convex/_generated/dataModel"
+import { useStationTrend } from '@/hooks/useWaterLevelHistory'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
@@ -41,10 +39,8 @@ export default function MiniTrendChart({
     const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null)
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
-    // Fetch trend data from Convex
-    const trendData = useQuery(api.waterLevelHistory.getStationTrend, {
-        stationId: stationId as Id<"stations">
-    })
+    // Fetch trend data via TanStack Query
+    const { data: trendData } = useStationTrend(stationId)
 
     // Calculate chart dimensions and data points
     const chartData = useMemo(() => {
@@ -52,7 +48,7 @@ export default function MiniTrendChart({
             return null
         }
 
-        const points = trendData.map((point: any) => ({
+        const points: TrendDataPoint[] = trendData.map((point: any) => ({
             timestamp: point.timestamp,
             currentLevel: point.currentLevel,
             alertLevel: point.alertLevel,
@@ -60,30 +56,27 @@ export default function MiniTrendChart({
         }))
 
         // Chart dimensions
-        const width = 280 // Fixed width for consistency
+        const width = 280
         const padding = 20
         const chartWidth = width - (padding * 2)
         const chartHeight = height - (padding * 2)
 
-        // Find data range with dynamic scaling for better visibility
+        // Find data range with dynamic scaling
         const levels = points.map(p => p.currentLevel)
         const dataMin = Math.min(...levels)
         const dataMax = Math.max(...levels)
         const dataRange = dataMax - dataMin
 
-        // Apply dynamic range enhancement for small variations
-        const MINIMUM_RANGE = 2.0 // Minimum 2m range for visibility
-        const RANGE_MULTIPLIER = 1.5 // Amplify small ranges by 50%
+        const MINIMUM_RANGE = 2.0
+        const RANGE_MULTIPLIER = 1.5
 
         let effectiveRange = dataRange
         if (dataRange < MINIMUM_RANGE) {
             effectiveRange = MINIMUM_RANGE
         } else if (dataRange < 5.0) {
-            // For ranges 0-5m, apply amplification
             effectiveRange = Math.max(dataRange * RANGE_MULTIPLIER, MINIMUM_RANGE)
         }
 
-        // Center the enhanced range around the data
         const dataMidpoint = (dataMax + dataMin) / 2
         const minLevel = Math.max(dataMidpoint - effectiveRange / 2, Math.min(thresholds.normal, dataMin - 0.5))
         const maxLevel = Math.min(dataMidpoint + effectiveRange / 2, Math.max(thresholds.danger, dataMax + 0.5))
@@ -118,15 +111,12 @@ export default function MiniTrendChart({
                 warning: getThresholdY(thresholds.warning),
                 danger: getThresholdY(thresholds.danger)
             },
-            // Add trend analysis
             trend: {
                 direction: points.length >= 2 ?
                     (points[points.length - 1].currentLevel > points[0].currentLevel ? 'up' :
                         points[points.length - 1].currentLevel < points[0].currentLevel ? 'down' : 'stable') : 'stable',
                 change: points.length >= 2 ?
                     points[points.length - 1].currentLevel - points[0].currentLevel : 0,
-                recentChange: points.length >= 2 ?
-                    points[points.length - 1].currentLevel - points[points.length - 2].currentLevel : 0
             }
         }
     }, [trendData, height, thresholds])
@@ -155,13 +145,12 @@ export default function MiniTrendChart({
 
         return (
             <div className={`absolute top-1 right-1 flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-medium ${arrowColor} bg-background/80 backdrop-blur-sm border`}>
-                <span className="text-xs">{isUp ? '↗' : '↘'}</span>
+                <span className="text-xs">{isUp ? '\u2197' : '\u2198'}</span>
                 <span>{changeText}</span>
             </div>
         )
     }
 
-    // Handle point interaction - memoized for performance
     const handlePointInteraction = useCallback((point: TrendDataPoint, event: React.MouseEvent) => {
         setHoveredPoint(point)
         setMousePosition({ x: event.clientX, y: event.clientY })
@@ -171,13 +160,11 @@ export default function MiniTrendChart({
     const handleMouseLeave = useCallback(() => {
         setHoveredPoint(null)
     }, [])
-    // Format time for tooltip - memoized for performance
+
     const formatTime = useCallback((recordedAt: string) => {
         try {
-            // Parse timestamp (already in Malaysian time) and format as 12-hour time
-            // Remove 'Z' from timestamp since it's already in Malaysian time, not UTC
             const cleanTimestamp = recordedAt.replace('Z', '')
-            return dayjs(cleanTimestamp).format('h:mm A') // 12-hour format like "8:33 PM"
+            return dayjs(cleanTimestamp).format('h:mm A')
         } catch {
             return 'Unknown'
         }
@@ -209,7 +196,6 @@ export default function MiniTrendChart({
 
     return (
         <div className={cn("relative bg-background rounded-lg border", className)} style={{ height }}>
-            {/* Trend indicator */}
             {chartData.trend && (
                 <TrendArrow
                     direction={chartData.trend.direction}
@@ -273,7 +259,7 @@ export default function MiniTrendChart({
                     />
                 ))}
 
-                {/* Enhanced visible data points */}
+                {/* Visible data points */}
                 {chartData.points.map((point, index) => {
                     const isLatest = index === chartData.points.length - 1
                     return (
@@ -283,9 +269,7 @@ export default function MiniTrendChart({
                                 cy={point.y}
                                 r={isLatest ? 4 : 2.5}
                                 className={`${getAlertColor(point.alertLevel)} fill-current pointer-events-none transition-all duration-300`}
-                                filter={isLatest ? "url(#glow)" : undefined}
                             />
-                            {/* White inner dot for better contrast */}
                             <circle
                                 cx={point.x}
                                 cy={point.y}
@@ -304,7 +288,7 @@ export default function MiniTrendChart({
                     style={{
                         left: mousePosition.x + 10,
                         top: mousePosition.y - 40,
-                        transform: mousePosition.x > window.innerWidth - 120 ? 'translateX(-100%)' : undefined
+                        transform: mousePosition.x > (typeof window !== 'undefined' ? window.innerWidth : 800) - 120 ? 'translateX(-100%)' : undefined
                     }}
                 >
                     <div className="text-xs font-medium">{hoveredPoint.currentLevel.toFixed(2)}m</div>

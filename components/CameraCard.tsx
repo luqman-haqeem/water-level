@@ -1,14 +1,11 @@
 import React, { useState } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Expand, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Expand, Wifi, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { haptics } from '@/utils/haptics'
 import {
     CameraIcon,
     LocationIcon,
-    FavoriteIcon,
-    OnlineIcon
 } from '@/components/icons/IconLibrary'
 import Image from 'next/image'
 import { Id } from "../convex/_generated/dataModel"
@@ -25,16 +22,12 @@ interface Camera {
 
 interface CameraCardProps {
     camera: Camera
-    isFavorite: boolean
-    onToggleFavorite: (id: Id<"cameras"> | number) => void
     onImageClick?: (imageUrl: string) => void
     className?: string
 }
 
 export default function CameraCard({
     camera,
-    isFavorite,
-    onToggleFavorite,
     onImageClick,
     className
 }: CameraCardProps) {
@@ -116,7 +109,6 @@ export default function CameraCard({
 
                         {/* Controls overlay */}
                         <div className="absolute top-2 right-2 flex gap-1">
-                            {/* Refresh button (shown on error or hover) */}
                             {(hasImageError || !isImageLoading) && (
                                 <button
                                     onClick={handleRefreshImage}
@@ -130,7 +122,6 @@ export default function CameraCard({
                                 </button>
                             )}
 
-                            {/* Expand button */}
                             {!hasImageError && (
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                     <div className="bg-black/50 backdrop-blur-sm rounded-full p-2">
@@ -139,22 +130,6 @@ export default function CameraCard({
                                 </div>
                             )}
                         </div>
-
-                        {/* Status indicators */}
-                        {/* <div className="absolute top-2 left-2 flex flex-col gap-1"> */}
-                        {/* Live/Offline indicator */}
-                        {/* {hasImageError ? (
-                                <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
-                                    <WifiOff className="h-3 w-3" />
-                                    OFFLINE
-                                </div>
-                            ) : (
-                                <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                    LIVE
-                                </div>
-                            )} */}
-                        {/* </div> */}
 
                         {/* Connection quality indicator */}
                         {!hasImageError && (
@@ -170,7 +145,6 @@ export default function CameraCard({
 
                 {/* Info Section */}
                 <div className="p-4 space-y-3">
-                    {/* Header Row */}
                     <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
@@ -182,19 +156,6 @@ export default function CameraCard({
                                 <span className="truncate">{camera.districts.name}</span>
                             </div>
                         </div>
-
-                        {/* <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                haptics.tap()
-                onToggleFavorite(camera.id)
-              }}
-              className="flex-shrink-0 p-1 h-8 w-8"
-            >
-              <FavoriteIcon size="sm" active={isFavorite} />
-            </Button> */}
                     </div>
 
                     {/* Status Row */}

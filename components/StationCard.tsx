@@ -1,5 +1,4 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from '@/lib/utils'
 import formatTimestamp from '@/utils/timeUtils'
@@ -12,7 +11,6 @@ import {
     LocationIcon,
     TimeIcon,
     CameraIcon,
-    FavoriteIcon
 } from '@/components/icons/IconLibrary'
 import { Id } from "../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
@@ -43,48 +41,22 @@ interface Station {
 interface StationCardProps {
     station: Station
     isSelected: boolean
-    isFavorite: boolean
     onSelect: (station: Station) => void
-    onToggleFavorite: (id: Id<"stations"> | number) => void
     className?: string
     showGauge?: boolean
     compact?: boolean
-    distance?: number // Distance in km for nearest sorting
+    distance?: number
 }
 
 export default function StationCard({
     station,
     isSelected,
-    isFavorite,
     onSelect,
-    onToggleFavorite,
     className,
     showGauge = false,
     compact = false,
     distance
 }: StationCardProps) {
-    const getStatusColor = (alertLevel: string) => {
-        const level = parseInt(alertLevel)
-        switch (level) {
-            case 0: return 'text-success'
-            case 1: return 'text-alert'
-            case 2: return 'text-warning'
-            case 3: return 'text-destructive'
-            default: return 'text-muted-foreground'
-        }
-    }
-
-    const getStatusIcon = (alertLevel: string) => {
-        const level = parseInt(alertLevel)
-        switch (level) {
-            case 0: return '🟢'
-            case 1: return '🟠'
-            case 2: return '🟡'
-            case 3: return '🔴'
-            default: return '⚪'
-        }
-    }
-
     return (
         <Card
             className={cn(
@@ -119,19 +91,6 @@ export default function StationCard({
                             )}
                         </div>
                     </div>
-
-                    {/* <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            haptics.tap()
-                            onToggleFavorite(station.id)
-                        }}
-                        className="flex-shrink-0 p-1 h-8 w-8"
-                    >
-                        <FavoriteIcon size="sm" active={isFavorite} />
-                    </Button> */}
                 </div>
 
                 {/* Data Row with Mini Chart */}
@@ -141,7 +100,7 @@ export default function StationCard({
                         <WaterIcon size="sm" />
                         <div>
                             <span className="text-water-level">
-                                {station.current_levels?.current_level || '—'}<span className="text-body-small font-normal">m</span>
+                                {station.current_levels?.current_level || '\u2014'}<span className="text-body-small font-normal">m</span>
                             </span>
                         </div>
                     </div>
@@ -155,11 +114,8 @@ export default function StationCard({
                         />
                     </div>
 
-                    {/* Right: Current Level & Status */}
+                    {/* Right: Status */}
                     <div className="text-right">
-                        <div className="text-lg font-semibold">
-                            {station.current_levels?.current_level || '—'} m
-                        </div>
                         <div className="flex items-center gap-1 justify-end">
                             <AlertLevelBadge
                                 alert_level={Number(station.current_levels?.alert_level) || 0}
