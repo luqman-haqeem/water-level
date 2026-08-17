@@ -1,0 +1,18 @@
+{
+  "task_id": "task-tanstack-migration-revamp",
+  "task_description": "Full revamp of the water-level monitoring app: remove all unused/dead code, migrate data fetching from direct Convex reactive queries to TanStack Query, and clean up the codebase for a modern, maintainable architecture.",
+  "status": "completed",
+  "feature_order": [
+    "FEAT-001",
+    "FEAT-002",
+    "FEAT-003"
+  ],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "npm run build succeeds (all pages compiled, SSG generated). npm run lint passes with no warnings or errors. No test framework exists in this project."
+  }
+}
