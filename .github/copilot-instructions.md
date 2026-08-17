@@ -46,6 +46,6 @@ Be productive quickly by following these concise, project-specific conventions a
 - Pitfalls and conventions discovered in the codebase:
   - This project relies on Convex for server-side types and realtime; modifying the schema often requires updating imports and generated types.
   - Many UI behaviors (haptics, pull-to-refresh) are implemented via hooks in `hooks/`; prefer reusing those hooks over inventing new patterns.
-  - OneSignal and PWA behavior are configured; changing service worker or manifest can affect offline behavior—review `public/` and `next.config.mjs`.
+  - PWA behavior is configured; changing service worker or manifest can affect offline behavior - review `public/` and `next.config.mjs`.
 
 If anything here is unclear or you want the file expanded with examples (PR checklist, more command snippets), tell me which sections to expand and I'll iterate.

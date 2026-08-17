@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Head from 'next/head';
-import { Star, ChevronLeft, ChevronRight, Expand } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Expand } from 'lucide-react'
 import { WaterIcon } from '@/components/icons/IconLibrary'
 import useSwipeGestures from '@/hooks/useSwipeGestures'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
@@ -16,7 +16,6 @@ import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
 import { useQuery, useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useUserStore } from '../../lib/convexStore';
 import ExpandableSection from '@/components/ExpandableSection';
 import MiniTrendChart from '@/components/MiniTrendChart';
 import { Id } from "../../convex/_generated/dataModel";
@@ -42,9 +41,6 @@ export default function StationDetail() {
 
     // Memoize stationsData to prevent unnecessary re-renders
     const stationsData = useMemo(() => stations || [], [stations]);
-    // const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
-    const isLoggedIn = false; // Commented out auth
-    const favStations: string[] = []; // Commented out favorites
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
@@ -59,20 +55,6 @@ export default function StationDetail() {
             router.push('/stations');
         }
     }, [stationsData, currentStation, isLoadingStations, router]);
-
-    // const toggleFavorite = (id: Id<"stations"> | number) => {
-    //     const idString = id.toString();
-    //     if (favStations.includes(idString)) {
-    //         removeFavStation(idString);
-    //     } else {
-    //         addFavStation(idString);
-    //     }
-    //     haptics.tap();
-    // };
-    const toggleFavorite = (id: Id<"stations"> | number) => {
-        // Favorites disabled - do nothing
-        return;
-    };
 
     const navigateToStation = (direction: 'next' | 'prev') => {
         let newIndex: number;
@@ -159,20 +141,6 @@ export default function StationDetail() {
                         <h1 className="text-heading-2 truncate">{currentStation.station_name}</h1>
                         <p className="text-sm text-muted-foreground">{currentStation.districts.name}</p>
                     </div>
-                    {/* <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleFavorite(currentStation.id)}
-                        className="min-w-touch min-h-touch"
-                    >
-                        <Star className={`w-5 h-5 transition-all duration-200 ${favStations.includes(currentStation.id.toString())
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-gray-400 hover:text-yellow-400'
-                            }`} />
-                        <span className="sr-only">
-                            {favStations.includes(currentStation.id.toString()) ? 'Remove from' : 'Add to'} favorites
-                        </span>
-                    </Button> */}
                 </header>
 
                 {/* Main Content */}

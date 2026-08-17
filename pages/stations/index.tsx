@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTheme } from "next-themes"
-import { Star, ChevronLeft, ChevronRight, Expand, RotateCw, Ellipsis, Info } from 'lucide-react'
+import { RotateCw, Ellipsis, Info } from 'lucide-react'
 import { WaterIcon, CameraIcon, LocationIcon } from '@/components/icons/IconLibrary'
 import useSwipeGestures from '@/hooks/useSwipeGestures'
 import AlertLevelBadge from "@/components/AlertLevelBadge";
@@ -20,14 +20,11 @@ import { haptics } from '@/utils/haptics'
 
 import Image from 'next/image'
 import formatTimestamp from '@/utils/timeUtils'
-// import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
 import { useRouter } from 'next/router';
-import { useQuery, useConvexAuth } from "convex/react";
+import { useQuery } from "convex/react";
 import { useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useUserStore } from '../../lib/convexStore';
-import { useAuthActions } from "@convex-dev/auth/react";
 import { useFilter, FilterOptions } from '../../lib/FilterContext';
 import AdvancedFilter from '@/components/AdvancedFilter';
 import FavoritesFilter from '@/components/FavoritesFilter';
@@ -100,7 +97,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
     const { stationId } = router.query;
     const [searchTerm, setSearchTerm] = useState("")
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
-    // const [showLoginModal, setShowLoginModal] = useState(false)
     const { theme, setTheme } = useTheme()
 
     // Location services for nearest sorting
@@ -123,11 +119,10 @@ export default function Component({ stations: initialStations }: ComponentProps)
             return idA.localeCompare(idB)
         })
     }, [stations])
-    // const { isLoggedIn, favStations, removeFavStation, addFavStation } = useUserStore();
-    const isLoggedIn = false; // Commented out auth
-    const favStations = useMemo(() => [] as string[], []); // Commented out favorites
+    const isLoggedIn = false;
+    const favStations = useMemo(() => [] as string[], []);
     // Get filter context for favorites and advanced filters
-    const { showFavoritesOnly, toggleFavorites, advancedFilters, hasActiveAdvancedFilters } = useFilter();
+    const { showFavoritesOnly, toggleFavorites, advancedFilters } = useFilter();
 
     const [isMobile, setIsMobile] = useState(true)
 
@@ -279,11 +274,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
 
     // Use the advanced filters from context to apply filtering
     const displayedStations = useMemo(() => {
-        // if (!hasActiveAdvancedFilters) {
-        //     return stationsData;
-        // }
-
-        // Apply advanced filters
         return applyAdvancedFilters(stationsData, advancedFilters);
     }, [stationsData, advancedFilters, applyAdvancedFilters]);
 
@@ -303,10 +293,7 @@ export default function Component({ stations: initialStations }: ComponentProps)
         }
     }, [advancedFilters.sortBy, location]);
 
-    // Debug location changes
     useEffect(() => {
-        // Location state changes - no debug needed
-    }, [location.coordinates, location.error]); useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth < 768;
             setIsMobile(isMobileDevice);
@@ -373,21 +360,7 @@ export default function Component({ stations: initialStations }: ComponentProps)
     }, [displayedStations, debouncedSearchTerm, showFavoritesOnly, isLoggedIn, favStations]);
 
 
-    // const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
-    //     if (!isLoggedIn) {
-    //         setShowLoginModal(true);
-    //         return;
-    //     }
-
-    //     const idString = id.toString();
-    //     if (favStations.includes(idString)) {
-    //         removeFavStation(idString);
-    //     } else {
-    //         addFavStation(idString);
-    //     }
-    // };
     const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
-        // Favorites disabled - do nothing
         return;
     };
 
@@ -570,11 +543,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
                 </div>
             </div>
 
-            {/* Login Modal - Commented out */}
-            {/* <LoginModal
-                open={showLoginModal}
-                onOpenChange={setShowLoginModal}
-            /> */}
         </>
     )
 }

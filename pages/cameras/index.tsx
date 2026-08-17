@@ -3,17 +3,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import Head from 'next/head';
-import { Star, Expand, RotateCw, Ellipsis } from 'lucide-react'
+import { Expand, RotateCw, Ellipsis } from 'lucide-react'
 import useSwipeGestures from '@/hooks/useSwipeGestures'
 import Image from 'next/image'
-// import LoginModal from '@/components/LoginModel';
 import FullscreenModal from '@/components/FullscreenModal';
 import CameraCard from '@/components/CameraCard';
 import { CameraSkeleton } from '@/components/SkeletonCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useQuery, useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useUserStore } from '../../lib/convexStore';
 import { useTheme } from "next-themes"
 import { useFilter } from '../../lib/FilterContext';
 import FavoritesFilter from '@/components/FavoritesFilter';
@@ -57,12 +55,9 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
     const cameras = useQuery(api.cameras.getCamerasWithDetails);
     const isLoadingCameras = cameras === undefined;
     const camerasData = useMemo(() => cameras || [], [cameras]);
-    // const { isLoggedIn, favCameras, addFavCamera, removeFavCamera } = useUserStore();
-    const isLoggedIn = false; // Commented out auth
-    const favCameras = useMemo(() => [] as string[], []); // Commented out favorites
-    // const { showFavoritesOnly, toggleFavorites } = useFilter();
-    const showFavoritesOnly = false; // Commented out favorites filter
-    // const [showLoginModal, setShowLoginModal] = useState(false)
+    const isLoggedIn = false;
+    const favCameras = useMemo(() => [] as string[], []);
+    const showFavoritesOnly = false;
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
     const { theme, setTheme } = useTheme()
@@ -123,20 +118,7 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
         threshold: 80
     })
 
-    // const toggleFavorite = (type: 'camera', id: Id<"cameras"> | number) => {
-    //     if (!isLoggedIn) {
-    //         setShowLoginModal(true)
-    //         return
-    //     }
-    //     const idString = id.toString();
-    //     if (favCameras.includes(idString)) {
-    //         removeFavCamera(idString);
-    //     } else {
-    //         addFavCamera(idString);
-    //     }
-    // }
     const toggleFavorite = (type: 'camera', id: Id<"cameras"> | number) => {
-        // Favorites disabled - do nothing
         return;
     };
 
@@ -249,13 +231,6 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                             onSwipeUp={() => closeFullscreen()}
                             showControls={true}
                         />
-
-
-                        {/* Login Modal - Commented out */}
-                        {/* <LoginModal
-                            open={showLoginModal}
-                            onOpenChange={setShowLoginModal}
-                        /> */}
                     </div>
                 )}
             </div >
