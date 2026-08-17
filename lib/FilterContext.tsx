@@ -6,7 +6,6 @@ export interface FilterOptions {
     alertLevels: string[]
     sortBy: 'name' | 'waterLevel' | 'lastUpdated' | 'district' | 'nearest'
     sortOrder: 'asc' | 'desc'
-    showFavoritesOnly: boolean
     showCameraOnly: boolean
     showOfflineStations: boolean
     waterLevelRange: {
@@ -21,15 +20,12 @@ const DEFAULT_FILTERS: FilterOptions = {
     alertLevels: [],
     sortBy: 'name',
     sortOrder: 'asc',
-    showFavoritesOnly: false,
     showCameraOnly: false,
     showOfflineStations: false, // Hide offline stations by default
     waterLevelRange: { min: 0, max: null } // Set minimum water level to 0 by default
 }
 
 interface FilterContextType {
-    showFavoritesOnly: boolean;
-    toggleFavorites: () => void;
     // Advanced filter state
     advancedFilters: FilterOptions;
     setAdvancedFilters: (filters: FilterOptions) => void;
@@ -74,7 +70,6 @@ export function FilterProvider({
 }: {
     children: ReactNode;
 }) {
-    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [advancedFilters, setAdvancedFiltersState] = useState<FilterOptions>(DEFAULT_FILTERS);
 
     // Load filters from localStorage on mount
@@ -89,10 +84,6 @@ export function FilterProvider({
             saveFiltersToStorage(advancedFilters);
         }
     }, [advancedFilters]);
-
-    const toggleFavorites = () => {
-        setShowFavoritesOnly(!showFavoritesOnly);
-    };
 
     const setAdvancedFilters = (filters: FilterOptions) => {
         setAdvancedFiltersState(filters);
@@ -112,7 +103,6 @@ export function FilterProvider({
         return (
             filters.districts.length > 0 ||
             filters.alertLevels.length > 0 ||
-            filters.showFavoritesOnly ||
             filters.showCameraOnly ||
             filters.showOfflineStations !== false || // Changed: false is now default
             (filters.waterLevelRange.min !== null && filters.waterLevelRange.min !== 0) || // Changed: 0 is now default
@@ -124,8 +114,6 @@ export function FilterProvider({
 
     return (
         <FilterContext.Provider value={{
-            showFavoritesOnly,
-            toggleFavorites,
             advancedFilters,
             setAdvancedFilters,
             updateAdvancedFilters,

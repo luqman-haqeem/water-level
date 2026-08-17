@@ -131,7 +131,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <BottomNavigation
                     activeTab={activeTab}
                     onTabChange={handleTabChange}
-                    showFavorites={false}
                     showFilters={false}
                 />
             )}

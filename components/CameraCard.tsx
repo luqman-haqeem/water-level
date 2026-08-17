@@ -7,7 +7,6 @@ import { haptics } from '@/utils/haptics'
 import {
     CameraIcon,
     LocationIcon,
-    FavoriteIcon,
     OnlineIcon
 } from '@/components/icons/IconLibrary'
 import Image from 'next/image'
@@ -25,16 +24,12 @@ interface Camera {
 
 interface CameraCardProps {
     camera: Camera
-    isFavorite: boolean
-    onToggleFavorite: (id: Id<"cameras"> | number) => void
     onImageClick?: (imageUrl: string) => void
     className?: string
 }
 
 export default function CameraCard({
     camera,
-    isFavorite,
-    onToggleFavorite,
     onImageClick,
     className
 }: CameraCardProps) {
@@ -182,19 +177,6 @@ export default function CameraCard({
                                 <span className="truncate">{camera.districts.name}</span>
                             </div>
                         </div>
-
-                        {/* <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                haptics.tap()
-                onToggleFavorite(camera.id)
-              }}
-              className="flex-shrink-0 p-1 h-8 w-8"
-            >
-              <FavoriteIcon size="sm" active={isFavorite} />
-            </Button> */}
                     </div>
 
                     {/* Status Row */}

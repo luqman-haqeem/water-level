@@ -26,7 +26,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useStations } from '@/hooks/useStations';
 import { useFilter, FilterOptions } from '../../lib/FilterContext';
 import AdvancedFilter from '@/components/AdvancedFilter';
-import FavoritesFilter from '@/components/FavoritesFilter';
+
 import ExpandableSection from '@/components/ExpandableSection';
 import usePullToRefresh from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/PullToRefreshIndicator';
@@ -117,10 +117,8 @@ export default function Component({ stations: initialStations }: ComponentProps)
             return idA.localeCompare(idB)
         })
     }, [stations])
-    const isLoggedIn = false;
-    const favStations = useMemo(() => [] as string[], []);
-    // Get filter context for favorites and advanced filters
-    const { showFavoritesOnly, toggleFavorites, advancedFilters } = useFilter();
+    // Get filter context for advanced filters
+    const { advancedFilters } = useFilter();
 
     const [isMobile, setIsMobile] = useState(true)
 
@@ -200,11 +198,6 @@ export default function Component({ stations: initialStations }: ComponentProps)
         }
 
         // Apply remaining filters (these are typically smaller sets)
-        if (filters.showFavoritesOnly && isLoggedIn) {
-            const favSet = new Set(favStations)
-            filtered = filtered.filter(station => favSet.has(station.id.toString()))
-        }
-
         if (filters.showCameraOnly) {
             filtered = filtered.filter(station => station.cameras !== null)
         }
@@ -268,7 +261,7 @@ export default function Component({ stations: initialStations }: ComponentProps)
         }
 
         return filtered
-    }, [isLoggedIn, favStations, sortedStations, districtMap, alertLevelMap, location.coordinates])
+    }, [sortedStations, districtMap, alertLevelMap, location.coordinates])
 
     // Use the advanced filters from context to apply filtering
     const displayedStations = useMemo(() => {
@@ -338,19 +331,9 @@ export default function Component({ stations: initialStations }: ComponentProps)
             })
         }
 
-        // Apply favorites filter if enabled (using Set for O(1) lookup)
-        if (showFavoritesOnly && isLoggedIn) {
-            const favSet = new Set(favStations)
-            stations = stations.filter(station => favSet.has(station.id.toString()))
-        }
-
         return stations;
-    }, [displayedStations, debouncedSearchTerm, showFavoritesOnly, isLoggedIn, favStations]);
+    }, [displayedStations, debouncedSearchTerm]);
 
-
-    const toggleFavorite = (type: 'station', id: Id<"stations"> | number) => {
-        return;
-    };
 
     // Optimized station click handler
     const handleStationClick = useCallback(async (station: ComponentProps['stations'][0]) => {
@@ -426,12 +409,9 @@ export default function Component({ stations: initialStations }: ComponentProps)
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-heading-1">Water Level Stations</h2>
                         <div className="flex items-center gap-2">
-                            <FavoritesFilter isLoggedIn={isLoggedIn} />
                             <AdvancedFilter
-                                stations={stationsData as any}
+                                stations={stationsData}
                                 onFilterChange={() => { }} // No-op since filtering is handled by context
-                                isLoggedIn={isLoggedIn}
-                                favoriteStations={favStations}
                             />
                         </div>
                     </div>
@@ -505,11 +485,9 @@ export default function Component({ stations: initialStations }: ComponentProps)
                                         key={station.id}
                                         station={station}
                                         isSelected={false}
-                                        isFavorite={favStations.includes(station.id.toString())}
                                         showGauge={false}
                                         distance={distance}
                                         onSelect={(station) => handleStationClick(station)}
-                                        onToggleFavorite={(id) => toggleFavorite('station', id)}
                                     />
                                 );
                             })

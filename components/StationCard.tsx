@@ -11,8 +11,7 @@ import {
     WaterIcon,
     LocationIcon,
     TimeIcon,
-    CameraIcon,
-    FavoriteIcon
+    CameraIcon
 } from '@/components/icons/IconLibrary'
 import { Id } from "../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
@@ -43,9 +42,7 @@ interface Station {
 interface StationCardProps {
     station: Station
     isSelected: boolean
-    isFavorite: boolean
     onSelect: (station: Station) => void
-    onToggleFavorite: (id: Id<"stations"> | number) => void
     className?: string
     showGauge?: boolean
     compact?: boolean
@@ -55,9 +52,7 @@ interface StationCardProps {
 export default function StationCard({
     station,
     isSelected,
-    isFavorite,
     onSelect,
-    onToggleFavorite,
     className,
     showGauge = false,
     compact = false,
@@ -119,19 +114,6 @@ export default function StationCard({
                             )}
                         </div>
                     </div>
-
-                    {/* <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            haptics.tap()
-                            onToggleFavorite(station.id)
-                        }}
-                        className="flex-shrink-0 p-1 h-8 w-8"
-                    >
-                        <FavoriteIcon size="sm" active={isFavorite} />
-                    </Button> */}
                 </div>
 
                 {/* Data Row with Mini Chart */}

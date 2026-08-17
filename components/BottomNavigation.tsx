@@ -6,28 +6,21 @@ import { haptics } from '@/utils/haptics'
 import {
     WaterIcon,
     CameraIcon,
-    FavoriteIcon,
     FilterIcon
 } from '@/components/icons/IconLibrary'
 
 interface BottomNavigationProps {
     activeTab: string
     onTabChange: (tab: string) => void
-    onFavoritesToggle?: () => void
     onFilterToggle?: () => void
-    showFavorites?: boolean
     showFilters?: boolean
-    favoritesActive?: boolean
 }
 
 export default function BottomNavigation({
     activeTab,
     onTabChange,
-    onFavoritesToggle,
     onFilterToggle,
-    showFavorites = true,
     showFilters = true,
-    favoritesActive = false
 }: BottomNavigationProps) {
     const [isVisible, setIsVisible] = useState(true)
     const [lastScrollY, setLastScrollY] = useState(0)
@@ -101,21 +94,6 @@ export default function BottomNavigation({
                 </Button>
 
                 {/* Quick Action Buttons */}
-                {showFavorites && (
-                    <Button
-                        variant={favoritesActive ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => {
-                            haptics.tap()
-                            onFavoritesToggle?.()
-                        }}
-                        className="flex-col h-12 min-w-[60px] px-2 gap-1"
-                    >
-                        <FavoriteIcon size="md" />
-                        <span className="text-caption">Favorites</span>
-                    </Button>
-                )}
-
                 {showFilters && (
                     <Button
                         variant="ghost"

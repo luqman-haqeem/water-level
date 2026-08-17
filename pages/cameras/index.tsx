@@ -13,8 +13,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { useQueryClient } from "@tanstack/react-query";
 import { useCameras } from '@/hooks/useCameras';
 import { useTheme } from "next-themes"
-import { useFilter } from '../../lib/FilterContext';
-import FavoritesFilter from '@/components/FavoritesFilter';
+
 
 import usePullToRefresh from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/PullToRefreshIndicator';
@@ -54,9 +53,6 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
     const queryClientInstance = useQueryClient();
     const { data: cameras, isLoading: isLoadingCameras, refetch: refetchCameras } = useCameras();
     const camerasData = useMemo(() => cameras || [], [cameras]);
-    const isLoggedIn = false;
-    const favCameras = useMemo(() => [] as string[], []);
-    const showFavoritesOnly = false;
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("")
     const { theme, setTheme } = useTheme()
@@ -70,7 +66,7 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
         return () => clearTimeout(timer)
     }, [searchTerm])
 
-    // Apply search and favorites filter
+    // Apply search filter
     const filteredCameras = useMemo(() => {
         let cameras = camerasData;
 
@@ -85,13 +81,8 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
             })
         }
 
-        // Apply favorites filter if enabled
-        if (showFavoritesOnly && isLoggedIn) {
-            cameras = cameras.filter(camera => favCameras.includes(camera.id.toString()));
-        }
-
         return cameras;
-    }, [camerasData, debouncedSearchTerm, showFavoritesOnly, isLoggedIn, favCameras]);
+    }, [camerasData, debouncedSearchTerm]);
 
     const openFullscreen = (src: string) => {
         setFullscreenImageSrc(src)
@@ -114,10 +105,6 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
         },
         threshold: 80
     })
-
-    const toggleFavorite = (type: 'camera', id: Id<"cameras"> | number) => {
-        return;
-    };
 
     // Camera navigation for fullscreen mode
     const getCurrentCameraIndex = () => {
@@ -167,7 +154,6 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                         />
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-heading-1">Camera Feeds</h2>
-                            <FavoritesFilter isLoggedIn={isLoggedIn} />
                         </div>
 
                         {/* Search Bar */}
@@ -191,8 +177,6 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                                     <CameraCard
                                         key={camera.id}
                                         camera={camera}
-                                        isFavorite={favCameras.includes(camera.id.toString())}
-                                        onToggleFavorite={(id) => toggleFavorite('camera', id)}
                                         onImageClick={(imageUrl) => openFullscreen(imageUrl)}
                                     />
                                 ))
@@ -202,11 +186,6 @@ export default function Component({ cameras: initialCameras }: ComponentProps) {
                                         <>
                                             <p className="text-body-large text-muted-foreground mb-2">No cameras found</p>
                                             <p className="text-body text-muted-foreground">Try adjusting your search terms or clear the search</p>
-                                        </>
-                                    ) : showFavoritesOnly ? (
-                                        <>
-                                            <p className="text-body-large text-muted-foreground mb-2">No favorite cameras</p>
-                                            <p className="text-body text-muted-foreground">Add cameras to favorites to see them here</p>
                                         </>
                                     ) : (
                                         <>

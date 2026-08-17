@@ -7,9 +7,6 @@
         "build": "next build",
         "start": "next start",
         "lint": "next lint",
-        "convex:dev": "convex dev",
-        "convex:deploy": "convex deploy",
-        "migrate:data": "npx ts-node scripts/migrate-data.ts",
         "scrape:water-level": "node scripts/scrapeWaterLevel.js",
         "scrape:water-level:file": "node scripts/scrapeWaterLevel.js file",
         "scrape:summary": "node scripts/scrapeWaterLevel.js summary"
