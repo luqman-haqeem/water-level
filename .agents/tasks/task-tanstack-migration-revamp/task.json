@@ -1,0 +1,7 @@
+{
+  "task_id": "task-tanstack-migration-revamp",
+  "task_description": "Full revamp of the water-level monitoring app: remove all unused/dead code, migrate data fetching from direct Convex reactive queries to TanStack Query, and clean up the codebase for a modern, maintainable architecture.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
