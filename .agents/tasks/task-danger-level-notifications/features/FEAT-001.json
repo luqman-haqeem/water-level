@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Add Convex backend infrastructure for danger-level notifications: schema tables (users, favoriteStations, notificationLog), notifications action, favorites query, and waterLevelUpdater trigger.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1: Update convex/schema.ts to add three new tables: (a) 'users' table with fields: externalId (v.string()), email (v.optional(v.string())), name (v.optional(v.string())), with index 'by_external_id' on ['externalId']. (b) 'favoriteStations' table with fields: userId (v.id('users')), stationId (v.id('stations')), with indexes 'by_user' on ['userId'], 'by_user_station' on ['userId', 'stationId'], and 'by_station' on ['stationId']. (c) 'notificationLog' table with fields: userId (v.id('users')), stationId (v.id('stations')), notifiedAt (v.number()), alertLevel (v.number()), with indexes 'by_user_station' on ['userId', 'stationId'] and 'by_notified_at' on ['notifiedAt'].",
     "Step 2: Create convex/favorites.ts with an internalQuery named 'getUsersWhoFavoritedStation' that takes args { stationId: v.id('stations') }, queries the 'favoriteStations' table using the 'by_station' index filtered by stationId, collects the results, and returns an array of userId values (Id<'users'>[]).",
@@ -23,5 +23,5 @@
     "Verify new files exist and have correct exports by grepping for function names"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "TypeScript compilation (tsc --noEmit -p convex/tsconfig.json) passes cleanly with zero errors. Vite build also passes. The _generated/api.d.ts references were not an issue since convex/tsconfig.json excludes _generated."
 }
