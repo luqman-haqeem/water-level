@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import OneSignal from "react-onesignal";
 import {
     Dialog,
     DialogContent,
@@ -7,11 +6,10 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-
-// Module-level flag to prevent re-initialization across mounts
-let oneSignalInitialized = false;
+import {
+    getSubscribedStations,
+    unsubscribeFromStation,
+} from "@/services/notificationService";
 
 interface NotificationHandlerProps {
     open: boolean;
@@ -22,105 +20,54 @@ export default function NotificationHandler({
     open,
     onOpenChange,
 }: NotificationHandlerProps) {
-    const [isSubscribed, setIsSubscribed] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isInitialized, setIsInitialized] = useState(oneSignalInitialized);
-
-    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
+    const [stations, setStations] = useState<string[]>([]);
 
     useEffect(() => {
-        if (!appId) {
-            setIsLoading(false);
-            return;
+        if (open) {
+            setStations(getSubscribedStations());
         }
+    }, [open]);
 
-        const initOneSignal = async () => {
-            try {
-                if (!oneSignalInitialized) {
-                    await OneSignal.init({ appId });
-                    oneSignalInitialized = true;
-                }
-                setIsInitialized(true);
-                const optedIn = OneSignal.User.PushSubscription.optedIn;
-                setIsSubscribed(optedIn ?? false);
-            } catch (error) {
-                console.error("Failed to initialize OneSignal:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        initOneSignal();
-
-        const handleSubscriptionChange = () => {
-            const optedIn = OneSignal.User.PushSubscription.optedIn;
-            setIsSubscribed(optedIn ?? false);
-        };
-
-        OneSignal.User.PushSubscription.addEventListener(
-            "change",
-            handleSubscriptionChange
-        );
-
-        return () => {
-            OneSignal.User.PushSubscription.removeEventListener(
-                "change",
-                handleSubscriptionChange
-            );
-        };
-    }, [appId]);
-
-    const handleToggle = async (checked: boolean) => {
-        if (!isInitialized) return;
-
-        setIsLoading(true);
-        try {
-            if (checked) {
-                await OneSignal.User.PushSubscription.optIn();
-            } else {
-                await OneSignal.User.PushSubscription.optOut();
-            }
-            setIsSubscribed(checked);
-        } catch (error) {
-            console.error("Failed to update subscription:", error);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleUnsubscribe = async (stationId: string) => {
+        await unsubscribeFromStation(stationId);
+        setStations(getSubscribedStations());
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Push Notifications</DialogTitle>
+                    <DialogTitle>Station Notifications</DialogTitle>
                     <DialogDescription>
-                        Enable push notifications to receive alerts when water
-                        stations reach danger levels. Notifications are sent to
-                        this browser when any monitored station enters a
-                        dangerous state.
+                        Manage your per-station push notification subscriptions.
+                        You will receive alerts when subscribed stations reach
+                        danger levels.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="flex items-center justify-between py-4">
-                    {!appId ? (
-                        <p className="text-sm text-muted-foreground">
-                            Push notifications are not configured for this
-                            environment.
+                <div className="py-4 space-y-2">
+                    {stations.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                            No stations subscribed
                         </p>
                     ) : (
-                        <>
-                            <Label
-                                htmlFor="notification-toggle"
-                                className="flex-1"
+                        stations.map((stationId) => (
+                            <div
+                                key={stationId}
+                                className="flex items-center justify-between p-2 rounded-md border border-border"
                             >
-                                Danger level alerts
-                            </Label>
-                            <Switch
-                                id="notification-toggle"
-                                checked={isSubscribed}
-                                onCheckedChange={handleToggle}
-                                disabled={isLoading || !isInitialized}
-                            />
-                        </>
+                                <span className="text-sm">
+                                    Station {stationId}
+                                </span>
+                                <button
+                                    type="button"
+                                    aria-label="Unsubscribe"
+                                    onClick={() => handleUnsubscribe(stationId)}
+                                    className="text-xs text-destructive hover:text-destructive/80 px-2 py-1 rounded"
+                                >
+                                    Unsubscribe
+                                </button>
+                            </div>
+                        ))
                     )}
                 </div>
             </DialogContent>

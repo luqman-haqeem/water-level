@@ -11,9 +11,12 @@ import {
     LocationIcon,
     TimeIcon,
     CameraIcon,
+    BellIcon,
+    BellRingIcon,
 } from '@/components/icons/IconLibrary'
 import { Id } from "../../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
+import { useStationSubscription } from '@/hooks/useStationSubscription'
 
 interface Station {
     id: Id<"stations"> | number
@@ -57,6 +60,17 @@ export default function StationCard({
     compact = false,
     distance
 }: StationCardProps) {
+    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString());
+
+    const handleBellClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isSubscribed) {
+            unsubscribe();
+        } else {
+            subscribe();
+        }
+    };
+
     return (
         <Card
             className={cn(
@@ -91,6 +105,19 @@ export default function StationCard({
                             )}
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        aria-label="Toggle notification subscription"
+                        data-subscribed={isSubscribed ? "true" : "false"}
+                        onClick={handleBellClick}
+                        className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
+                    >
+                        {isSubscribed ? (
+                            <BellRingIcon size="sm" className="text-primary" />
+                        ) : (
+                            <BellIcon size="sm" className="text-muted-foreground" />
+                        )}
+                    </button>
                 </div>
 
                 {/* Data Row with Mini Chart */}
