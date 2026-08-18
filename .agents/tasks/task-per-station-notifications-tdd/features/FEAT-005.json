@@ -2,7 +2,7 @@
   "id": "FEAT-005",
   "type": "fix",
   "description": "Address 5 review issues: relocate OneSignal init, add tag reconciliation, show station names in dialog, handle dead code, document backend test gap",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create OneSignalProvider component that initializes OneSignal SDK and performs startup tag reconciliation",
     "Update notificationService to store {id, name} tuples instead of plain string IDs and add reconciliation logic",
@@ -29,5 +29,5 @@
     "npm run build"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 5 review issues resolved. OneSignalProvider created and integrated into layout.tsx. localStorage format changed to {id, name}[] tuples with automatic legacy migration. reconcileTagsWithLocalStorage added and called after init. NotificationHandler shows station names. Dead code documented with RETAINED FOR FUTURE USE comments. Backend test gap documented with full explanation. 58 tests passing (up from 51), build succeeds."
 }
