@@ -23,5 +23,5 @@
     "Verify new files exist and have correct exports by grepping for function names"
   ],
   "blocked_reason": null,
-  "findings": "TypeScript compilation (tsc --noEmit -p convex/tsconfig.json) passes cleanly with zero errors. Vite build also passes. The _generated/api.d.ts references were not an issue since convex/tsconfig.json excludes _generated."
+  "findings": "TypeScript compilation (tsc --noEmit -p convex/tsconfig.json) passes cleanly with zero errors. Vite build also passes. The _generated/api.d.ts references were not an issue since convex/tsconfig.json excludes _generated. Review fixes applied: (1) Added per-station cooldown via by_station index on notificationLog and getRecentStationNotification query - cooldown now gates the broadcast send at station level. (2) Destructured updatedAt in handler and appended it to notification content message. (3) Issue 4 (no users management) is intentional for future auth."
 }
