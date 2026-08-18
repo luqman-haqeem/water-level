@@ -6,6 +6,7 @@
 [build.environment]
   NODE_VERSION = "20"
   VITE_CONVEX_URL = "https://quick-warbler-518.convex.cloud"
+  VITE_ONESIGNAL_APP_ID = ""
 
 # Headers for better caching
 [[headers]]
