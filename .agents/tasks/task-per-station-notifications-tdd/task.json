@@ -1,0 +1,7 @@
+{
+  "task_id": "task-per-station-notifications-tdd",
+  "task_description": "Implement per-station push notification subscriptions using OneSignal Data Tags with TDD approach. Replace broadcast-based notifications with tag-based targeting. Each station gets a bell icon for subscribe/unsubscribe. Backend uses OneSignal filters API instead of included_segments.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

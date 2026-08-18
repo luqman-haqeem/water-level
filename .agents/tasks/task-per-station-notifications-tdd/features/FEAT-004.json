@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "TDD implementation of Convex backend notifyDangerForStation using tag-based OneSignal filters instead of broadcast segments - write tests FIRST then implement",
+  "status": "pending",
+  "steps": [
+    "TESTS FIRST - Create convex/__tests__/notifications.test.ts with tests for: notifyDangerForStation sends POST to OneSignal API with filters array containing {field: 'tag', key: 'station_{stationId}', value: 'true', relation: '='} instead of included_segments; notification content includes station name and current level; notification includes updatedAt when provided; does not send when station is on cooldown (recent notification exists); does not send when environment variables missing; records station cooldown after successful send; URL field uses station ID in path",
+    "Update convex/notifications.ts notifyDangerForStation: replace 'included_segments: [\"Subscribed Users\"]' with 'filters: [{\"field\": \"tag\", \"key\": \"station_{stationId}\", \"value\": \"true\", \"relation\": \"=\"}]'. The stationId used in the tag key should be the Convex document ID string (same value the frontend uses). Keep the cooldown logic, station info lookup, and error handling. Remove the per-user favorites iteration since tags handle targeting directly.",
+    "Remove the getUsersWhoFavoritedStation call and per-user notification recording loop from notifyDangerForStation since tag-based targeting replaces the need for favorites-based targeting. Keep recordStationCooldown for the per-station cooldown.",
+    "Run npx vitest run to confirm all tests pass",
+    "Run npm run build to confirm TypeScript compiles"
+  ],
+  "acceptance_criteria": [
+    "All tests in convex/__tests__/notifications.test.ts pass",
+    "notifyDangerForStation uses filters with tag-based targeting",
+    "No reference to included_segments in the notification payload",
+    "Per-station cooldown logic preserved",
+    "npm run build succeeds"
+  ],
+  "verification": [
+    "npx vitest run convex/__tests__/notifications.test.ts",
+    "npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
