@@ -1,0 +1,7 @@
+{
+  "task_id": "task-migrate-nextjs-to-vite",
+  "task_description": "Migrate the water-level application from Next.js (Pages Router) to Vite + React + TanStack Router. Keep TanStack Query for data fetching. Set up vite-plugin-pwa for PWA support. Configure for Netlify static SPA deployment. Implement progressive loading pattern for station cards.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

@@ -1,0 +1,48 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Set up Vite project structure, install dependencies, create src/ directory layout, configure TanStack Router, vite-plugin-pwa, and Tailwind. Remove Next.js dependencies and config files.",
+  "status": "in_progress",
+  "steps": [
+    "Remove Next.js-specific dependencies from package.json: next, next-pwa, next-themes, eslint-config-next. Remove scripts that reference next commands.",
+    "Install new dependencies: vite, @vitejs/plugin-react, vite-plugin-pwa, @tanstack/react-router, @tanstack/router-devtools (dev). Keep all existing deps: @tanstack/react-query, convex, react, react-dom, all radix-ui packages, tailwind, etc.",
+    "Create vite.config.ts at root with: @vitejs/plugin-react, vite-plugin-pwa configured with the manifest from manifest.json (name: River Water Level, short_name: RWL, theme_color: #317EFB, icons, etc.), and path alias @ -> ./src.",
+    "Create src/ directory structure: src/routes/, src/components/, src/hooks/, src/lib/, src/styles/, src/utils/",
+    "Create index.html at root (Vite entry point) with proper meta tags from _document.tsx (viewport, PWA meta, apple-touch-icon, theme-color, etc.). Include <div id='root'></div> and <script type='module' src='/src/main.tsx'></script>.",
+    "Create src/main.tsx as the app entry point: renders React root with RouterProvider from TanStack Router.",
+    "Create src/routeTree.gen.ts placeholder and src/routes/__root.tsx as the root route layout. The root route should contain the QueryClientProvider, ThemeProvider (use a simple class-based theme toggle instead of next-themes), FilterProvider, Layout component, and the Outlet for child routes.",
+    "Create src/routes/index.tsx that redirects to /stations (replicating the Next.js redirect in next.config.mjs).",
+    "Create src/routes/stations/index.tsx - move the StationsPage component from pages/stations/index.tsx, removing Next.js imports (Head, useRouter, getStaticProps). Use TanStack Router's useNavigate and Link instead of next/router.",
+    "Create src/routes/stations/$id.tsx - move the StationDetail component from pages/stations/[id].tsx, replacing useRouter().query with TanStack Router's useParams. Replace next/image with a standard <img> tag. Replace next/head with document.title updates or a helmet equivalent.",
+    "Create src/routes/cameras/index.tsx - move the CamerasPage from pages/cameras/index.tsx, removing Next.js imports.",
+    "Move all files from components/ to src/components/, hooks/ to src/hooks/, lib/ to src/lib/, utils/ to src/utils/, styles/ to src/styles/. Update the convexClient.ts to use import.meta.env.VITE_CONVEX_URL instead of process.env.NEXT_PUBLIC_CONVEX_URL.",
+    "Update the Layout component (src/components/layout.tsx) to use TanStack Router's useNavigate/useLocation instead of next/router. Replace next-themes useTheme with a simple React context for theme toggling (add/remove 'dark' class on documentElement).",
+    "Update BottomNavigation.tsx to work without next/router.",
+    "Update tailwind.config.ts content paths to use src/**/*.{ts,tsx} instead of pages/**.",
+    "Update tsconfig.json: remove next-env.d.ts from include, update paths alias to @/* -> [./src/*], set jsx to react-jsx, add vite-env.d.ts reference.",
+    "Create src/vite-env.d.ts with /// <reference types='vite/client' /> and interface for ImportMetaEnv with VITE_CONVEX_URL.",
+    "Update postcss.config.mjs (keep as-is, compatible with Vite).",
+    "Update package.json scripts: dev -> vite, build -> tsc && vite build, preview -> vite preview.",
+    "Update netlify.toml: change publish to 'dist', remove @netlify/plugin-nextjs plugin, remove edge_functions, add SPA redirect rule [[redirects]] from = '/*' to = '/index.html' status = 200.",
+    "Remove files no longer needed: next.config.mjs, next-env.d.ts, pages/ directory (after content is migrated to src/routes/), components.json shadcn config (update baseUrl to src/).",
+    "Create a Netlify function (netlify/functions/proxy-image.ts) to replace the Next.js API route for /api/proxy-image/[id]. This fetches camera images from the JPS server and returns them. Add a redirect in netlify.toml: /api/proxy-image/:id -> /.netlify/functions/proxy-image?id=:id.",
+    "Run npm install and npm run build to verify everything compiles."
+  ],
+  "acceptance_criteria": [
+    "npm run build completes without errors producing a dist/ directory",
+    "No imports from 'next', 'next/router', 'next/head', 'next/image', 'next-pwa', 'next-themes' remain in src/",
+    "All three routes work: / (redirects to /stations), /stations, /stations/$id, /cameras",
+    "TanStack Router is properly configured with file-based or manual route tree",
+    "vite-plugin-pwa is configured with correct manifest and generates service worker",
+    "Tailwind CSS processes correctly with Vite",
+    "Environment variables use VITE_ prefix (VITE_CONVEX_URL)",
+    "netlify.toml is configured for static SPA deployment with dist/ as publish directory"
+  ],
+  "verification": [
+    "Run 'npm run build' and confirm it exits with code 0 and creates dist/ directory",
+    "Run 'grep -r \"from .next\" src/' and confirm no matches (no Next.js imports)",
+    "Check dist/index.html exists and contains the root div"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

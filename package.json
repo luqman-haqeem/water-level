@@ -2,11 +2,11 @@
     "name": "water-level",
     "version": "0.1.0",
     "private": true,
+    "type": "module",
     "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start",
-        "lint": "next lint",
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
         "scrape:water-level": "node scripts/scrapeWaterLevel.js",
         "scrape:water-level:file": "node scripts/scrapeWaterLevel.js file",
         "scrape:summary": "node scripts/scrapeWaterLevel.js summary"
@@ -25,15 +25,13 @@
         "@radix-ui/react-toast": "^1.2.1",
         "@tanstack/react-query": "^5.101.4",
         "@tanstack/react-query-devtools": "^5.101.4",
+        "@tanstack/react-router": "^1.120.3",
         "axios": "^1.7.5",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "convex": "^1.25.4",
         "dayjs": "^1.11.13",
         "lucide-react": "^0.429.0",
-        "next": "^14.2.14",
-        "next-pwa": "^5.6.0",
-        "next-themes": "^0.3.0",
         "posthog-js": "^1.280.1",
         "react": "^18",
         "react-dom": "^18",
@@ -41,15 +39,19 @@
         "tailwindcss-animate": "^1.0.7"
     },
     "devDependencies": {
+        "@tanstack/router-devtools": "^1.120.3",
         "@types/node": "^20",
         "@types/react": "^18",
         "@types/react-dom": "^18",
+        "@vitejs/plugin-react": "^4.3.4",
+        "autoprefixer": "^10.4.20",
         "eslint": "^8",
-        "eslint-config-next": "14.2.6",
         "postcss": "^8",
         "shadcn": "^3.2.1",
         "tailwindcss": "^3.4.1",
         "ts-node": "^10.9.2",
-        "typescript": "^5"
+        "typescript": "^5",
+        "vite": "^6.3.5",
+        "vite-plugin-pwa": "^0.21.1"
     }
 }

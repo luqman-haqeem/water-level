@@ -1,39 +1,26 @@
 [build]
   command = "npm run build"
   functions = "netlify/functions"
-  publish = ".next"
+  publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18"
-  NEXT_PUBLIC_CONVEX_URL = "https://quick-warbler-518.convex.cloud"
-
-# Next.js plugin
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-# Edge Functions configuration
-[functions]
-  external_node_modules = ["@next/swc-wasm-nodejs"]
+  NODE_VERSION = "20"
+  VITE_CONVEX_URL = "https://quick-warbler-518.convex.cloud"
 
 # Headers for better caching
 [[headers]]
-  for = "/og/station/*"
+  for = "/assets/*"
   [headers.values]
-    Cache-Control = "public, s-maxage=300, max-age=300"
-    Content-Type = "image/png"
+    Cache-Control = "public, max-age=31536000, immutable"
 
-[[headers]]
-  for = "/api/stations/*"
-  [headers.values]
-    Cache-Control = "public, s-maxage=300, max-age=300"
-
-# Edge Functions
-[[edge_functions]]
-  path = "/og/station/*"
-  function = "og-image"
-
-# Redirects
+# Proxy image API route to Netlify function
 [[redirects]]
-  from = "/api/og/station/:stationId"
-  to = "/og/station/:stationId"
-  status = 301
+  from = "/api/proxy-image/:id"
+  to = "/.netlify/functions/proxy-image?id=:id"
+  status = 200
+
+# SPA fallback - must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Implement progressive loading pattern for station cards: station names/metadata display instantly from the stations query, while water level trend data (MicroTrendChart) loads separately with its own loading state. Ensure the overall UX shows station cards immediately and water level data fills in as it arrives.",
+  "status": "pending",
+  "steps": [
+    "Review the current StationCard component (src/components/StationCard.tsx after migration). It already shows station_name, districts.name, and current_levels from the main stations query, and the MicroTrendChart fetches trend data separately via useStationTrend hook. Verify this progressive pattern is working correctly.",
+    "In src/routes/stations/index.tsx, ensure the station list renders station cards with name/district/current_level immediately when the stations query resolves, without waiting for individual trend data. The StationSkeleton should only show while the main stations list is loading.",
+    "In StationCard, the MicroTrendChart already has its own loading state (animated pulse placeholder). Confirm this remains functional. The card structure should be: station_name + district rendered immediately, current_level rendered immediately (from stations query), and MicroTrendChart showing its own independent loading state.",
+    "In the station detail page (src/routes/stations/$id.tsx), ensure the station header, metadata, and current water level render immediately. The MiniTrendChart (3-hour history) should show its own loading state independently via the useStationTrend hook.",
+    "Verify that the useStations hook fetches all station data including current_levels in a single query (it does - getStationsWithDetails), so card metadata + water level numbers are available together, while per-station trend history loads separately per-card."
+  ],
+  "acceptance_criteria": [
+    "Station cards render station_name, district, and current_level immediately when the stations query resolves",
+    "MicroTrendChart in each StationCard shows an animated placeholder while its own trend data loads, independent of the main stations query",
+    "MiniTrendChart on station detail page shows its own loading state while fetching 3-hour history data",
+    "No full-page loading spinner blocks all station information - only skeleton cards show during initial stations list fetch",
+    "npm run build completes successfully"
+  ],
+  "verification": [
+    "Run 'npm run build' and confirm it exits with code 0",
+    "Inspect src/components/StationCard.tsx and confirm MicroTrendChart has independent loading",
+    "Inspect src/routes/stations/index.tsx and confirm cards render from stations data without waiting for trend data"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
