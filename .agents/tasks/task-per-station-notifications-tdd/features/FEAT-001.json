@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Set up testing infrastructure (Vitest + React Testing Library + jsdom) and create a new git branch for the work",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create and checkout a new branch feat/per-station-tag-notifications from current HEAD (which equals main)",
     "Install dev dependencies: vitest, @testing-library/react, @testing-library/jest-dom, @testing-library/user-event, jsdom, msw (for fetch mocking in Convex action tests)",
@@ -23,5 +23,5 @@
     "npx tsc --noEmit"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Node.js v20.20.2 available at /opt/toolchains/.nvm/versions/node/v20.20.2/bin. Must export PATH with that prefix for npm/npx to work. Adding 'types' array to tsconfig.json restricts ambient type visibility, so both 'vitest/globals' and 'node' must be listed. Vitest v4.1.10 installed. All tests pass and tsc --noEmit succeeds."
 }
