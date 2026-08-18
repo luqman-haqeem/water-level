@@ -14,6 +14,8 @@ vi.mock("@/services/notificationService", () => ({
     isSubscribedToStation: (...args: unknown[]) =>
         mockIsSubscribedToStation(...args),
     getSubscribedStations: () => [],
+    getSubscribedStationIds: () => [],
+    reconcileTagsWithLocalStorage: vi.fn(),
 }));
 
 // Mock react-onesignal for the hook's permission check
@@ -26,6 +28,7 @@ vi.mock("react-onesignal", () => ({
             PushSubscription: {
                 optedIn: true,
             },
+            getTags: vi.fn().mockResolvedValue({}),
         },
     },
 }));
@@ -39,7 +42,7 @@ describe("useStationSubscription", () => {
 
     it("returns isSubscribed=false initially for a station", () => {
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         expect(result.current.isSubscribed).toBe(false);
@@ -51,7 +54,7 @@ describe("useStationSubscription", () => {
         });
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         await act(async () => {
@@ -59,7 +62,7 @@ describe("useStationSubscription", () => {
         });
 
         expect(result.current.isSubscribed).toBe(true);
-        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123");
+        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123", "Test Station");
     });
 
     it("after calling unsubscribe(), isSubscribed becomes false", async () => {
@@ -67,7 +70,7 @@ describe("useStationSubscription", () => {
         mockIsSubscribedToStation.mockReturnValue(true);
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         expect(result.current.isSubscribed).toBe(true);
@@ -90,7 +93,7 @@ describe("useStationSubscription", () => {
         });
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         await act(async () => {
@@ -98,7 +101,7 @@ describe("useStationSubscription", () => {
         });
 
         // The subscribe function should have been called which updates localStorage
-        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123");
+        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123", "Test Station");
         expect(result.current.isSubscribed).toBe(true);
     });
 
@@ -107,7 +110,7 @@ describe("useStationSubscription", () => {
         mockIsSubscribedToStation.mockReturnValue(true);
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         expect(result.current.isSubscribed).toBe(true);
@@ -119,7 +122,7 @@ describe("useStationSubscription", () => {
         );
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         await act(async () => {
@@ -139,7 +142,7 @@ describe("useStationSubscription", () => {
         });
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         await act(async () => {
@@ -159,7 +162,7 @@ describe("useStationSubscription", () => {
         mockSubscribeToStation.mockImplementation(() => subscribePromise);
 
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         // Start subscribe but don't await
@@ -185,7 +188,7 @@ describe("useStationSubscription", () => {
 
     it("returns isLoading=false initially", () => {
         const { result } = renderHook(() =>
-            useStationSubscription("ABC123")
+            useStationSubscription("ABC123", "Test Station")
         );
 
         expect(result.current.isLoading).toBe(false);

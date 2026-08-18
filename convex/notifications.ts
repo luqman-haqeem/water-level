@@ -11,6 +11,13 @@ export const getStationInfo = internalQuery({
   },
 });
 
+/**
+ * [RETAINED FOR FUTURE USE]
+ * Checks if a notification was recently sent to a specific user for a specific station.
+ * Currently unused because the tag-based notification system targets device tags
+ * rather than individual users. This will be re-enabled when user authentication
+ * is added, allowing per-user notification history and preferences.
+ */
 export const getRecentNotification = internalQuery({
   args: {
     userId: v.id("users"),
@@ -52,6 +59,13 @@ export const getRecentStationNotification = internalQuery({
   },
 });
 
+/**
+ * [RETAINED FOR FUTURE USE]
+ * Records that a notification was sent to a specific user for a specific station.
+ * Currently unused because the tag-based system uses per-station cooldowns
+ * (recordStationCooldown) rather than per-user records. This will be re-enabled
+ * when user authentication is added, allowing per-user notification tracking.
+ */
 export const recordNotification = internalMutation({
   args: {
     userId: v.id("users"),

@@ -11,6 +11,7 @@ import {
     BellIcon,
 } from "@/components/icons/IconLibrary";
 import NotificationHandler from "@/components/NotificationHandler";
+import OneSignalProvider from "@/components/OneSignalProvider";
 import { Toaster } from "@/components/ui/toaster";
 import BottomNavigation from "@/components/BottomNavigation";
 import { HighContrastToggle } from "@/components/HighContrastToggle";
@@ -62,7 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <>
+        <OneSignalProvider>
             <div className="flex flex-col h-screen bg-background">
                 {/* Header */}
                 <header className="border-b px-4 py-3 flex justify-between items-center min-h-touch">
@@ -176,6 +177,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     onOpenChange={setNotificationOpen}
                 />
             </div>
-        </>
+        </OneSignalProvider>
     );
 }

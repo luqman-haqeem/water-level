@@ -60,7 +60,7 @@ export default function StationCard({
     compact = false,
     distance
 }: StationCardProps) {
-    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString());
+    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
 
     const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();

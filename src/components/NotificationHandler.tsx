@@ -10,6 +10,7 @@ import {
     getSubscribedStations,
     unsubscribeFromStation,
 } from "@/services/notificationService";
+import type { SubscribedStation } from "@/services/notificationService";
 
 interface NotificationHandlerProps {
     open: boolean;
@@ -20,7 +21,7 @@ export default function NotificationHandler({
     open,
     onOpenChange,
 }: NotificationHandlerProps) {
-    const [stations, setStations] = useState<string[]>([]);
+    const [stations, setStations] = useState<SubscribedStation[]>([]);
 
     useEffect(() => {
         if (open) {
@@ -50,18 +51,20 @@ export default function NotificationHandler({
                             No stations subscribed
                         </p>
                     ) : (
-                        stations.map((stationId) => (
+                        stations.map((station) => (
                             <div
-                                key={stationId}
+                                key={station.id}
                                 className="flex items-center justify-between p-2 rounded-md border border-border"
                             >
                                 <span className="text-sm">
-                                    Station {stationId}
+                                    {station.name}
                                 </span>
                                 <button
                                     type="button"
                                     aria-label="Unsubscribe"
-                                    onClick={() => handleUnsubscribe(stationId)}
+                                    onClick={() =>
+                                        handleUnsubscribe(station.id)
+                                    }
                                     className="text-xs text-destructive hover:text-destructive/80 px-2 py-1 rounded"
                                 >
                                     Unsubscribe

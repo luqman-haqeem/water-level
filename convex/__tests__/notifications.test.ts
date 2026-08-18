@@ -1,6 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildNotificationPayload } from "../notifications";
 
+/**
+ * NOTE ON TEST COVERAGE GAP:
+ *
+ * The full `notifyDangerForStation` action handler's orchestration flow
+ * (cooldown check -> station lookup -> payload build -> fetch -> cooldown record)
+ * is NOT exercised by any test in this file.
+ *
+ * Reason: Convex action handlers depend on the Convex server runtime (`ctx.runQuery`,
+ * `ctx.runMutation`, internal module imports from `_generated/`). These cannot be
+ * instantiated or meaningfully mocked in a Vitest environment without a running
+ * Convex dev server.
+ *
+ * Mitigation: The pure functions (`buildNotificationPayload`, `shouldSendNotification`)
+ * are extracted and tested thoroughly below. The orchestration between them is
+ * verified via manual testing and Convex dashboard logs in staging/production.
+ *
+ * If a Convex test harness becomes available in the future, add integration tests
+ * that exercise the full action handler end-to-end.
+ */
+
 describe("buildNotificationPayload", () => {
     const defaultArgs = {
         appId: "test-app-id",

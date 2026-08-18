@@ -15,9 +15,13 @@ interface UseStationSubscriptionReturn {
 /**
  * Custom hook to manage station notification subscription state.
  * Uses localStorage for optimistic UI and syncs with OneSignal.
+ *
+ * @param stationId - The station's Convex document ID
+ * @param stationName - Human-readable station name, stored alongside ID for display
  */
 export function useStationSubscription(
-    stationId: string
+    stationId: string,
+    stationName: string = "Unknown Station"
 ): UseStationSubscriptionReturn {
     const [isSubscribed, setIsSubscribed] = useState<boolean>(() =>
         isSubscribedToStation(stationId)
@@ -27,7 +31,7 @@ export function useStationSubscription(
     const subscribe = useCallback(async () => {
         setIsLoading(true);
         try {
-            await subscribeToStation(stationId);
+            await subscribeToStation(stationId, stationName);
             setIsSubscribed(isSubscribedToStation(stationId));
         } catch {
             // On error, re-read the actual state from localStorage
@@ -35,7 +39,7 @@ export function useStationSubscription(
         } finally {
             setIsLoading(false);
         }
-    }, [stationId]);
+    }, [stationId, stationName]);
 
     const unsubscribe = useCallback(async () => {
         setIsLoading(true);
