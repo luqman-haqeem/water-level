@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "TDD implementation of per-station bell icon in StationCard component and updated header bell dialog showing subscribed stations - write tests FIRST then implement",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "TESTS FIRST - Create src/components/__tests__/StationCard.test.tsx with tests for: renders a bell icon button; bell icon shows filled/active state when station is subscribed; bell icon shows outline/inactive state when not subscribed; clicking bell calls subscribe when not subscribed; clicking bell calls unsubscribe when subscribed; bell click does not trigger the card's onSelect handler (stopPropagation)",
     "TESTS FIRST - Create src/components/__tests__/NotificationHandler.test.tsx with tests for: renders dialog with list of subscribed stations (reading from localStorage/service); shows empty state when no stations subscribed; each subscribed station has an unsubscribe button; clicking unsubscribe removes station from list",
@@ -25,5 +25,5 @@
     "npm run build"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 38 tests pass (28 existing + 10 new). TDD approach followed: wrote tests first (confirmed they failed), then implemented code to make them pass. StationCard bell button uses data-subscribed attribute for test assertions and aria-label='Toggle notification subscription' for accessibility. NotificationHandler was completely replaced from a global toggle to a per-station subscription list dialog. BellRingIcon added to IconLibrary following existing pattern. Build succeeds with no TypeScript errors."
 }
