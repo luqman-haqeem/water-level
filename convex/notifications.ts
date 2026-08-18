@@ -68,6 +68,27 @@ export const recordNotification = internalMutation({
   },
 });
 
+/**
+ * Records a station-level cooldown entry after a broadcast notification is sent.
+ * This ensures the per-station cooldown works even when no users have favorited
+ * the station (i.e., the per-user loop is a no-op). Without this, the cooldown
+ * check would never find a record and every data sync detecting danger level
+ * would fire a broadcast.
+ */
+export const recordStationCooldown = internalMutation({
+  args: {
+    stationId: v.id("stations"),
+    alertLevel: v.number(),
+  },
+  handler: async (ctx, { stationId, alertLevel }) => {
+    await ctx.db.insert("notificationLog", {
+      stationId,
+      notifiedAt: Date.now(),
+      alertLevel,
+    });
+  },
+});
+
 export const notifyDangerForStation = internalAction({
   args: {
     stationId: v.id("stations"),
@@ -124,7 +145,13 @@ export const notifyDangerForStation = internalAction({
       }
     }
 
-    // Send push notification via OneSignal REST API (broadcast to all subscribers)
+    // Send push notification via OneSignal REST API.
+    // NOTE: Broadcast scope is intentional for the current auth-less state.
+    // "included_segments: ['Subscribed Users']" delivers to ALL push subscribers
+    // regardless of which stations they have favorited. The favorites data is
+    // scaffolding for future per-user targeting once authentication is added.
+    // At that point, OneSignal data tags or include_aliases can be used to
+    // target only users who favorited the specific station.
     const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
     const appId = process.env.ONESIGNAL_APP_ID;
     const siteUrl = process.env.SITE_URL || "";
@@ -171,6 +198,14 @@ export const notifyDangerForStation = internalAction({
         console.log(
           `Danger notification sent for station ${stationName} (level: ${currentLevel}m)`
         );
+
+        // Record station-level cooldown unconditionally after a successful send.
+        // This ensures the per-station cooldown check works even when no users
+        // have favorited the station (the per-user loop would be a no-op).
+        await ctx.runMutation(internal.notifications.recordStationCooldown, {
+          stationId,
+          alertLevel: 3,
+        });
       }
     } catch (error) {
       console.error("Failed to send OneSignal notification:", error);

@@ -106,7 +106,7 @@ export default defineSchema({
     .index("by_station", ["stationId"]),
 
   notificationLog: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
     stationId: v.id("stations"),
     notifiedAt: v.number(),
     alertLevel: v.number(),
