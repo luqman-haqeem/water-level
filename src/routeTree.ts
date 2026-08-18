@@ -1,6 +1,5 @@
-import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { RootLayout } from "./routes/__root";
-import { IndexRoute } from "./routes/index";
 import { StationsRoute } from "./routes/stations/index";
 import { StationDetailRoute } from "./routes/stations/$id";
 import { CamerasRoute } from "./routes/cameras/index";
@@ -14,7 +13,9 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: IndexRoute,
+    beforeLoad: () => {
+        throw redirect({ to: "/stations" });
+    },
 });
 
 const stationsRoute = createRoute({
