@@ -1,7 +1,17 @@
 import type { Handler, HandlerEvent } from "@netlify/functions";
 
 const handler: Handler = async (event: HandlerEvent) => {
-    const id = event.queryStringParameters?.id;
+    // Try to parse camera ID from the path first, then fall back to query string
+    let id = event.queryStringParameters?.id;
+
+    if (!id) {
+        // Parse from path: /api/proxy-image/CAMERA_ID or /.netlify/functions/proxy-image/CAMERA_ID
+        const pathSegments = event.path.split("/").filter(Boolean);
+        const lastSegment = pathSegments[pathSegments.length - 1];
+        if (lastSegment && lastSegment !== "proxy-image") {
+            id = lastSegment;
+        }
+    }
 
     if (!id) {
         return {

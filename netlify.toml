@@ -15,8 +15,8 @@
 
 # Proxy image API route to Netlify function
 [[redirects]]
-  from = "/api/proxy-image/:id"
-  to = "/.netlify/functions/proxy-image?id=:id"
+  from = "/api/proxy-image/*"
+  to = "/.netlify/functions/proxy-image/:splat"
   status = 200
 
 # SPA fallback - must be last
