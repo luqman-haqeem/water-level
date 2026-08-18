@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement progressive loading pattern for station cards: station names/metadata display instantly from the stations query, while water level trend data (MicroTrendChart) loads separately with its own loading state. Ensure the overall UX shows station cards immediately and water level data fills in as it arrives.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Review the current StationCard component (src/components/StationCard.tsx after migration). It already shows station_name, districts.name, and current_levels from the main stations query, and the MicroTrendChart fetches trend data separately via useStationTrend hook. Verify this progressive pattern is working correctly.",
     "In src/routes/stations/index.tsx, ensure the station list renders station cards with name/district/current_level immediately when the stations query resolves, without waiting for individual trend data. The StationSkeleton should only show while the main stations list is loading.",
