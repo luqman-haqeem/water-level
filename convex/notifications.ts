@@ -33,6 +33,25 @@ export const getRecentNotification = internalQuery({
   },
 });
 
+export const getRecentStationNotification = internalQuery({
+  args: {
+    stationId: v.id("stations"),
+  },
+  handler: async (ctx, { stationId }) => {
+    const cutoff = Date.now() - ONE_HOUR_MS;
+    const recent = await ctx.db
+      .query("notificationLog")
+      .withIndex("by_station", (q) => q.eq("stationId", stationId))
+      .order("desc")
+      .first();
+
+    if (recent && recent.notifiedAt > cutoff) {
+      return recent;
+    }
+    return null;
+  },
+});
+
 export const recordNotification = internalMutation({
   args: {
     userId: v.id("users"),
@@ -55,17 +74,27 @@ export const notifyDangerForStation = internalAction({
     currentLevel: v.number(),
     updatedAt: v.optional(v.string()),
   },
-  handler: async (ctx, { stationId, currentLevel }) => {
+  handler: async (ctx, { stationId, currentLevel, updatedAt }) => {
+    // Per-station cooldown: check if any notification was sent for this station
+    // within the last hour, regardless of user
+    const recentStationNotification = await ctx.runQuery(
+      internal.notifications.getRecentStationNotification,
+      { stationId }
+    );
+
+    if (recentStationNotification) {
+      console.log(
+        "Station on cooldown, skipping notification for station:",
+        stationId
+      );
+      return;
+    }
+
     // Get users who favorited this station
     const userIds = await ctx.runQuery(
       internal.favorites.getUsersWhoFavoritedStation,
       { stationId }
     );
-
-    if (userIds.length === 0) {
-      console.log("No users favorited this station, skipping notification");
-      return;
-    }
 
     // Get station info for the notification message
     const station = await ctx.runQuery(internal.notifications.getStationInfo, {
@@ -79,8 +108,7 @@ export const notifyDangerForStation = internalAction({
 
     const stationName = station.stationName;
 
-    // Check cooldown for each user
-    let shouldSend = false;
+    // Record notification for each user who favorited (for future per-user targeting)
     for (const userId of userIds) {
       const recent = await ctx.runQuery(
         internal.notifications.getRecentNotification,
@@ -88,22 +116,12 @@ export const notifyDangerForStation = internalAction({
       );
 
       if (!recent) {
-        shouldSend = true;
-        // Record notification for this user
         await ctx.runMutation(internal.notifications.recordNotification, {
           userId,
           stationId,
           alertLevel: 3,
         });
       }
-    }
-
-    if (!shouldSend) {
-      console.log(
-        "All users on cooldown for station:",
-        stationName
-      );
-      return;
     }
 
     // Send push notification via OneSignal REST API (broadcast to all subscribers)
@@ -118,6 +136,12 @@ export const notifyDangerForStation = internalAction({
       return;
     }
 
+    // Build notification content, including updatedAt if provided
+    let contentMessage = `Station ${stationName} has reached danger level (${currentLevel}m)`;
+    if (updatedAt) {
+      contentMessage += ` as of ${updatedAt}`;
+    }
+
     try {
       const response = await fetch("https://api.onesignal.com/notifications", {
         method: "POST",
@@ -130,7 +154,7 @@ export const notifyDangerForStation = internalAction({
           included_segments: ["Subscribed Users"],
           headings: { en: "Danger Level Alert" },
           contents: {
-            en: `Station ${stationName} has reached danger level (${currentLevel}m)`,
+            en: contentMessage,
           },
           url: `${siteUrl}/stations/${stationId}`,
         }),
@@ -145,7 +169,7 @@ export const notifyDangerForStation = internalAction({
         );
       } else {
         console.log(
-          `✅ Danger notification sent for station ${stationName} (level: ${currentLevel}m)`
+          `Danger notification sent for station ${stationName} (level: ${currentLevel}m)`
         );
       }
     } catch (error) {

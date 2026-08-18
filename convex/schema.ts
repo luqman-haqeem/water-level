@@ -112,5 +112,6 @@ export default defineSchema({
     alertLevel: v.number(),
   })
     .index("by_user_station", ["userId", "stationId"])
+    .index("by_station", ["stationId"])
     .index("by_notified_at", ["notifiedAt"]),
 });

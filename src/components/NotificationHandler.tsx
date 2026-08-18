@@ -10,6 +10,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
+// Module-level flag to prevent re-initialization across mounts
+let oneSignalInitialized = false;
+
 interface NotificationHandlerProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -21,7 +24,7 @@ export default function NotificationHandler({
 }: NotificationHandlerProps) {
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [isInitialized, setIsInitialized] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(oneSignalInitialized);
 
     const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
@@ -33,7 +36,10 @@ export default function NotificationHandler({
 
         const initOneSignal = async () => {
             try {
-                await OneSignal.init({ appId });
+                if (!oneSignalInitialized) {
+                    await OneSignal.init({ appId });
+                    oneSignalInitialized = true;
+                }
                 setIsInitialized(true);
                 const optedIn = OneSignal.User.PushSubscription.optedIn;
                 setIsSubscribed(optedIn ?? false);
