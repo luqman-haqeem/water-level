@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Add frontend NotificationHandler component with OneSignal browser SDK integration and bell icon button in the layout header.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1: Install the OneSignal browser SDK. Run: export PATH=/opt/toolchains/.nvm/versions/node/v20.20.2/bin:$PATH && cd /projects/sandbox/water-level && npm install react-onesignal. The package 'react-onesignal' provides the OneSignal Web SDK wrapper for React.",
     "Step 2: Add VITE_ONESIGNAL_APP_ID to netlify.toml under [build.environment] section (alongside existing VITE_CONVEX_URL). The value should be a placeholder that will be set in Netlify dashboard. Add it as: VITE_ONESIGNAL_APP_ID = ''",
@@ -24,5 +24,5 @@
     "Run: export PATH=/opt/toolchains/.nvm/versions/node/v20.20.2/bin:$PATH && cd /projects/sandbox/water-level && npx vite build"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "react-onesignal installed successfully (v3.x with 51 sub-dependencies). Both tsc --noEmit and vite build pass cleanly. The OneSignal SDK addEventListener/removeEventListener type is compatible with TypeScript strict checks."
 }
