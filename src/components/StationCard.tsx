@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ import {
 import { Id } from "../../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
 import { useStationSubscription } from '@/hooks/useStationSubscription'
+import { useToast } from '@/hooks/use-toast'
 
 interface Station {
     id: Id<"stations"> | number
@@ -61,13 +63,26 @@ export default function StationCard({
     distance
 }: StationCardProps) {
     const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
+    const { toast } = useToast();
+    const [bellAnimating, setBellAnimating] = useState(false);
 
-    const handleBellClick = (e: React.MouseEvent) => {
+    const handleBellClick = async (e: React.MouseEvent) => {
         e.stopPropagation();
+        setBellAnimating(true);
+        setTimeout(() => setBellAnimating(false), 500);
+
         if (isSubscribed) {
-            unsubscribe();
+            await unsubscribe();
+            toast({
+                title: `🔕 Unsubscribed from ${station.station_name}`,
+                description: "You'll no longer receive alerts for this station",
+            });
         } else {
-            subscribe();
+            await subscribe();
+            toast({
+                title: `🔔 Subscribed to ${station.station_name}`,
+                description: "You'll receive alerts when this station reaches danger level",
+            });
         }
     };
 
@@ -110,7 +125,10 @@ export default function StationCard({
                         aria-label="Toggle notification subscription"
                         data-subscribed={isSubscribed ? "true" : "false"}
                         onClick={handleBellClick}
-                        className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
+                        className={cn(
+                            "ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0",
+                            bellAnimating && "animate-bell-ring"
+                        )}
                     >
                         {isSubscribed ? (
                             <BellRingIcon size="sm" className="text-primary" />

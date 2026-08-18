@@ -109,10 +109,19 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "bell-ring": {
+          "0%": { transform: "scale(1) rotate(0deg)" },
+          "20%": { transform: "scale(1.2) rotate(-12deg)" },
+          "40%": { transform: "scale(1.2) rotate(12deg)" },
+          "60%": { transform: "scale(1.2) rotate(-8deg)" },
+          "80%": { transform: "scale(1.1) rotate(8deg)" },
+          "100%": { transform: "scale(1) rotate(0deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "bell-ring": "bell-ring 0.5s ease-in-out",
       },
       spacing: {
         'touch': '44px', // Minimum touch target size
