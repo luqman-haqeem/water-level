@@ -69,11 +69,9 @@ export const recordNotification = internalMutation({
 });
 
 /**
- * Records a station-level cooldown entry after a broadcast notification is sent.
- * This ensures the per-station cooldown works even when no users have favorited
- * the station (i.e., the per-user loop is a no-op). Without this, the cooldown
- * check would never find a record and every data sync detecting danger level
- * would fire a broadcast.
+ * Records a station-level cooldown entry after a notification is sent.
+ * This ensures the per-station cooldown works so that every data sync
+ * detecting danger level does not fire repeated notifications.
  */
 export const recordStationCooldown = internalMutation({
   args: {
@@ -88,6 +86,52 @@ export const recordStationCooldown = internalMutation({
     });
   },
 });
+
+/**
+ * Builds the OneSignal notification payload using tag-based filters.
+ * This is a pure function extracted for testability.
+ */
+export function buildNotificationPayload(args: {
+  appId: string;
+  stationId: string;
+  stationName: string;
+  currentLevel: number;
+  siteUrl: string;
+  updatedAt?: string;
+}) {
+  const { appId, stationId, stationName, currentLevel, siteUrl, updatedAt } =
+    args;
+
+  let contentMessage = `Station ${stationName} has reached danger level (${currentLevel}m)`;
+  if (updatedAt) {
+    contentMessage += ` as of ${updatedAt}`;
+  }
+
+  return {
+    app_id: appId,
+    filters: [
+      {
+        field: "tag" as const,
+        key: `station_${stationId}`,
+        value: "true",
+        relation: "=" as const,
+      },
+    ],
+    headings: { en: "Danger Level Alert" },
+    contents: { en: contentMessage },
+    url: `${siteUrl}/stations/${stationId}`,
+  };
+}
+
+/**
+ * Checks whether the required OneSignal environment variables are configured.
+ * Returns true if notifications can be sent, false otherwise.
+ */
+export function shouldSendNotification(): boolean {
+  const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
+  const appId = process.env.ONESIGNAL_APP_ID;
+  return Boolean(restApiKey && appId);
+}
 
 export const notifyDangerForStation = internalAction({
   args: {
@@ -111,12 +155,6 @@ export const notifyDangerForStation = internalAction({
       return;
     }
 
-    // Get users who favorited this station
-    const userIds = await ctx.runQuery(
-      internal.favorites.getUsersWhoFavoritedStation,
-      { stationId }
-    );
-
     // Get station info for the notification message
     const station = await ctx.runQuery(internal.notifications.getStationInfo, {
       stationId,
@@ -129,29 +167,7 @@ export const notifyDangerForStation = internalAction({
 
     const stationName = station.stationName;
 
-    // Record notification for each user who favorited (for future per-user targeting)
-    for (const userId of userIds) {
-      const recent = await ctx.runQuery(
-        internal.notifications.getRecentNotification,
-        { userId, stationId }
-      );
-
-      if (!recent) {
-        await ctx.runMutation(internal.notifications.recordNotification, {
-          userId,
-          stationId,
-          alertLevel: 3,
-        });
-      }
-    }
-
-    // Send push notification via OneSignal REST API.
-    // NOTE: Broadcast scope is intentional for the current auth-less state.
-    // "included_segments: ['Subscribed Users']" delivers to ALL push subscribers
-    // regardless of which stations they have favorited. The favorites data is
-    // scaffolding for future per-user targeting once authentication is added.
-    // At that point, OneSignal data tags or include_aliases can be used to
-    // target only users who favorited the specific station.
+    // Validate environment configuration
     const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
     const appId = process.env.ONESIGNAL_APP_ID;
     const siteUrl = process.env.SITE_URL || "";
@@ -163,11 +179,17 @@ export const notifyDangerForStation = internalAction({
       return;
     }
 
-    // Build notification content, including updatedAt if provided
-    let contentMessage = `Station ${stationName} has reached danger level (${currentLevel}m)`;
-    if (updatedAt) {
-      contentMessage += ` as of ${updatedAt}`;
-    }
+    // Build the notification payload with tag-based targeting.
+    // Users who subscribe to a station have a tag "station_{stationId}" set to "true"
+    // via the OneSignal SDK on the frontend. The filters array targets only those users.
+    const payload = buildNotificationPayload({
+      appId,
+      stationId,
+      stationName,
+      currentLevel,
+      siteUrl,
+      updatedAt,
+    });
 
     try {
       const response = await fetch("https://api.onesignal.com/notifications", {
@@ -176,15 +198,7 @@ export const notifyDangerForStation = internalAction({
           Authorization: `Key ${restApiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          app_id: appId,
-          included_segments: ["Subscribed Users"],
-          headings: { en: "Danger Level Alert" },
-          contents: {
-            en: contentMessage,
-          },
-          url: `${siteUrl}/stations/${stationId}`,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -199,9 +213,7 @@ export const notifyDangerForStation = internalAction({
           `Danger notification sent for station ${stationName} (level: ${currentLevel}m)`
         );
 
-        // Record station-level cooldown unconditionally after a successful send.
-        // This ensures the per-station cooldown check works even when no users
-        // have favorited the station (the per-user loop would be a no-op).
+        // Record station-level cooldown after a successful send.
         await ctx.runMutation(internal.notifications.recordStationCooldown, {
           stationId,
           alertLevel: 3,
