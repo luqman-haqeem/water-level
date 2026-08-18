@@ -1,0 +1,7 @@
+{
+  "task_id": "task-danger-level-notifications",
+  "task_description": "Re-implement danger-level push notifications for the water-level app on the new Vite + TanStack codebase. Backend: add Convex schema tables (users, favoriteStations, notificationLog), notifications action with OneSignal REST API, favorites query, and waterLevelUpdater trigger for danger level transitions. Frontend: NotificationHandler component with OneSignal browser SDK subscription toggle, bell icon in header.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

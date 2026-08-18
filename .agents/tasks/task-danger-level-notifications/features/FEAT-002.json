@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Add frontend NotificationHandler component with OneSignal browser SDK integration and bell icon button in the layout header.",
+  "status": "pending",
+  "steps": [
+    "Step 1: Install the OneSignal browser SDK. Run: export PATH=/opt/toolchains/.nvm/versions/node/v20.20.2/bin:$PATH && cd /projects/sandbox/water-level && npm install react-onesignal. The package 'react-onesignal' provides the OneSignal Web SDK wrapper for React.",
+    "Step 2: Add VITE_ONESIGNAL_APP_ID to netlify.toml under [build.environment] section (alongside existing VITE_CONVEX_URL). The value should be a placeholder that will be set in Netlify dashboard. Add it as: VITE_ONESIGNAL_APP_ID = ''",
+    "Step 3: Create src/components/NotificationHandler.tsx. This component should: (a) Import Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription from '@/components/ui/dialog'. (b) Import Switch from '@/components/ui/switch'. (c) Import Label from '@/components/ui/label'. (d) Accept props: { open: boolean, onOpenChange: (open: boolean) => void }. (e) Maintain local state for isSubscribed (boolean) and isLoading (boolean). (f) On mount (useEffect), initialize OneSignal with appId from import.meta.env.VITE_ONESIGNAL_APP_ID, then check current subscription status via OneSignal.User.PushSubscription.optedIn and set isSubscribed accordingly. (g) Provide a toggle handler that calls OneSignal.User.PushSubscription.optIn() or optOut() based on the switch state, updating isSubscribed. (h) Render a Dialog with the switch toggle for enabling/disabling push notifications, with appropriate labels and description text explaining the feature (danger level alerts for water stations).",
+    "Step 4: Add a BellIcon to src/components/icons/IconLibrary.tsx. Import 'Bell' from 'lucide-react' and create a BellIcon component following the same pattern as other icons in the file (using sizeClasses, cn, etc.).",
+    "Step 5: Update src/components/layout.tsx to: (a) Import { BellIcon } from '@/components/icons/IconLibrary'. (b) Import NotificationHandler from '@/components/NotificationHandler'. (c) Add a state variable [notificationOpen, setNotificationOpen] = useState(false). (d) Add a bell icon Button (variant='ghost', size='icon') in the header's right-side div (before the HighContrastToggle), with onClick={() => setNotificationOpen(true)}. (e) Render <NotificationHandler open={notificationOpen} onOpenChange={setNotificationOpen} /> inside the layout, after the Toaster.",
+    "Step 6: Verify the frontend builds by running: export PATH=/opt/toolchains/.nvm/versions/node/v20.20.2/bin:$PATH && cd /projects/sandbox/water-level && npx tsc --noEmit && npx vite build"
+  ],
+  "acceptance_criteria": [
+    "react-onesignal is added to package.json dependencies",
+    "src/components/NotificationHandler.tsx exists with Dialog, Switch, and OneSignal integration",
+    "src/components/icons/IconLibrary.tsx exports a BellIcon component",
+    "src/components/layout.tsx has a bell icon button in the header that opens the NotificationHandler dialog",
+    "VITE_ONESIGNAL_APP_ID is referenced in netlify.toml build environment",
+    "Frontend builds successfully with npx vite build (no TypeScript or bundle errors)"
+  ],
+  "verification": [
+    "Run: export PATH=/opt/toolchains/.nvm/versions/node/v20.20.2/bin:$PATH && cd /projects/sandbox/water-level && npx tsc --noEmit",
+    "Run: export PATH=/opt/toolchains/.nvm/versions/node/v20.20.2/bin:$PATH && cd /projects/sandbox/water-level && npx vite build"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
