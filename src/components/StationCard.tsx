@@ -66,19 +66,23 @@ export default function StationCard({
     const { toast } = useToast();
     const [bellAnimating, setBellAnimating] = useState(false);
 
-    const handleBellClick = async (e: React.MouseEvent) => {
+    const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setBellAnimating(true);
         setTimeout(() => setBellAnimating(false), 500);
 
         if (isSubscribed) {
-            await unsubscribe();
+            unsubscribe().catch(() => {
+                // silently handle background unsubscribe failure
+            });
             toast({
                 title: `🔕 Unsubscribed from ${station.station_name}`,
                 description: "You'll no longer receive alerts for this station",
             });
         } else {
-            await subscribe();
+            subscribe().catch(() => {
+                // silently handle background subscribe failure
+            });
             toast({
                 title: `🔔 Subscribed to ${station.station_name}`,
                 description: "You'll receive alerts when this station reaches danger level",
