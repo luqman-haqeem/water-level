@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from '@/lib/utils'
@@ -11,9 +12,13 @@ import {
     LocationIcon,
     TimeIcon,
     CameraIcon,
+    BellIcon,
+    BellRingIcon,
 } from '@/components/icons/IconLibrary'
 import { Id } from "../../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
+import { useStationSubscription } from '@/hooks/useStationSubscription'
+import { useToast } from '@/hooks/use-toast'
 
 interface Station {
     id: Id<"stations"> | number
@@ -57,6 +62,33 @@ export default function StationCard({
     compact = false,
     distance
 }: StationCardProps) {
+    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
+    const { toast } = useToast();
+    const [animKey, setAnimKey] = useState(0);
+
+    const handleBellClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setAnimKey(k => k + 1);
+
+        if (isSubscribed) {
+            unsubscribe().catch(() => {
+                // silently handle background unsubscribe failure
+            });
+            toast({
+                title: `🔕 Unsubscribed from ${station.station_name}`,
+                description: "You'll no longer receive alerts for this station",
+            });
+        } else {
+            subscribe().catch(() => {
+                // silently handle background subscribe failure
+            });
+            toast({
+                title: `🔔 Subscribed to ${station.station_name}`,
+                description: "You'll receive alerts when this station reaches danger level",
+            });
+        }
+    };
+
     return (
         <Card
             className={cn(
@@ -91,6 +123,21 @@ export default function StationCard({
                             )}
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        aria-label="Toggle notification subscription"
+                        data-subscribed={isSubscribed ? "true" : "false"}
+                        onClick={handleBellClick}
+                        className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
+                    >
+                        <span key={animKey} className={cn("inline-flex", animKey > 0 && "animate-bell-ring")}>
+                            {isSubscribed ? (
+                                <BellRingIcon size="sm" className="text-primary" />
+                            ) : (
+                                <BellIcon size="sm" className="text-muted-foreground" />
+                            )}
+                        </span>
+                    </button>
                 </div>
 
                 {/* Data Row with Mini Chart */}

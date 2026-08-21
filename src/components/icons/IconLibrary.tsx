@@ -1,4 +1,6 @@
 import { 
+  Bell,
+  BellRing,
   Droplets, 
   Camera, 
   MapPin, 
@@ -215,6 +217,15 @@ export const ActivityIcon = ({ className, size = 'md', ...props }: IconProps) =>
 
 export const ChartIcon = ({ className, size = 'md', ...props }: IconProps) => (
   <BarChart3 className={cn(sizeClasses[size], 'text-foreground', className)} {...props} />
+)
+
+// Notification Icons
+export const BellIcon = ({ className, size = 'md', ...props }: IconProps) => (
+  <Bell className={cn(sizeClasses[size], 'text-foreground', className)} {...props} />
+)
+
+export const BellRingIcon = ({ className, size = 'md', ...props }: IconProps) => (
+  <BellRing className={cn(sizeClasses[size], 'text-foreground', className)} {...props} />
 )
 
 // Utility function to get status icon by level

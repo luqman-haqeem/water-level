@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-005",
+  "type": "fix",
+  "description": "Address 5 review issues: relocate OneSignal init, add tag reconciliation, show station names in dialog, handle dead code, document backend test gap",
+  "status": "completed",
+  "steps": [
+    "Create OneSignalProvider component that initializes OneSignal SDK and performs startup tag reconciliation",
+    "Update notificationService to store {id, name} tuples instead of plain string IDs and add reconciliation logic",
+    "Update NotificationHandler dialog to display station names instead of raw Convex IDs",
+    "Update useStationSubscription hook and StationCard to pass station name to subscribeToStation",
+    "Add clear documentation comments on getRecentNotification and recordNotification explaining retention for future auth features",
+    "Document backend action handler test gap in convex/__tests__/notifications.test.ts",
+    "Integrate OneSignalProvider into the app root (layout.tsx or main.tsx)",
+    "Update existing tests to match new interfaces (storage format, function signatures)",
+    "Run all tests and build to verify everything works"
+  ],
+  "acceptance_criteria": [
+    "OneSignal.init() is called once at app startup via a provider",
+    "Tag reconciliation runs at startup: calls getTags() and syncs with localStorage",
+    "NotificationHandler dialog displays station names instead of raw IDs",
+    "Storage format is {id, name}[] tuples in localStorage",
+    "getRecentNotification and recordNotification have clear documentation comments",
+    "Backend test file documents the action handler orchestration test gap",
+    "All existing tests pass (updated for new interfaces)",
+    "npm run build succeeds"
+  ],
+  "verification": [
+    "npx vitest run",
+    "npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "All 5 review issues resolved. OneSignalProvider created and integrated into layout.tsx. localStorage format changed to {id, name}[] tuples with automatic legacy migration. reconcileTagsWithLocalStorage added and called after init. NotificationHandler shows station names. Dead code documented with RETAINED FOR FUTURE USE comments. Backend test gap documented with full explanation. 58 tests passing (up from 51), build succeeds."
+}

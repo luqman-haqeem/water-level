@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Set up testing infrastructure (Vitest + React Testing Library + jsdom) and create a new git branch for the work",
+  "status": "completed",
+  "steps": [
+    "Create and checkout a new branch feat/per-station-tag-notifications from current HEAD (which equals main)",
+    "Install dev dependencies: vitest, @testing-library/react, @testing-library/jest-dom, @testing-library/user-event, jsdom, msw (for fetch mocking in Convex action tests)",
+    "Create vitest.config.ts at project root with: environment jsdom, globals true, path alias @/ -> src/, setupFiles pointing to a setup file",
+    "Create src/test/setup.ts that imports @testing-library/jest-dom for extended matchers",
+    "Add 'test': 'vitest run' and 'test:watch': 'vitest' scripts to package.json",
+    "Update tsconfig.json to include vitest/globals types in compilerOptions.types array",
+    "Create a trivial smoke test (e.g., src/test/smoke.test.ts) that verifies the test runner works",
+    "Run npx vitest run to confirm the test infrastructure works"
+  ],
+  "acceptance_criteria": [
+    "npx vitest run executes successfully and the smoke test passes",
+    "TypeScript compilation (npx tsc --noEmit) still passes with the new config",
+    "Package.json has test and test:watch scripts"
+  ],
+  "verification": [
+    "npx vitest run",
+    "npx tsc --noEmit"
+  ],
+  "blocked_reason": null,
+  "findings": "Node.js v20.20.2 available at /opt/toolchains/.nvm/versions/node/v20.20.2/bin. Must export PATH with that prefix for npm/npx to work. Adding 'types' array to tsconfig.json restricts ambient type visibility, so both 'vitest/globals' and 'node' must be listed. Vitest v4.1.10 installed. All tests pass and tsc --noEmit succeeds."
+}

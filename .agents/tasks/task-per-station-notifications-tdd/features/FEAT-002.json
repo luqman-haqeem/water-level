@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "TDD implementation of the notification service/utility, useStationSubscription hook, and localStorage persistence layer - write tests FIRST then implement to make them pass",
+  "status": "completed",
+  "steps": [
+    "TESTS FIRST - Create src/services/__tests__/notificationService.test.ts with tests for: subscribeToStation(stationId) calls OneSignal.User.addTag('station_{id}', 'true') and updates localStorage; unsubscribeFromStation(stationId) calls OneSignal.User.removeTag('station_{id}') and updates localStorage; getSubscribedStations() returns array of subscribed station IDs from localStorage; isSubscribedToStation(stationId) returns boolean; handles case when OneSignal is not initialized (falls back to localStorage-only); handles rapid toggle (debounce or queue)",
+    "TESTS FIRST - Create src/hooks/__tests__/useStationSubscription.test.tsx with tests for: returns isSubscribed=false initially for a station; after calling subscribe(), isSubscribed becomes true; after calling unsubscribe(), isSubscribed becomes false; persists state to localStorage for optimistic UI; loads initial state from localStorage on mount; handles permission denied gracefully; handles OneSignal not loaded gracefully (queues the operation)",
+    "Implement src/services/notificationService.ts: export functions subscribeToStation(stationId: string), unsubscribeFromStation(stationId: string), getSubscribedStations(): string[], isSubscribedToStation(stationId: string): boolean. Use localStorage key 'subscribed_stations' as JSON array for optimistic state. Call OneSignal.User.addTag/removeTag and also OneSignal.User.PushSubscription.optIn() on first subscribe if not already opted in. Handle OneSignal not initialized by catching errors and logging.",
+    "Implement src/hooks/useStationSubscription.ts: custom hook that takes stationId and returns { isSubscribed, subscribe, unsubscribe, isLoading }. Uses React state synced with localStorage via notificationService. Calls notificationService functions. Handles loading state during async OneSignal operations.",
+    "Run npx vitest run to confirm all tests pass"
+  ],
+  "acceptance_criteria": [
+    "All tests in src/services/__tests__/notificationService.test.ts pass",
+    "All tests in src/hooks/__tests__/useStationSubscription.test.tsx pass",
+    "notificationService correctly interfaces with OneSignal SDK (mocked in tests)",
+    "localStorage persistence works for optimistic UI state",
+    "Edge cases handled: OneSignal not initialized, rapid toggle, permission denied"
+  ],
+  "verification": [
+    "npx vitest run src/services/__tests__/notificationService.test.ts",
+    "npx vitest run src/hooks/__tests__/useStationSubscription.test.tsx"
+  ],
+  "blocked_reason": null,
+  "findings": "All 25 TDD tests pass (16 for notificationService, 9 for useStationSubscription hook). TypeScript compilation clean with no errors. The notificationService uses localStorage key 'subscribed_stations' with JSON array format for optimistic UI. OneSignal SDK is mocked via vi.mock('react-onesignal'). The service gracefully handles OneSignal not being initialized by catching errors and falling back to localStorage-only. The hook uses useState initialized from isSubscribedToStation() for instant mount state, and re-reads state after async operations complete."
+}

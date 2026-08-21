@@ -90,6 +90,20 @@ npm run build
 - **`styles/`** - Global styles and Tailwind CSS configuration
 - **`public/`** - Static assets and service worker
 
+## Deployment
+
+### Convex Backend
+
+The Convex backend is automatically deployed via GitHub Actions when files in the `convex/` directory are pushed to `main`. The workflow can also be triggered manually.
+
+**Required GitHub Secret:**
+
+- `CONVEX_DEPLOY_KEY` - Convex deploy key from the [Convex dashboard](https://dashboard.convex.dev). Set this in your repository Settings > Secrets and variables > Actions.
+
+### Frontend
+
+The frontend is deployed automatically via Netlify on push to `main`.
+
 ## API Routes
 
 - **`/api/proxy-image/[id]`** - Proxies camera images from external sources

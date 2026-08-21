@@ -8,7 +8,10 @@ import {
     CameraIcon,
     LightModeIcon,
     DarkModeIcon,
+    BellIcon,
 } from "@/components/icons/IconLibrary";
+import NotificationHandler from "@/components/NotificationHandler";
+import OneSignalProvider from "@/components/OneSignalProvider";
 import { Toaster } from "@/components/ui/toaster";
 import BottomNavigation from "@/components/BottomNavigation";
 import { HighContrastToggle } from "@/components/HighContrastToggle";
@@ -17,6 +20,7 @@ import { FilterProvider } from "@/lib/FilterContext";
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations");
     const [isMobile, setIsMobile] = useState(false);
+    const [notificationOpen, setNotificationOpen] = useState(false);
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const navigate = useNavigate();
@@ -59,7 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <>
+        <OneSignalProvider>
             <div className="flex flex-col h-screen bg-background">
                 {/* Header */}
                 <header className="border-b px-4 py-3 flex justify-between items-center min-h-touch">
@@ -107,6 +111,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         </div>
                     )}
                     <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setNotificationOpen(true)}
+                            className="min-w-touch min-h-touch"
+                        >
+                            <BellIcon size="md" />
+                            <span className="sr-only">Notification settings</span>
+                        </Button>
                         <HighContrastToggle />
                         <Button
                             variant="ghost"
@@ -159,7 +172,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 )}
 
                 <Toaster />
+                <NotificationHandler
+                    open={notificationOpen}
+                    onOpenChange={setNotificationOpen}
+                />
             </div>
-        </>
+        </OneSignalProvider>
     );
 }

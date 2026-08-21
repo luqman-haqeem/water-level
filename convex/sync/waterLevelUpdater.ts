@@ -278,6 +278,13 @@ export const upsertCurrentLevel = internalMutation({
             updateData.updatedAt = updatedAt;
         }
 
+        // Detect rising transition into danger level
+        const previousAlertLevel = existing?.alertLevel;
+        const risingToDanger =
+            previousAlertLevel !== undefined &&
+            previousAlertLevel < 3 &&
+            alertLevel === 3;
+
         if (existing) {
             // Update existing level
             await ctx.db.patch(existing._id, updateData);
@@ -287,6 +294,15 @@ export const upsertCurrentLevel = internalMutation({
                 stationId,
                 ...updateData,
             });
+        }
+
+        // Schedule danger notification if rising to danger level
+        if (risingToDanger) {
+            await ctx.scheduler.runAfter(
+                0,
+                internal.notifications.notifyDangerForStation,
+                { stationId, currentLevel, updatedAt }
+            );
         }
 
         // Store historical data (Malaysia time)
