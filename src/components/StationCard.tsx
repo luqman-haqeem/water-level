@@ -130,7 +130,7 @@ export default function StationCard({
                         onClick={handleBellClick}
                         className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
                     >
-                        <span key={animKey} className="animate-bell-ring inline-flex">
+                        <span key={animKey} className={cn("inline-flex", animKey > 0 && "animate-bell-ring")}>
                             {isSubscribed ? (
                                 <BellRingIcon size="sm" className="text-primary" />
                             ) : (

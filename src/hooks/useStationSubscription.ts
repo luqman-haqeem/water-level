@@ -30,11 +30,11 @@ export function useStationSubscription(
 
     const subscribe = useCallback(async () => {
         setIsLoading(true);
+        setIsSubscribed(true); // optimistic update
         try {
             await subscribeToStation(stationId, stationName);
-            setIsSubscribed(isSubscribedToStation(stationId));
         } catch {
-            // On error, re-read the actual state from localStorage
+            // revert on error
             setIsSubscribed(isSubscribedToStation(stationId));
         } finally {
             setIsLoading(false);
@@ -43,11 +43,11 @@ export function useStationSubscription(
 
     const unsubscribe = useCallback(async () => {
         setIsLoading(true);
+        setIsSubscribed(false); // optimistic update
         try {
             await unsubscribeFromStation(stationId);
-            setIsSubscribed(isSubscribedToStation(stationId));
         } catch {
-            // On error, re-read the actual state from localStorage
+            // revert on error
             setIsSubscribed(isSubscribedToStation(stationId));
         } finally {
             setIsLoading(false);
