@@ -64,12 +64,11 @@ export default function StationCard({
 }: StationCardProps) {
     const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
     const { toast } = useToast();
-    const [bellAnimating, setBellAnimating] = useState(false);
+    const [animKey, setAnimKey] = useState(0);
 
     const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setBellAnimating(true);
-        setTimeout(() => setBellAnimating(false), 500);
+        setAnimKey(k => k + 1);
 
         if (isSubscribed) {
             unsubscribe().catch(() => {
@@ -125,13 +124,14 @@ export default function StationCard({
                         </div>
                     </div>
                     <button
+                        key={animKey}
                         type="button"
                         aria-label="Toggle notification subscription"
                         data-subscribed={isSubscribed ? "true" : "false"}
                         onClick={handleBellClick}
                         className={cn(
                             "ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0",
-                            bellAnimating && "animate-bell-ring"
+                            "animate-bell-ring"
                         )}
                     >
                         {isSubscribed ? (
