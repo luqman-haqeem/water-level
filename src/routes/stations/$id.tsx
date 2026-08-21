@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Expand } from "lucide-react";
-import { WaterIcon } from "@/components/icons/IconLibrary";
+import { WaterIcon, BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
 import useSwipeGestures from "@/hooks/useSwipeGestures";
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import WaterLevelGauge from "@/components/WaterLevelGauge";
@@ -15,6 +15,8 @@ import { useStations } from "@/hooks/useStations";
 import ExpandableSection from "@/components/ExpandableSection";
 import MiniTrendChart from "@/components/MiniTrendChart";
 import { useEffect } from "react";
+import { useStationSubscription } from "@/hooks/useStationSubscription";
+import { useToast } from "@/hooks/use-toast";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -46,6 +48,32 @@ export function StationDetailRoute() {
             document.title = "River Water Level";
         };
     }, [currentStation]);
+
+    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(
+        stationId || "",
+        currentStation?.station_name || "Unknown Station"
+    );
+    const { toast } = useToast();
+
+    const handleSubscribeClick = () => {
+        if (isSubscribed) {
+            unsubscribe().catch(() => {
+                // silently handle background unsubscribe failure
+            });
+            toast({
+                title: `🔕 Unsubscribed from ${currentStation?.station_name}`,
+                description: "You'll no longer receive alerts for this station",
+            });
+        } else {
+            subscribe().catch(() => {
+                // silently handle background subscribe failure
+            });
+            toast({
+                title: `🔔 Subscribed to ${currentStation?.station_name}`,
+                description: "You'll receive alerts when this station reaches danger level",
+            });
+        }
+    };
 
     const navigateToStation = (direction: "next" | "prev") => {
         let newIndex: number;
@@ -126,6 +154,24 @@ export function StationDetailRoute() {
                             {currentStation.districts.name}
                         </p>
                     </div>
+                    <Button
+                        variant={isSubscribed ? "default" : "outline"}
+                        size="sm"
+                        onClick={handleSubscribeClick}
+                        className="shrink-0 gap-1.5"
+                    >
+                        {isSubscribed ? (
+                            <>
+                                <BellRingIcon size="sm" className="text-current" />
+                                <span>Alerts On</span>
+                            </>
+                        ) : (
+                            <>
+                                <BellIcon size="sm" className="text-current" />
+                                <span>Get Alerts</span>
+                            </>
+                        )}
+                    </Button>
                 </header>
 
                 {/* Main Content */}
