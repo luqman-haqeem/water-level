@@ -124,21 +124,19 @@ export default function StationCard({
                         </div>
                     </div>
                     <button
-                        key={animKey}
                         type="button"
                         aria-label="Toggle notification subscription"
                         data-subscribed={isSubscribed ? "true" : "false"}
                         onClick={handleBellClick}
-                        className={cn(
-                            "ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0",
-                            "animate-bell-ring"
-                        )}
+                        className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
                     >
-                        {isSubscribed ? (
-                            <BellRingIcon size="sm" className="text-primary" />
-                        ) : (
-                            <BellIcon size="sm" className="text-muted-foreground" />
-                        )}
+                        <span key={animKey} className="animate-bell-ring inline-flex">
+                            {isSubscribed ? (
+                                <BellRingIcon size="sm" className="text-primary" />
+                            ) : (
+                                <BellIcon size="sm" className="text-muted-foreground" />
+                            )}
+                        </span>
                     </button>
                 </div>
 
