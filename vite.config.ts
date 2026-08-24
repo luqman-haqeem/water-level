@@ -68,7 +68,7 @@ export default defineConfig({
                             cacheName: "camera-images-cache",
                             expiration: {
                                 maxEntries: 50,
-                                maxAgeSeconds: 60 * 60, // 1 hour
+                                maxAgeSeconds: 60 * 15, // 15 minutes (matches cron sync interval)
                             },
                             cacheableResponse: {
                                 statuses: [0, 200],
