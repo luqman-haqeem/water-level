@@ -2,6 +2,8 @@ import { Outlet } from "@tanstack/react-router";
 import { ConvexProvider } from "convex/react";
 import { convex } from "@/lib/convexClient";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import Layout from "@/components/layout";
 import { useEffect } from "react";
 import posthog from "posthog-js";
@@ -21,14 +23,19 @@ export function RootLayout() {
     }, []);
 
     return (
-        <PostHogProvider client={posthog}>
-            <ConvexProvider client={convex}>
-                <ThemeProvider>
-                    <Layout>
-                        <Outlet />
-                    </Layout>
-                </ThemeProvider>
-            </ConvexProvider>
-        </PostHogProvider>
+        <ErrorBoundary>
+            <PostHogProvider client={posthog}>
+                <ConvexProvider client={convex}>
+                    <ThemeProvider>
+                        <OfflineBanner />
+                        <Layout>
+                            <ErrorBoundary>
+                                <Outlet />
+                            </ErrorBoundary>
+                        </Layout>
+                    </ThemeProvider>
+                </ConvexProvider>
+            </PostHogProvider>
+        </ErrorBoundary>
     );
 }

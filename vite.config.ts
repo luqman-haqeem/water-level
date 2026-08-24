@@ -12,6 +12,7 @@ export default defineConfig({
                 "favicon.ico",
                 "android-chrome-192x192.png",
                 "android-chrome-512x512.png",
+                "nocctv.png",
             ],
             manifest: {
                 name: "River Water Level",
@@ -39,7 +40,61 @@ export default defineConfig({
                 scope: "/",
             },
             workbox: {
-                globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+                // Cache the app shell (JS, CSS, HTML, images) with cache-first strategy
+                globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+
+                // Runtime caching for dynamic resources
+                runtimeCaching: [
+                    {
+                        // Cache Google Fonts stylesheets
+                        urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+                        handler: "CacheFirst",
+                        options: {
+                            cacheName: "google-fonts-cache",
+                            expiration: {
+                                maxEntries: 10,
+                                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                        },
+                    },
+                    {
+                        // Cache camera proxy images with network-first (show latest, fallback to cached)
+                        urlPattern: /\/api\/proxy-image\/.*/i,
+                        handler: "NetworkFirst",
+                        options: {
+                            cacheName: "camera-images-cache",
+                            expiration: {
+                                maxEntries: 50,
+                                maxAgeSeconds: 60 * 60, // 1 hour
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                            networkTimeoutSeconds: 10,
+                        },
+                    },
+                    {
+                        // Cache Convex API responses with network-first
+                        // This ensures latest data is shown when online,
+                        // but cached data is available when offline
+                        urlPattern: /^https:\/\/.*\.convex\.cloud\/.*/i,
+                        handler: "NetworkFirst",
+                        options: {
+                            cacheName: "convex-api-cache",
+                            expiration: {
+                                maxEntries: 100,
+                                maxAgeSeconds: 60 * 30, // 30 minutes
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                            networkTimeoutSeconds: 10,
+                        },
+                    },
+                ],
             },
         }),
     ],
