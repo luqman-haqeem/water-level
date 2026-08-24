@@ -15,7 +15,7 @@ export default function MicroTrendChart({
     alertLevel,
     className
 }: MicroTrendChartProps) {
-    // Fetch trend data via TanStack Query
+    // Fetch trend data via Convex reactive subscription
     const { data: trendData } = useStationTrend(stationId)
 
     // Calculate micro chart path

@@ -1,13 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import { getConvexClient } from "@/lib/convexClient";
+import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
+/**
+ * Reactively subscribes to all enabled cameras with district details.
+ * Convex pushes updates automatically when camera data changes.
+ */
 export function useCameras() {
-    return useQuery({
-        queryKey: ["cameras", "withDetails"],
-        queryFn: async () => {
-            const client = getConvexClient();
-            return await client.query(api.cameras.getCamerasWithDetails);
-        },
-    });
+    const data = useQuery(api.cameras.getCamerasWithDetails);
+    return {
+        data,
+        isLoading: data === undefined,
+    };
 }

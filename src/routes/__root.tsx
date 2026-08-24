@@ -1,7 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { queryClient } from "@/lib/queryClient";
+import { ConvexProvider } from "convex/react";
+import { convex } from "@/lib/convexClient";
 import { ThemeProvider } from "@/components/theme-provider";
 import Layout from "@/components/layout";
 import { useEffect } from "react";
@@ -23,14 +22,13 @@ export function RootLayout() {
 
     return (
         <PostHogProvider client={posthog}>
-            <QueryClientProvider client={queryClient}>
+            <ConvexProvider client={convex}>
                 <ThemeProvider>
                     <Layout>
                         <Outlet />
                     </Layout>
                 </ThemeProvider>
-                <ReactQueryDevtools initialIsOpen={false} />
-            </QueryClientProvider>
+            </ConvexProvider>
         </PostHogProvider>
     );
 }

@@ -3,7 +3,6 @@ import { Input } from "@/components/ui/input";
 import FullscreenModal from "@/components/FullscreenModal";
 import CameraCard from "@/components/CameraCard";
 import { CameraSkeleton } from "@/components/SkeletonCard";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCameras } from "@/hooks/useCameras";
 import usePullToRefresh from "@/hooks/usePullToRefresh";
 import PullToRefreshIndicator from "@/components/PullToRefreshIndicator";
@@ -13,8 +12,7 @@ export function CamerasRoute() {
     const [searchTerm, setSearchTerm] = useState("");
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-    // Fetch data with TanStack Query
-    const queryClientInstance = useQueryClient();
+    // Fetch data with Convex reactive subscriptions (auto-updates in real-time)
     const { data: cameras, isLoading: isLoadingCameras } = useCameras();
     const camerasData = useMemo(() => cameras || [], [cameras]);
 
@@ -59,16 +57,11 @@ export function CamerasRoute() {
         setFullscreenImageSrc("");
     };
 
-    // Pull-to-refresh
+    // Pull-to-refresh (visual feedback only — Convex auto-updates data in real-time)
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
-            try {
-                await queryClientInstance.invalidateQueries({
-                    queryKey: ["cameras"],
-                });
-            } catch (error) {
-                console.error("Failed to refresh cameras data:", error);
-            }
+            // Data is already live via Convex subscriptions.
+            await new Promise((resolve) => setTimeout(resolve, 300));
         },
         threshold: 80,
     });
