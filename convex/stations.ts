@@ -224,8 +224,12 @@ export const getCameras = query({
 
 /**
  * One-time migration: ensures all jpsSelId values are strings.
- * Run manually after deploying the schema change (v.any() → v.string()):
- *   npx convex run stations.migrateJpsSelIdToString
+ *
+ * TWO-STEP PROCESS:
+ * 1. Deploy this PR (migration function + schema stays as v.any())
+ * 2. Run: npx convex run stations.migrateJpsSelIdToString
+ * 3. After confirming all records are migrated, change schema to v.string()
+ *    and deploy again.
  *
  * Safe to run multiple times — skips records that are already strings.
  */

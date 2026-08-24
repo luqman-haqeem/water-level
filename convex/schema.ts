@@ -8,7 +8,7 @@ export default defineSchema({
   }),
 
   stations: defineTable({
-    jpsSelId: v.string(),
+    jpsSelId: v.any(), // TODO: Change to v.string() after running migrateJpsSelIdToString
     publicInfoId: v.optional(v.string()),
     districtId: v.id("districts"),
     stationName: v.string(),
