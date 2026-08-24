@@ -11,6 +11,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import formatTimestamp from "@/utils/timeUtils";
 import FullscreenModal from "@/components/FullscreenModal";
+import { useStationDetail } from "@/hooks/useStationDetail";
 import { useStations } from "@/hooks/useStations";
 import ExpandableSection from "@/components/ExpandableSection";
 import MiniTrendChart from "@/components/MiniTrendChart";
@@ -22,19 +23,17 @@ export function StationDetailRoute() {
     const navigate = useNavigate();
     const { id: stationId } = useParams({ strict: false });
 
-    // Fetch data with TanStack Query
-    const { data: stations, isLoading: isLoadingStations } = useStations();
+    // Fetch ONLY this station's details (optimized: 4 DB lookups instead of all stations)
+    const { data: currentStation, isLoading: isLoadingStation } = useStationDetail(stationId);
 
-    // Memoize stationsData
+    // Fetch full station list only for prev/next navigation (cached from list page visit)
+    const { data: stations } = useStations();
     const stationsData = useMemo(() => stations || [], [stations]);
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("");
 
-    // Find current station and its position in the list
-    const currentStation = stationsData.find(
-        (s) => s.id.toString() === stationId
-    );
+    // Find current station's position in the list for navigation
     const currentIndex = stationsData.findIndex(
         (s) => s.id.toString() === stationId
     );
@@ -76,6 +75,8 @@ export function StationDetailRoute() {
     };
 
     const navigateToStation = (direction: "next" | "prev") => {
+        if (stationsData.length === 0 || currentIndex === -1) return;
+
         let newIndex: number;
         if (direction === "next") {
             newIndex =
@@ -116,7 +117,7 @@ export function StationDetailRoute() {
         restoreScrollOnUp: true,
     });
 
-    if (isLoadingStations) {
+    if (isLoadingStation) {
         return (
             <div className="flex-1 flex items-center justify-center">
                 <LoadingSpinner size="lg" />
@@ -395,33 +396,35 @@ export function StationDetailRoute() {
                     </Card>
                 </div>
 
-                {/* Mobile Navigation Footer */}
-                <footer className="border-t bg-background/95 backdrop-blur p-4 flex justify-between items-center md:hidden">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigateToStation("prev")}
-                        className="min-w-touch min-h-touch px-4"
-                    >
-                        <ChevronLeft className="w-5 h-5 mr-1" />
-                        <span>Previous</span>
-                    </Button>
-                    <div className="text-sm text-muted-foreground text-center px-2">
-                        <div className="font-medium">
-                            Station {currentIndex + 1}
+                {/* Mobile Navigation Footer - only shown when station list is available */}
+                {stationsData.length > 0 && currentIndex !== -1 && (
+                    <footer className="border-t bg-background/95 backdrop-blur p-4 flex justify-between items-center md:hidden">
+                        <Button
+                            variant="outline"
+                            onClick={() => navigateToStation("prev")}
+                            className="min-w-touch min-h-touch px-4"
+                        >
+                            <ChevronLeft className="w-5 h-5 mr-1" />
+                            <span>Previous</span>
+                        </Button>
+                        <div className="text-sm text-muted-foreground text-center px-2">
+                            <div className="font-medium">
+                                Station {currentIndex + 1}
+                            </div>
+                            <div className="text-xs">
+                                of {stationsData.length}
+                            </div>
                         </div>
-                        <div className="text-xs">
-                            of {stationsData.length}
-                        </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => navigateToStation("next")}
-                        className="min-w-touch min-h-touch px-4"
-                    >
-                        <span>Next</span>
-                        <ChevronRight className="w-5 h-5 ml-1" />
-                    </Button>
-                </footer>
+                        <Button
+                            variant="outline"
+                            onClick={() => navigateToStation("next")}
+                            className="min-w-touch min-h-touch px-4"
+                        >
+                            <span>Next</span>
+                            <ChevronRight className="w-5 h-5 ml-1" />
+                        </Button>
+                    </footer>
+                )}
             </div>
 
             <FullscreenModal
