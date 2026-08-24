@@ -86,7 +86,6 @@ export const updateWaterLevels = action({
         ctx
     ): Promise<{
         success: boolean;
-        summaryId: string;
         districtsCount: number;
         stationsCount: number;
         overallStatus: string;
@@ -142,18 +141,6 @@ export const updateWaterLevels = action({
             if (totalDanger > 0) overallStatus = "DANGER";
             else if (totalWarning > 0) overallStatus = "WARNING";
             else if (totalAlert > 0) overallStatus = "ALERT";
-
-            // Save summary to Convex
-            const summaryId: string = await ctx.runMutation(
-                internal.waterLevelData.storeWaterLevelSummaryInternal,
-                {
-                    districts,
-                    overallStatus,
-                    scrapedAt: timestamp,
-                }
-            );
-
-            console.log(`✅ Summary saved with ID: ${summaryId}`);
 
             // Fetch and save district station details with water level data
             let totalStationsSaved = 0;
@@ -223,7 +210,6 @@ export const updateWaterLevels = action({
 
             return {
                 success: true,
-                summaryId,
                 districtsCount: districts.length,
                 stationsCount: totalStationsSaved,
                 overallStatus,
@@ -395,15 +381,3 @@ export const cleanupOldHistoryData = internalMutation({
     },
 });
 
-// Helper function to determine the alert level
-function getAlertLevel(
-    waterLevel: number,
-    dangerLevel: number,
-    warningLevel: number,
-    alertLevel: number
-): number {
-    if (waterLevel >= dangerLevel) return 3;
-    if (waterLevel >= warningLevel) return 2;
-    if (waterLevel >= alertLevel) return 1;
-    return 0;
-}

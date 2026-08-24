@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getStationsWithDetails = query({
@@ -217,5 +217,35 @@ export const getDistricts = query({
 export const getCameras = query({
     handler: async (ctx) => {
         return await ctx.db.query("cameras").collect();
+    },
+});
+
+
+
+/**
+ * One-time migration: ensures all jpsSelId values are strings.
+ * Run manually after deploying the schema change (v.any() → v.string()):
+ *   npx convex run stations.migrateJpsSelIdToString
+ *
+ * Safe to run multiple times — skips records that are already strings.
+ */
+export const migrateJpsSelIdToString = internalMutation({
+    handler: async (ctx) => {
+        const stations = await ctx.db.query("stations").collect();
+        let migrated = 0;
+
+        for (const station of stations) {
+            if (typeof station.jpsSelId !== "string") {
+                await ctx.db.patch(station._id, {
+                    jpsSelId: String(station.jpsSelId),
+                });
+                migrated++;
+            }
+        }
+
+        console.log(
+            `✅ Migration complete: ${migrated}/${stations.length} stations updated`
+        );
+        return { total: stations.length, migrated };
     },
 });

@@ -8,7 +8,7 @@ export default defineSchema({
   }),
 
   stations: defineTable({
-    jpsSelId: v.any(),
+    jpsSelId: v.string(),
     publicInfoId: v.optional(v.string()),
     districtId: v.id("districts"),
     stationName: v.string(),
@@ -68,28 +68,6 @@ export default defineSchema({
     .index("by_station", ["stationId"])
     .index("by_station_time", ["stationId", "timestamp"])
     .index("by_timestamp", ["timestamp"]),
-
-  waterLevelSummaries: defineTable({
-    districts: v.array(
-      v.object({
-        districtId: v.number(),
-        districtName: v.string(),
-        totalStations: v.number(),
-        normalCount: v.number(),
-        alertCount: v.number(),
-        warningCount: v.number(),
-        dangerCount: v.number(),
-        onlineStations: v.number(),
-        offlineStations: v.number(),
-        lastUpdated: v.string(),
-        allLastUpdated: v.string(),
-        timestamp: v.string(),
-      })
-    ),
-    overallStatus: v.string(),
-    scrapedAt: v.string(),
-    timestamp: v.number(),
-  }).index("by_timestamp", ["timestamp"]),
 
   users: defineTable({
     externalId: v.string(),
