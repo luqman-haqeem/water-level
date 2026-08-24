@@ -5,7 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  VITE_CONVEX_URL = "https://quick-warbler-518.convex.cloud"
+  # VITE_CONVEX_URL must be set via Netlify dashboard environment variables (not committed to source control)
 
 # Headers for better caching
 [[headers]]
