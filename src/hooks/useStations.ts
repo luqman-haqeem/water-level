@@ -1,23 +1,26 @@
-import { useQuery } from "@tanstack/react-query";
-import { getConvexClient } from "@/lib/convexClient";
+import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
+/**
+ * Reactively subscribes to all stations with their details.
+ * Convex pushes updates automatically when water levels change —
+ * no polling or manual refresh needed.
+ */
 export function useStations() {
-    return useQuery({
-        queryKey: ["stations", "withDetails"],
-        queryFn: async () => {
-            const client = getConvexClient();
-            return await client.query(api.stations.getStationsWithDetails);
-        },
-    });
+    const data = useQuery(api.stations.getStationsWithDetails);
+    return {
+        data,
+        isLoading: data === undefined,
+    };
 }
 
+/**
+ * Reactively subscribes to the districts list.
+ */
 export function useDistricts() {
-    return useQuery({
-        queryKey: ["districts"],
-        queryFn: async () => {
-            const client = getConvexClient();
-            return await client.query(api.stations.getDistricts);
-        },
-    });
+    const data = useQuery(api.stations.getDistricts);
+    return {
+        data,
+        isLoading: data === undefined,
+    };
 }

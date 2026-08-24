@@ -39,7 +39,7 @@ export default function MiniTrendChart({
     const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null)
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
-    // Fetch trend data via TanStack Query
+    // Fetch trend data via Convex reactive subscription
     const { data: trendData } = useStationTrend(stationId)
 
     // Calculate chart dimensions and data points

@@ -6,7 +6,6 @@ import { LocationIcon } from "@/components/icons/IconLibrary";
 import StationCard from "@/components/StationCard";
 import { StationSkeleton } from "@/components/SkeletonCard";
 import { haptics } from "@/utils/haptics";
-import { useQueryClient } from "@tanstack/react-query";
 import { useStations } from "@/hooks/useStations";
 import { useFilter, FilterOptions } from "@/lib/FilterContext";
 import AdvancedFilter from "@/components/AdvancedFilter";
@@ -49,8 +48,7 @@ export function StationsRoute() {
     // Location services for nearest sorting
     const location = useLocation();
 
-    // Fetch data with TanStack Query
-    const queryClientInstance = useQueryClient();
+    // Fetch data with Convex reactive subscriptions (auto-updates in real-time)
     const { data: stations, isLoading: isLoadingStations } = useStations();
 
     // Memoize stations data
@@ -273,16 +271,12 @@ export function StationsRoute() {
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
 
-    // Pull-to-refresh
+    // Pull-to-refresh (visual feedback only — Convex auto-updates data in real-time)
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
-            try {
-                await queryClientInstance.invalidateQueries({
-                    queryKey: ["stations"],
-                });
-            } catch (error) {
-                console.error("Failed to refresh data:", error);
-            }
+            // Data is already live via Convex subscriptions.
+            // Brief delay for visual feedback that "something happened"
+            await new Promise((resolve) => setTimeout(resolve, 300));
         },
         threshold: 80,
     });
