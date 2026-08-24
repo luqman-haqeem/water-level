@@ -2,6 +2,16 @@ const axios = require('axios');
 const { ConvexHttpClient } = require("convex/browser");
 require('dotenv').config({ path: '.env.local' });
 
+// ⚠️ DEPRECATED: This script uses public Convex mutations that have been removed for security.
+// Data syncing is now handled by the Convex cron job (sync.waterLevelUpdater.updateWaterLevels)
+// which runs every 15 minutes in production using internal (protected) mutations.
+//
+// To manually trigger a sync, use:
+//   npx convex run sync.waterLevelUpdater.updateWaterLevels
+//
+// The 'summary' and 'file' commands still work for local inspection (read-only).
+// The 'all' command (Convex write) is no longer functional.
+
 const BASE_URL = 'https://infobanjirjps.selangor.gov.my/JPSAPI/api';
 
 // Initialize Convex client
@@ -142,45 +152,11 @@ class WaterLevelScraper {
     }
 
     async saveToConvex(data) {
-        try {
-            console.log('💾 Saving data to Convex...');
-
-            // Save summary data
-            const summaryId = await convex.mutation("waterLevelData:storeWaterLevelSummary", {
-                districts: data.summary.districts,
-                overallStatus: data.summary.overallStatus,
-                scrapedAt: data.scrapedAt,
-            });
-
-            console.log(`✅ Summary saved with ID: ${summaryId}`);
-
-            // Save district station details
-            let totalStationsSaved = 0;
-            for (const districtDetail of data.details) {
-                const result = await convex.mutation("waterLevelData:storeDistrictStations", {
-                    districtId: districtDetail.districtId,
-                    districtName: districtDetail.districtName,
-                    stations: districtDetail.stations,
-                });
-
-                if (result.success) {
-                    totalStationsSaved += result.stationsCount;
-                }
-            }
-
-            console.log(`✅ Saved ${totalStationsSaved} stations across ${data.details.length} districts`);
-
-            return {
-                summaryId,
-                districtsCount: data.details.length,
-                stationsCount: totalStationsSaved,
-                timestamp: data.scrapedAt
-            };
-
-        } catch (error) {
-            console.error('❌ Error saving to Convex:', error.message);
-            throw error;
-        }
+        console.error('❌ DEPRECATED: Public Convex mutations have been removed for security.');
+        console.error('   Data syncing is now handled by the Convex cron job.');
+        console.error('   To manually trigger a sync, use:');
+        console.error('     npx convex run sync.waterLevelUpdater.updateWaterLevels');
+        throw new Error('Public mutations removed. Use Convex action instead.');
     }
 
     async saveToFile(data, filename = null) {
