@@ -12,11 +12,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
       - run: npm ci
-      - run: npx convex deploy
+
+      - name: Verify deploy key is configured
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::error::CONVEX_DEPLOY_KEY secret is not set. Generate a production deploy key from your Convex dashboard (Deployment Settings → Deploy Keys) and add it as a GitHub Actions secret."
+            echo ""
+            echo "The key should look like: prod:<deployment-name>|<token>"
+            echo ""
+            echo "Steps:"
+            echo "  1. Go to https://dashboard.convex.dev → your project → Production deployment"
+            echo "  2. Settings → Deploy Keys → Generate a deploy key"
+            echo "  3. Copy the key (starts with 'prod:')"
+            echo "  4. In GitHub: Settings → Secrets → Actions → New repository secret"
+            echo "     Name: CONVEX_DEPLOY_KEY"
+            echo "     Value: <paste the key>"
+            exit 1
+          fi
+          echo "✅ CONVEX_DEPLOY_KEY is configured"
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+      - name: Deploy to Convex
+        run: npx convex deploy
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
