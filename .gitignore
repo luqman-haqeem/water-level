@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -8,10 +6,6 @@
 
 # testing
 /coverage
-
-# next.js
-/.next/
-/out/
 
 # production
 /build
@@ -30,17 +24,17 @@ yarn-error.log*
 .env*.local
 .env
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
+
+# generated/cached
 public/images
 
+# Local Netlify folder
+.netlify
+
+# AI assistant config (local only)
 new_ui.md
 .mcp.json
 CLAUDE.md
 .claude/
-
-# Local Netlify folder
-.netlify

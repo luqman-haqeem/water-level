@@ -1,4 +1,3 @@
-const axios = require('axios');
 const { ConvexHttpClient } = require("convex/browser");
 require('dotenv').config({ path: '.env.local' });
 
@@ -15,7 +14,7 @@ require('dotenv').config({ path: '.env.local' });
 const BASE_URL = 'https://infobanjirjps.selangor.gov.my/JPSAPI/api';
 
 // Initialize Convex client
-const convexUrl = process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL;
+const convexUrl = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL;
 console.log('Using Convex URL:', convexUrl);
 
 if (!convexUrl) {
@@ -33,14 +32,20 @@ class WaterLevelScraper {
 
     async getWaterLevelSummary() {
         try {
-            const response = await axios.get(`${this.baseURL}/StationRiverLevels/GetWLStationSummary`);
+            const response = await fetch(`${this.baseURL}/StationRiverLevels/GetWLStationSummary`);
 
-            if (!response.data) {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: Failed to fetch water level summary`);
+            }
+
+            const data = await response.json();
+
+            if (!data) {
                 throw new Error('No data received from API');
             }
 
 
-            const summary = response.data.map(district => ({
+            const summary = data.map(district => ({
                 districtId: district.districtId,
                 districtName: district.district,
                 totalStations: district.total_station,
@@ -70,14 +75,20 @@ class WaterLevelScraper {
 
     async getDistrictDetails(districtId) {
         try {
-            const response = await axios.get(`${this.baseURL}/StationRiverLevels/GetWLAllStationData/${districtId}`);
+            const response = await fetch(`${this.baseURL}/StationRiverLevels/GetWLAllStationData/${districtId}`);
 
-            if (!response.data) {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: Failed to fetch district ${districtId}`);
+            }
+
+            const data = await response.json();
+
+            if (!data) {
                 throw new Error(`No station data found for district ${districtId}`);
             }
 
             // Extract stations from the response
-            const stationsData = response.data.stations || [];
+            const stationsData = data.stations || [];
             const stations = stationsData.map(station => ({
                 id: station.id,
                 stationId: station.stationId || '',

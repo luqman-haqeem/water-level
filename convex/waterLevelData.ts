@@ -1,11 +1,161 @@
-import { query, internalMutation } from "./_generated/server";
+import { query, internalMutation, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
-// Internal mutation for server-side use only.
-// Previously exposed as a public mutation, but removed to prevent
-// unauthenticated writes to production data.
-// Use the Convex action `sync.waterLevelUpdater.updateWaterLevels` instead.
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+/** Shape of a station record coming from the JPS API scraper */
+interface JpsStationInput {
+  id: number;
+  stationId: string;
+  name: string;
+  stationCode?: string;
+  referenceName?: string;
+  districtName: string;
+  currentWaterLevel: number;
+  normalLevel: number;
+  alertLevel: number;
+  warningLevel: number;
+  dangerLevel: number;
+  waterlevelStatus: number;
+  stationStatus: number;
+  lastUpdate: string;
+  latitude: number;
+  longitude: number;
+  batteryLevel?: number | null;
+  gsmNumber?: string;
+  markerType?: string;
+  mode?: boolean;
+  z1?: boolean;
+  z2?: boolean;
+  z3?: boolean;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Determines the alert level (0-3) from a JPS waterlevelStatus code.
+ * Falls back to threshold-based computation when status is -1 (below normal).
+ */
+function computeAlertLevel(station: JpsStationInput): number {
+  switch (station.waterlevelStatus) {
+    case 3:
+      return 3; // danger
+    case 2:
+      return 2; // warning
+    case 1:
+      return 1; // alert
+    case 0:
+      return 0; // normal
+    case -1:
+      // Below normal — determine level based on thresholds
+      if (station.currentWaterLevel >= station.dangerLevel) return 3;
+      if (station.currentWaterLevel >= station.warningLevel) return 2;
+      if (station.currentWaterLevel >= station.alertLevel) return 1;
+      return 0;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Ensures a district exists in the database, creating it if necessary.
+ * Returns the district document.
+ */
+async function ensureDistrict(
+  ctx: MutationCtx,
+  districtName: string,
+  jpsDistrictsId?: number
+) {
+  let existingDistrict = await ctx.db
+    .query("districts")
+    .filter((q) =>
+      jpsDistrictsId
+        ? q.eq(q.field("jpsDistrictsId"), jpsDistrictsId)
+        : q.eq(q.field("name"), districtName)
+    )
+    .first();
+
+  if (!existingDistrict) {
+    const districtDbId = await ctx.db.insert("districts", {
+      name: districtName,
+      ...(jpsDistrictsId && { jpsDistrictsId }),
+    });
+    existingDistrict = await ctx.db.get(districtDbId);
+  }
+
+  if (!existingDistrict) {
+    throw new Error(`Failed to create or find district: ${districtName}`);
+  }
+
+  return existingDistrict;
+}
+
+/**
+ * Upserts a station record and updates its current water level.
+ * Handles both insert (new station) and patch (existing station).
+ */
+async function upsertStation(
+  ctx: MutationCtx,
+  station: JpsStationInput,
+  districtId: Id<"districts">
+) {
+  const existingStation = await ctx.db
+    .query("stations")
+    .withIndex("by_jps_sel_id", (q) =>
+      q.eq("jpsSelId", station.id.toString())
+    )
+    .first();
+
+  const stationFields = {
+    publicInfoId: station.stationId,
+    stationName: station.name,
+    stationCode: station.stationCode,
+    refName: station.referenceName,
+    latitude: station.latitude,
+    longitude: station.longitude,
+    gsmNumber: station.gsmNumber,
+    normalWaterLevel: station.normalLevel,
+    alertWaterLevel: station.alertLevel,
+    warningWaterLevel: station.warningLevel,
+    dangerWaterLevel: station.dangerLevel,
+    stationStatus: station.stationStatus === 1,
+    batteryLevel:
+      station.batteryLevel === null ? undefined : station.batteryLevel,
+  };
+
+  let stationDbId: Id<"stations">;
+  if (!existingStation) {
+    stationDbId = await ctx.db.insert("stations", {
+      jpsSelId: station.id.toString(),
+      districtId,
+      ...stationFields,
+    });
+  } else {
+    stationDbId = existingStation._id;
+    await ctx.db.patch(existingStation._id, stationFields);
+  }
+
+  // Update current water level via the dedicated upsert function
+  const alertLevel = computeAlertLevel(station);
+  await ctx.runMutation(
+    internal.sync.waterLevelUpdater.upsertCurrentLevel,
+    {
+      stationId: stationDbId,
+      currentLevel: station.currentWaterLevel,
+      alertLevel,
+      updatedAt: station.lastUpdate,
+    }
+  );
+}
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
+/**
+ * Stores a water level summary snapshot.
+ * Internal-only to prevent unauthenticated writes.
+ */
 export const storeWaterLevelSummaryInternal = internalMutation({
   args: {
     districts: v.array(
@@ -39,10 +189,10 @@ export const storeWaterLevelSummaryInternal = internalMutation({
   },
 });
 
-// Internal mutation for server-side use only.
-// Previously exposed as a public mutation, but removed to prevent
-// unauthenticated writes to production data.
-// Use the Convex action `sync.waterLevelUpdater.updateWaterLevels` instead.
+/**
+ * Stores/updates stations for a district and their current water levels.
+ * Internal-only to prevent unauthenticated writes.
+ */
 export const storeDistrictStationsInternal = internalMutation({
   args: {
     districtId: v.number(),
@@ -76,111 +226,18 @@ export const storeDistrictStationsInternal = internalMutation({
       })
     ),
   },
-  handler: async (
-    ctx,
-    { districtId, districtName, jpsDistrictsId, stations }
-  ) => {
-    // Same logic as public version
-    let existingDistrict = await ctx.db
-      .query("districts")
-      .filter((q) => 
-        jpsDistrictsId ? 
-          q.eq(q.field("jpsDistrictsId"), jpsDistrictsId) :
-          q.eq(q.field("name"), districtName)
-      )
-      .first();
+  handler: async (ctx, { districtName, jpsDistrictsId, stations }) => {
+    const district = await ensureDistrict(ctx, districtName, jpsDistrictsId);
 
-    let districtDbId;
-    if (!existingDistrict) {
-      districtDbId = await ctx.db.insert("districts", {
-        name: districtName,
-        ...(jpsDistrictsId && { jpsDistrictsId: jpsDistrictsId }),
-      });
-      existingDistrict = await ctx.db.get(districtDbId);
-    }
-
-    if (!existingDistrict) {
-      throw new Error(`Failed to create or find district: ${districtName}`);
-    }
-
-    // Store/update stations and their current water levels
     for (const station of stations) {
-      const existingStation = await ctx.db
-        .query("stations")
-        .withIndex("by_jps_sel_id", (q) =>
-          q.eq("jpsSelId", station.id.toString())
-        )
-        .first();
-
-      let stationDbId;
-      if (!existingStation) {
-        stationDbId = await ctx.db.insert("stations", {
-          jpsSelId: station.id.toString(),
-          publicInfoId: station.stationId,
-          districtId: existingDistrict._id,
-          stationName: station.name,
-          stationCode: station.stationCode,
-          refName: station.referenceName,
-          latitude: station.latitude,
-          longitude: station.longitude,
-          gsmNumber: station.gsmNumber,
-          normalWaterLevel: station.normalLevel,
-          alertWaterLevel: station.alertLevel,
-          warningWaterLevel: station.warningLevel,
-          dangerWaterLevel: station.dangerLevel,
-          stationStatus: station.stationStatus === 1,
-          batteryLevel:
-            station.batteryLevel === null ? undefined : station.batteryLevel,
-        });
-      } else {
-        stationDbId = existingStation._id;
-        await ctx.db.patch(existingStation._id, {
-          publicInfoId: station.stationId,
-          stationName: station.name,
-          stationCode: station.stationCode,
-          refName: station.referenceName,
-          latitude: station.latitude,
-          longitude: station.longitude,
-          gsmNumber: station.gsmNumber,
-          normalWaterLevel: station.normalLevel,
-          alertWaterLevel: station.alertLevel,
-          warningWaterLevel: station.warningLevel,
-          dangerWaterLevel: station.dangerLevel,
-          stationStatus: station.stationStatus === 1,
-          batteryLevel:
-            station.batteryLevel === null ? undefined : station.batteryLevel,
-        });
-      }
-
-      let alertLevel = 0;
-      if (station.waterlevelStatus === 3) alertLevel = 3;
-      else if (station.waterlevelStatus === 2) alertLevel = 2;
-      else if (station.waterlevelStatus === 1) alertLevel = 1;
-      else if (station.waterlevelStatus === 0) alertLevel = 0;
-      else if (station.waterlevelStatus === -1) {
-        if (station.currentWaterLevel >= station.dangerLevel) alertLevel = 3;
-        else if (station.currentWaterLevel >= station.warningLevel)
-          alertLevel = 2;
-        else if (station.currentWaterLevel >= station.alertLevel)
-          alertLevel = 1;
-        else alertLevel = 0;
-      }
-
-      // Use the dedicated upsert function
-      await ctx.runMutation(
-        internal.sync.waterLevelUpdater.upsertCurrentLevel,
-        {
-          stationId: stationDbId,
-          currentLevel: station.currentWaterLevel,
-          alertLevel: alertLevel,
-          updatedAt: station.lastUpdate,
-        }
-      );
+      await upsertStation(ctx, station, district._id);
     }
 
     return { success: true, stationsCount: stations.length };
   },
 });
+
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
 export const getLatestWaterLevelSummary = query({
   handler: async (ctx) => {
