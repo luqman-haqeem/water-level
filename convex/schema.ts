@@ -69,27 +69,11 @@ export default defineSchema({
     .index("by_station_time", ["stationId", "timestamp"])
     .index("by_timestamp", ["timestamp"]),
 
-  users: defineTable({
-    externalId: v.string(),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-  }).index("by_external_id", ["externalId"]),
-
-  favoriteStations: defineTable({
-    userId: v.id("users"),
-    stationId: v.id("stations"),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_station", ["userId", "stationId"])
-    .index("by_station", ["stationId"]),
-
   notificationLog: defineTable({
-    userId: v.optional(v.id("users")),
     stationId: v.id("stations"),
     notifiedAt: v.number(),
     alertLevel: v.number(),
   })
-    .index("by_user_station", ["userId", "stationId"])
     .index("by_station", ["stationId"])
     .index("by_notified_at", ["notifiedAt"]),
 });

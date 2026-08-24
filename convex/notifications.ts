@@ -12,34 +12,9 @@ export const getStationInfo = internalQuery({
 });
 
 /**
- * [RETAINED FOR FUTURE USE]
- * Checks if a notification was recently sent to a specific user for a specific station.
- * Currently unused because the tag-based notification system targets device tags
- * rather than individual users. This will be re-enabled when user authentication
- * is added, allowing per-user notification history and preferences.
+ * Checks if a notification was recently sent for a specific station (per-station cooldown).
+ * Used to prevent notification spam — only one notification per station per hour.
  */
-export const getRecentNotification = internalQuery({
-  args: {
-    userId: v.id("users"),
-    stationId: v.id("stations"),
-  },
-  handler: async (ctx, { userId, stationId }) => {
-    const cutoff = Date.now() - ONE_HOUR_MS;
-    const recent = await ctx.db
-      .query("notificationLog")
-      .withIndex("by_user_station", (q) =>
-        q.eq("userId", userId).eq("stationId", stationId)
-      )
-      .order("desc")
-      .first();
-
-    if (recent && recent.notifiedAt > cutoff) {
-      return recent;
-    }
-    return null;
-  },
-});
-
 export const getRecentStationNotification = internalQuery({
   args: {
     stationId: v.id("stations"),
@@ -56,29 +31,6 @@ export const getRecentStationNotification = internalQuery({
       return recent;
     }
     return null;
-  },
-});
-
-/**
- * [RETAINED FOR FUTURE USE]
- * Records that a notification was sent to a specific user for a specific station.
- * Currently unused because the tag-based system uses per-station cooldowns
- * (recordStationCooldown) rather than per-user records. This will be re-enabled
- * when user authentication is added, allowing per-user notification tracking.
- */
-export const recordNotification = internalMutation({
-  args: {
-    userId: v.id("users"),
-    stationId: v.id("stations"),
-    alertLevel: v.number(),
-  },
-  handler: async (ctx, { userId, stationId, alertLevel }) => {
-    await ctx.db.insert("notificationLog", {
-      userId,
-      stationId,
-      notifiedAt: Date.now(),
-      alertLevel,
-    });
   },
 });
 
