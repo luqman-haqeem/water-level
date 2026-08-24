@@ -395,15 +395,3 @@ export const cleanupOldHistoryData = internalMutation({
     },
 });
 
-// Helper function to determine the alert level
-function getAlertLevel(
-    waterLevel: number,
-    dangerLevel: number,
-    warningLevel: number,
-    alertLevel: number
-): number {
-    if (waterLevel >= dangerLevel) return 3;
-    if (waterLevel >= warningLevel) return 2;
-    if (waterLevel >= alertLevel) return 1;
-    return 0;
-}

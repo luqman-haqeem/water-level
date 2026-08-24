@@ -43,4 +43,11 @@ crons.interval(
     internal.sync.waterLevelUpdater.cleanupOldHistoryData
 );
 
+// Cleanup old water level summaries daily (keep last 24 hours)
+crons.interval(
+    "cleanup old water level summaries",
+    { hours: 24 },
+    internal.waterLevelSummaries.cleanupOldSummaries
+);
+
 export default crons;

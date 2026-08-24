@@ -8,7 +8,7 @@ export default defineSchema({
   }),
 
   stations: defineTable({
-    jpsSelId: v.any(),
+    jpsSelId: v.string(),
     publicInfoId: v.optional(v.string()),
     districtId: v.id("districts"),
     stationName: v.string(),
