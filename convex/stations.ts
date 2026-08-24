@@ -1,4 +1,4 @@
-import { query, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getStationsWithDetails = query({
@@ -224,12 +224,16 @@ export const getCameras = query({
 
 /**
  * One-time migration: ensures all jpsSelId values are strings.
- * Run manually after deploying the schema change (v.any() → v.string()):
- *   npx convex run stations.migrateJpsSelIdToString
+ *
+ * HOW TO RUN:
+ * Go to Convex Dashboard → Functions → stations → migrateJpsSelIdToString → Run
+ *
+ * After confirming all records are migrated, change schema jpsSelId to v.string()
+ * and remove this function.
  *
  * Safe to run multiple times — skips records that are already strings.
  */
-export const migrateJpsSelIdToString = internalMutation({
+export const migrateJpsSelIdToString = mutation({
     handler: async (ctx) => {
         const stations = await ctx.db.query("stations").collect();
         let migrated = 0;
