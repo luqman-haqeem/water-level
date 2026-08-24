@@ -153,43 +153,6 @@ async function upsertStation(
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 /**
- * Stores a water level summary snapshot.
- * Internal-only to prevent unauthenticated writes.
- */
-export const storeWaterLevelSummaryInternal = internalMutation({
-  args: {
-    districts: v.array(
-      v.object({
-        districtId: v.number(),
-        districtName: v.string(),
-        totalStations: v.number(),
-        normalCount: v.number(),
-        alertCount: v.number(),
-        warningCount: v.number(),
-        dangerCount: v.number(),
-        onlineStations: v.number(),
-        offlineStations: v.number(),
-        lastUpdated: v.string(),
-        allLastUpdated: v.string(),
-        timestamp: v.string(),
-      })
-    ),
-    overallStatus: v.string(),
-    scrapedAt: v.string(),
-  },
-  handler: async (ctx, { districts, overallStatus, scrapedAt }) => {
-    const summaryId = await ctx.db.insert("waterLevelSummaries", {
-      districts,
-      overallStatus,
-      scrapedAt,
-      timestamp: Date.now(),
-    });
-
-    return summaryId;
-  },
-});
-
-/**
  * Stores/updates stations for a district and their current water levels.
  * Internal-only to prevent unauthenticated writes.
  */
@@ -238,17 +201,6 @@ export const storeDistrictStationsInternal = internalMutation({
 });
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
-
-export const getLatestWaterLevelSummary = query({
-  handler: async (ctx) => {
-    const latest = await ctx.db
-      .query("waterLevelSummaries")
-      .order("desc")
-      .first();
-
-    return latest;
-  },
-});
 
 export const getDistrictsWithCounts = query({
   handler: async (ctx) => {
