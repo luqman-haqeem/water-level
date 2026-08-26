@@ -147,7 +147,7 @@ export default function StationCard({
                         <WaterIcon size="sm" />
                         <div>
                             <span className="text-water-level">
-                                {station.current_levels?.current_level || '\u2014'}<span className="text-body-small font-normal">m</span>
+                                {station.current_levels?.current_level ?? '\u2014'}<span className="text-body-small font-normal">m</span>
                             </span>
                         </div>
                     </div>
@@ -156,8 +156,8 @@ export default function StationCard({
                     <div className="flex-1 flex justify-center px-4">
                         <MicroTrendChart
                             stationId={station.id.toString()}
-                            currentLevel={station.current_levels?.current_level || 0}
-                            alertLevel={Number(station.current_levels?.alert_level) || 0}
+                            currentLevel={station.current_levels?.current_level ?? 0}
+                            alertLevel={station.current_levels ? Number(station.current_levels.alert_level) : -1}
                         />
                     </div>
 
@@ -165,7 +165,7 @@ export default function StationCard({
                     <div className="text-right">
                         <div className="flex items-center gap-1 justify-end">
                             <AlertLevelBadge
-                                alert_level={Number(station.current_levels?.alert_level) || 0}
+                                alert_level={station.current_levels ? Number(station.current_levels.alert_level) : -1}
                                 className="text-xs"
                             />
                         </div>

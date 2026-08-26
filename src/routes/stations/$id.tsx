@@ -147,7 +147,7 @@ export function StationDetailRoute() {
                         <ChevronLeft className="w-5 h-5" />
                         <span className="sr-only">Back to stations</span>
                     </Button>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                         <h1 className="text-heading-2 truncate">
                             {currentStation.station_name}
                         </h1>
@@ -198,17 +198,19 @@ export function StationDetailRoute() {
                                         </p>
                                         <AlertLevelBadge
                                             alert_level={
-                                                Number(
-                                                    currentStation
-                                                        .current_levels
-                                                        ?.alert_level
-                                                ) || 0
+                                                currentStation.current_levels
+                                                    ? Number(
+                                                          currentStation
+                                                              .current_levels
+                                                              .alert_level
+                                                      )
+                                                    : -1
                                             }
                                         />
                                     </div>
                                     <p className="text-water-level">
                                         {currentStation.current_levels
-                                            ?.current_level || "\u2014"}{" "}
+                                            ?.current_level ?? "\u2014"}{" "}
                                         m
                                     </p>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">

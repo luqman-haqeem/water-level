@@ -13,7 +13,7 @@ interface JpsStationInput {
   stationCode?: string;
   referenceName?: string;
   districtName: string;
-  currentWaterLevel: number;
+  currentWaterLevel: number | null;
   normalLevel: number;
   alertLevel: number;
   warningLevel: number;
@@ -37,8 +37,11 @@ interface JpsStationInput {
 /**
  * Determines the alert level (0-3) from a JPS waterlevelStatus code.
  * Falls back to threshold-based computation when status is -1 (below normal).
+ * Returns -1 when water level data is unavailable (null).
  */
 function computeAlertLevel(station: JpsStationInput): number {
+  if (station.currentWaterLevel === null) return -1; // unknown — no data
+
   switch (station.waterlevelStatus) {
     case 3:
       return 3; // danger
@@ -138,16 +141,19 @@ async function upsertStation(
   }
 
   // Update current water level via the dedicated upsert function
-  const alertLevel = computeAlertLevel(station);
-  await ctx.runMutation(
-    internal.sync.waterLevelUpdater.upsertCurrentLevel,
-    {
-      stationId: stationDbId,
-      currentLevel: station.currentWaterLevel,
-      alertLevel,
-      updatedAt: station.lastUpdate,
-    }
-  );
+  // Skip when currentWaterLevel is null (no data available from API)
+  if (station.currentWaterLevel !== null) {
+    const alertLevel = computeAlertLevel(station);
+    await ctx.runMutation(
+      internal.sync.waterLevelUpdater.upsertCurrentLevel,
+      {
+        stationId: stationDbId,
+        currentLevel: station.currentWaterLevel,
+        alertLevel,
+        updatedAt: station.lastUpdate,
+      }
+    );
+  }
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
@@ -169,7 +175,7 @@ export const storeDistrictStationsInternal = internalMutation({
         stationCode: v.optional(v.string()),
         referenceName: v.optional(v.string()),
         districtName: v.string(),
-        currentWaterLevel: v.number(),
+        currentWaterLevel: v.union(v.number(), v.null()),
         normalLevel: v.number(),
         alertLevel: v.number(),
         warningLevel: v.number(),
