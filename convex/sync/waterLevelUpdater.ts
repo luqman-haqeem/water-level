@@ -161,8 +161,8 @@ export const updateWaterLevels = action({
                                 referenceName: station.referenceName,
                                 districtName: station.districtName,
                                 currentWaterLevel:
-                                    station.waterLevel === null || station.waterLevel === -9999
-                                        ? 0
+                                    (station.waterLevel === null || station.waterLevel === -9999)
+                                        ? null
                                         : station.waterLevel,
                                 normalLevel: station.wlth_normal || 0,
                                 alertLevel: station.wlth_alert || 0,

@@ -16,6 +16,13 @@ const AlertLevelBadge: React.FC<AlertLevelBadgeProps> = ({
 }) => {
     const getAlertConfig = (level: number) => {
         switch (level) {
+            case -1:
+                return {
+                    name: "No data",
+                    variant: "secondary",
+                    icon: "⚪",
+                    className: "bg-muted text-muted-foreground"
+                };
             case 0:
                 return {
                     name: "Normal",
@@ -46,7 +53,7 @@ const AlertLevelBadge: React.FC<AlertLevelBadgeProps> = ({
                 };
             default:
                 return {
-                    name: "Unknown",
+                    name: "No data",
                     variant: "secondary",
                     icon: "⚪",
                     className: "bg-muted text-muted-foreground"
