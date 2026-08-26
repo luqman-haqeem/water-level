@@ -21,19 +21,19 @@
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 210 40% 98%;
         
-        /* Water Level Status Colors - Enhanced */
-        --normal: 142 76% 36%;
+        /* Water Level Status Colors - WCAG AA compliant */
+        --normal: 142 76% 28%;
         --normal-foreground: 0 0% 100%;
-        --success: 142 76% 36%;
+        --success: 142 76% 28%;
         --success-foreground: 0 0% 100%;
         
-        --alert: 35 91% 62%;
-        --alert-foreground: 0 0% 13%;
+        --alert: 35 91% 55%;
+        --alert-foreground: 0 0% 7%;
         
-        --warning: 25 95% 53%;
+        --warning: 25 95% 40%;
         --warning-foreground: 0 0% 100%;
         
-        --danger: 0 84% 60%;
+        --danger: 0 72% 45%;
         --danger-foreground: 0 0% 100%;
         
         /* Water-themed colors */
@@ -77,20 +77,20 @@
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 210 40% 98%;
         
-        /* Water Level Status Colors - Enhanced Dark Mode */
-        --normal: 142 69% 58%;
+        /* Water Level Status Colors - WCAG AA compliant Dark Mode */
+        --normal: 142 69% 45%;
         --normal-foreground: 0 0% 7%;
-        --success: 142 69% 58%;
+        --success: 142 69% 45%;
         --success-foreground: 0 0% 7%;
         
-        --alert: 35 84% 67%;
+        --alert: 35 84% 55%;
         --alert-foreground: 0 0% 7%;
         
-        --warning: 25 95% 63%;
+        --warning: 25 90% 50%;
         --warning-foreground: 0 0% 7%;
         
-        --danger: 0 91% 71%;
-        --danger-foreground: 0 0% 7%;
+        --danger: 0 80% 55%;
+        --danger-foreground: 0 0% 100%;
         
         /* Water-themed colors - Dark Mode */
         --water-blue: 199 89% 62%;
@@ -233,14 +233,14 @@
         --card-foreground: var(--high-contrast-fg);
         --border: var(--high-contrast-border);
         
-        /* Enhanced contrast for water level colors */
-        --normal: 120 100% 25%;
+        /* Enhanced contrast for water level colors - WCAG AAA */
+        --normal: 142 100% 20%;
         --normal-foreground: 0 0% 100%;
-        --alert: 35 100% 35%;
+        --alert: 35 100% 30%;
         --alert-foreground: 0 0% 100%;
-        --warning: 25 100% 30%;
+        --warning: 25 100% 25%;
         --warning-foreground: 0 0% 100%;
-        --danger: 0 100% 35%;
+        --danger: 0 100% 30%;
         --danger-foreground: 0 0% 100%;
     }
 

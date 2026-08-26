@@ -14,10 +14,6 @@ import {
     CloseIcon,
     LocationIcon,
     WaterIcon,
-    StatusNormalIcon,
-    StatusAlertIcon,
-    StatusWarningIcon,
-    StatusDangerIcon,
     CameraIcon,
     TimeIcon
 } from '@/components/icons/IconLibrary'
@@ -199,13 +195,14 @@ export default function AdvancedFilter({
     }
 
     const getAlertLevelIcon = (level: string) => {
-        switch (level) {
-            case '0': return <StatusNormalIcon size="xs" />
-            case '1': return <StatusAlertIcon size="xs" />
-            case '2': return <StatusWarningIcon size="xs" />
-            case '3': return <StatusDangerIcon size="xs" />
-            default: return <StatusNormalIcon size="xs" />
+        const dotColors: Record<string, string> = {
+            '0': 'bg-normal',
+            '1': 'bg-alert',
+            '2': 'bg-warning',
+            '3': 'bg-danger',
         }
+        const color = dotColors[level] || 'bg-muted-foreground/50'
+        return <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} aria-hidden="true" />
     }
 
     const getAlertLevelName = (level: string) => {
