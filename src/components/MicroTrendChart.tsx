@@ -6,6 +6,8 @@ interface MicroTrendChartProps {
     stationId: string
     currentLevel: number
     alertLevel: number
+    normalLevel?: number
+    dangerLevel?: number
     className?: string
 }
 
@@ -13,6 +15,8 @@ export default function MicroTrendChart({
     stationId,
     currentLevel,
     alertLevel,
+    normalLevel,
+    dangerLevel,
     className
 }: MicroTrendChartProps) {
     // Fetch trend data via Convex reactive subscription
@@ -26,19 +30,38 @@ export default function MicroTrendChart({
         }
 
         const points = trendData.map((point: any) => point.currentLevel)
-        const minLevel = Math.min(...points)
-        const maxLevel = Math.max(...points)
+
+        // Determine y-axis range: use normalLevel/dangerLevel if available and valid
+        let minLevel: number
+        let maxLevel: number
+
+        const hasThresholds =
+            normalLevel !== undefined &&
+            dangerLevel !== undefined &&
+            !(normalLevel === 0 && dangerLevel === 0)
+
+        if (hasThresholds) {
+            minLevel = normalLevel!
+            maxLevel = dangerLevel!
+        } else {
+            // Fall back to local min/max
+            minLevel = Math.min(...points)
+            maxLevel = Math.max(...points)
+        }
+
         const range = maxLevel - minLevel || 1
 
         // Create micro SVG path (40x24 viewBox)
         const pathPoints = points.map((level: number, index: number) => {
             const x = 8 + (index / (points.length - 1)) * 24 // 8px padding, 24px width
-            const y = 4 + (1 - (level - minLevel) / range) * 16 // 4px padding, 16px height
+            // Clamp level to the range so points outside are pinned to edges
+            const clamped = Math.max(minLevel, Math.min(maxLevel, level))
+            const y = 4 + (1 - (clamped - minLevel) / range) * 16 // 4px padding, 16px height
             return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
         })
 
         return pathPoints.join(' ')
-    }, [trendData])
+    }, [trendData, normalLevel, dangerLevel])
 
     // Get line color based on alert level
     const getLineColor = (level: number) => {

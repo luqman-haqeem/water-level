@@ -169,7 +169,6 @@ export const getStationDetailById = query({
         const station = await ctx.db.get(stationId);
         if (!station) return null;
 
-        // Only 4 queries total instead of fetching ALL 40 stations!
         const district = await ctx.db.get(station.districtId);
 
         const currentLevel = await ctx.db
