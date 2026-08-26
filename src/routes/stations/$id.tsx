@@ -9,10 +9,11 @@ import AlertLevelBadge from "@/components/AlertLevelBadge";
 import WaterLevelGauge from "@/components/WaterLevelGauge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
-import formatTimestamp from "@/utils/timeUtils";
+import formatTimestamp, { isStale } from "@/utils/timeUtils";
 import FullscreenModal from "@/components/FullscreenModal";
 import { useStationDetail } from "@/hooks/useStationDetail";
 import { useStations } from "@/hooks/useStations";
+import { useFilter } from "@/lib/FilterContext";
 import ExpandableSection from "@/components/ExpandableSection";
 import MiniTrendChart from "@/components/MiniTrendChart";
 import { useEffect } from "react";
@@ -28,7 +29,37 @@ export function StationDetailRoute() {
 
     // Fetch full station list only for prev/next navigation (cached from list page visit)
     const { data: stations } = useStations();
-    const stationsData = useMemo(() => stations || [], [stations]);
+    const { advancedFilters } = useFilter();
+    const stationsData = useMemo(() => {
+        if (!stations) return [];
+        let list = [...stations];
+        // Apply the same offline filter the list page uses
+        if (!advancedFilters.showOfflineStations) {
+            list = list.filter((s) => s.station_status);
+        }
+        // Apply district filter
+        if (advancedFilters.districts.length > 0) {
+            list = list.filter((s) => advancedFilters.districts.includes(s.districts.name));
+        }
+        // Apply alert level filter
+        if (advancedFilters.alertLevels.length > 0) {
+            list = list.filter((s) => advancedFilters.alertLevels.includes(s.current_levels?.alert_level || '0'));
+        }
+        // Apply camera filter
+        if (advancedFilters.showCameraOnly) {
+            list = list.filter((s) => s.cameras !== null);
+        }
+        // Apply water level range filter
+        if (advancedFilters.waterLevelRange.min !== null || advancedFilters.waterLevelRange.max !== null) {
+            const { min, max } = advancedFilters.waterLevelRange;
+            list = list.filter((s) => {
+                const level = s.current_levels?.current_level;
+                if (level === undefined) return false;
+                return (min === null || level >= min) && (max === null || level <= max);
+            });
+        }
+        return list;
+    }, [stations, advancedFilters]);
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("");
@@ -133,6 +164,8 @@ export function StationDetailRoute() {
         );
     }
 
+    const stale = isStale(currentStation.current_levels?.updated_at);
+
     return (
         <>
             <div className="flex-1 flex flex-col bg-background">
@@ -198,13 +231,13 @@ export function StationDetailRoute() {
                                         </p>
                                         <AlertLevelBadge
                                             alert_level={
-                                                currentStation.current_levels
+                                                stale ? -1 : (currentStation.current_levels
                                                     ? Number(
                                                           currentStation
                                                               .current_levels
                                                               .alert_level
                                                       )
-                                                    : -1
+                                                    : -1)
                                             }
                                         />
                                     </div>
@@ -232,6 +265,14 @@ export function StationDetailRoute() {
                                                 : "Station Offline"}
                                         </span>
                                     </div>
+                                    {stale && (
+                                        <p className="text-xs text-destructive mt-2">
+                                            Data may be delayed — last updated{" "}
+                                            {currentStation.current_levels?.updated_at
+                                                ? new Date(currentStation.current_levels.updated_at).toLocaleString()
+                                                : "unknown"}
+                                        </p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

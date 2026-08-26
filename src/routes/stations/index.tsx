@@ -330,7 +330,6 @@ export function StationsRoute() {
                         <div className="flex items-center gap-2">
                             <AdvancedFilter
                                 stations={stationsData}
-                                onFilterChange={() => {}}
                             />
                         </div>
                     </div>

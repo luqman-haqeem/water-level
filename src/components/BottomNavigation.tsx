@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { haptics } from "@/utils/haptics";
@@ -13,36 +12,6 @@ export default function BottomNavigation({
     activeTab,
     onTabChange,
 }: BottomNavigationProps) {
-    const [isVisible, setIsVisible] = useState(true);
-    const [lastScrollY, setLastScrollY] = useState(0);
-
-    // Auto-hide bottom nav on scroll
-    useEffect(() => {
-        const controlNavbar = () => {
-            if (typeof window !== "undefined") {
-                const currentScrollY = window.scrollY;
-
-                if (currentScrollY < lastScrollY || currentScrollY < 100) {
-                    setIsVisible(true);
-                } else if (
-                    currentScrollY > lastScrollY &&
-                    currentScrollY > 100
-                ) {
-                    setIsVisible(false);
-                }
-
-                setLastScrollY(currentScrollY);
-            }
-        };
-
-        if (typeof window !== "undefined") {
-            window.addEventListener("scroll", controlNavbar);
-            return () => {
-                window.removeEventListener("scroll", controlNavbar);
-            };
-        }
-    }, [lastScrollY]);
-
     return (
         <nav
             className={cn(
@@ -50,7 +19,7 @@ export default function BottomNavigation({
                 "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
                 "border-t border-border/40",
                 "pb-safe-bottom",
-                isVisible ? "translate-y-0" : "translate-y-full"
+                "translate-y-0"
             )}
         >
             <div className="flex items-center justify-around px-2 py-2">

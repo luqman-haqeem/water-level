@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from '@/lib/utils'
-import formatTimestamp from '@/utils/timeUtils'
+import formatTimestamp, { isStale } from '@/utils/timeUtils'
 import { formatDistance } from '@/utils/locationUtils'
 import AlertLevelBadge from "@/components/AlertLevelBadge"
 import WaterLevelGauge from "@/components/WaterLevelGauge"
@@ -65,6 +65,8 @@ export default function StationCard({
     const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
     const { toast } = useToast();
     const [animKey, setAnimKey] = useState(0);
+
+    const stale = isStale(station.current_levels?.updated_at);
 
     const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -158,6 +160,8 @@ export default function StationCard({
                             stationId={station.id.toString()}
                             currentLevel={station.current_levels?.current_level ?? 0}
                             alertLevel={station.current_levels ? Number(station.current_levels.alert_level) : -1}
+                            normalLevel={station.normal_water_level}
+                            dangerLevel={station.danger_water_level}
                         />
                     </div>
 
@@ -165,7 +169,7 @@ export default function StationCard({
                     <div className="text-right">
                         <div className="flex items-center gap-1 justify-end">
                             <AlertLevelBadge
-                                alert_level={station.current_levels ? Number(station.current_levels.alert_level) : -1}
+                                alert_level={stale ? -1 : (station.current_levels ? Number(station.current_levels.alert_level) : -1)}
                                 className="text-xs"
                             />
                         </div>
@@ -173,7 +177,7 @@ export default function StationCard({
                 </div>
 
                 {/* Bottom Row: Last Updated */}
-                <div className="flex items-center justify-center gap-1 text-metadata pt-1">
+                <div className={cn("flex items-center justify-center gap-1 pt-1", stale ? "text-destructive" : "text-metadata")}>
                     <TimeIcon size="xs" />
                     <span>
                         {station.current_levels?.updated_at

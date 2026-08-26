@@ -44,13 +44,11 @@ interface Station {
 
 interface AdvancedFilterProps {
     stations: Station[]
-    onFilterChange: (filteredStations: Station[], activeFilters: FilterOptions) => void
     className?: string
 }
 
 export default function AdvancedFilter({
     stations,
-    onFilterChange,
     className
 }: AdvancedFilterProps) {
     const [isOpen, setIsOpen] = useState(false)
@@ -64,15 +62,18 @@ export default function AdvancedFilter({
         return Array.from(districts).sort()
     }, [stations])
 
-    // Get alert level statistics
+    // Get alert level statistics (count only stations passing the offline filter)
     const alertLevelStats = useMemo(() => {
         const stats = { '0': 0, '1': 0, '2': 0, '3': 0 }
-        stations.forEach(station => {
+        const filteredByOffline = filters.showOfflineStations
+            ? stations
+            : stations.filter(station => station.station_status)
+        filteredByOffline.forEach(station => {
             const level = station.current_levels?.alert_level || '0'
             if (level in stats) stats[level as keyof typeof stats]++
         })
         return stats
-    }, [stations])
+    }, [stations, filters.showOfflineStations])
 
     // Helper function to apply filters to stations
     const applyFiltersToStations = useCallback((stationsToFilter: Station[], filtersToApply: FilterOptions) => {
@@ -153,30 +154,12 @@ export default function AdvancedFilter({
         updateAdvancedFilters(newFilters)
     }
 
-    // Apply filters
-    const applyFilters = () => {
-        if (typeof window !== 'undefined') {
-            haptics.tap()
-        }
-        onFilterChange(filteredStations, filters)
-        setIsOpen(false)
-    }
-
     // Clear all filters
     const clearFilters = () => {
         if (typeof window !== 'undefined') {
             haptics.tap()
         }
         clearAdvancedFilters()
-        onFilterChange(stations, {
-            districts: [],
-            alertLevels: [],
-            sortBy: 'name',
-            sortOrder: 'asc',
-            showCameraOnly: false,
-            showOfflineStations: false, // Updated to match new default
-            waterLevelRange: { min: 0, max: null } // Updated to match new default
-        })
     }
 
     // Count active filters - use the context function
@@ -437,7 +420,7 @@ export default function AdvancedFilter({
                     </div>
                 </div>
 
-                {/* Sticky Action Buttons */}
+                {/* Sticky Footer */}
                 <div className="flex-shrink-0 border-t bg-background/95 backdrop-blur-sm p-4 -mx-6 -mb-6 mt-4">
                     <div className="flex justify-between items-center">
                         <Button
@@ -446,22 +429,11 @@ export default function AdvancedFilter({
                             className="theme-transition-colors"
                         >
                             <CloseIcon size="sm" className="mr-2" />
-                            Clear All
+                            Reset
                         </Button>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={applyFilters}
-                                className="font-medium"
-                            >
-                                Apply Filters ({filteredStations.length} results)
-                            </Button>
-                        </div>
+                        <span className="text-sm text-muted-foreground">
+                            {filteredStations.length} results
+                        </span>
                     </div>
                 </div>
             </DialogContent>
