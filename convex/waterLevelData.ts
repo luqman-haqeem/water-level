@@ -21,8 +21,8 @@ interface JpsStationInput {
   waterlevelStatus: number;
   stationStatus: number;
   lastUpdate: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   batteryLevel?: number | null;
   gsmNumber?: string;
   markerType?: string;
@@ -116,8 +116,6 @@ async function upsertStation(
     stationName: station.name,
     stationCode: station.stationCode,
     refName: station.referenceName,
-    latitude: station.latitude,
-    longitude: station.longitude,
     gsmNumber: station.gsmNumber,
     normalWaterLevel: station.normalLevel,
     alertWaterLevel: station.alertLevel,
@@ -126,6 +124,10 @@ async function upsertStation(
     stationStatus: station.stationStatus === 1,
     batteryLevel:
       station.batteryLevel === null ? undefined : station.batteryLevel,
+    // Only overwrite coordinates if the API provides valid values.
+    // JPS removed lat/lng from their API; writing 0/undefined would destroy stored data.
+    ...(station.latitude && station.latitude !== 0 ? { latitude: station.latitude } : {}),
+    ...(station.longitude && station.longitude !== 0 ? { longitude: station.longitude } : {}),
   };
 
   let stationDbId: Id<"stations">;
@@ -183,8 +185,8 @@ export const storeDistrictStationsInternal = internalMutation({
         waterlevelStatus: v.number(),
         stationStatus: v.number(),
         lastUpdate: v.string(),
-        latitude: v.number(),
-        longitude: v.number(),
+        latitude: v.optional(v.number()),
+        longitude: v.optional(v.number()),
         batteryLevel: v.optional(v.union(v.number(), v.null())),
         gsmNumber: v.optional(v.string()),
         markerType: v.optional(v.string()),

@@ -18,7 +18,7 @@ export interface FilterOptions {
 const DEFAULT_FILTERS: FilterOptions = {
     districts: [],
     alertLevels: [],
-    sortBy: 'name',
+    sortBy: 'nearest',
     sortOrder: 'asc',
     showCameraOnly: false,
     showOfflineStations: false,
@@ -101,7 +101,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
             filters.showOfflineStations !== false ||
             (filters.waterLevelRange.min !== null && filters.waterLevelRange.min !== 0) ||
             filters.waterLevelRange.max !== null ||
-            filters.sortBy !== 'name' ||
+            filters.sortBy !== 'nearest' ||
             filters.sortOrder !== 'asc'
         );
     })();
