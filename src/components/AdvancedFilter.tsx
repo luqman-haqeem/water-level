@@ -172,7 +172,7 @@ export default function AdvancedFilter({
             case 'waterLevelRange':
                 return count + ((filters[filterKey].min !== null && filters[filterKey].min !== 0) || filters[filterKey].max !== null ? 1 : 0) // Updated: 0 is now default
             case 'sortBy':
-                return count + (filters[filterKey] !== 'name' ? 1 : 0)
+                return count + (filters[filterKey] !== 'nearest' ? 1 : 0)
             case 'sortOrder':
                 return count + (filters[filterKey] !== 'asc' ? 1 : 0)
             default:
@@ -329,7 +329,7 @@ export default function AdvancedFilter({
                                         <SelectItem value="waterLevel">Water Level</SelectItem>
                                         <SelectItem value="lastUpdated">Last Updated</SelectItem>
                                         <SelectItem value="district">District</SelectItem>
-                                        {/* <SelectItem value="nearest">Nearest to Me</SelectItem> */}
+                                        <SelectItem value="nearest">Nearest to Me</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
