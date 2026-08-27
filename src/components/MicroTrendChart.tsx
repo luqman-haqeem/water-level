@@ -63,13 +63,13 @@ export default function MicroTrendChart({
         return pathPoints.join(' ')
     }, [trendData, normalLevel, dangerLevel])
 
-    // Get line color based on alert level
+    // Get line color based on alert level — unified status tokens
     const getLineColor = (level: number) => {
         switch (level) {
-            case 0: return 'stroke-success'
+            case 0: return 'stroke-normal'
             case 1: return 'stroke-alert'
             case 2: return 'stroke-warning'
-            case 3: return 'stroke-destructive'
+            case 3: return 'stroke-danger'
             default: return 'stroke-muted-foreground'
         }
     }

@@ -20,42 +20,42 @@ const AlertLevelBadge: React.FC<AlertLevelBadgeProps> = ({
                 return {
                     name: "No data",
                     variant: "secondary",
-                    icon: "⚪",
+                    dotColor: "bg-muted-foreground/50",
                     className: "bg-muted text-muted-foreground"
                 };
             case 0:
                 return {
                     name: "Normal",
                     variant: "secondary",
-                    icon: "🟢",
+                    dotColor: "bg-normal",
                     className: "bg-normal text-normal-foreground hover:bg-normal/80"
                 };
             case 1:
                 return {
                     name: "Alert",
                     variant: "alert",
-                    icon: "🟠",
+                    dotColor: "bg-alert",
                     className: "bg-alert text-alert-foreground hover:bg-alert/80"
                 };
             case 2:
                 return {
                     name: "Warning",
                     variant: "warning", 
-                    icon: "🟡",
+                    dotColor: "bg-warning",
                     className: "bg-warning text-warning-foreground hover:bg-warning/80"
                 };
             case 3:
                 return {
                     name: "Danger",
                     variant: "destructive",
-                    icon: "🔴",
+                    dotColor: "bg-danger",
                     className: "bg-danger text-danger-foreground hover:bg-danger/80"
                 };
             default:
                 return {
                     name: "No data",
                     variant: "secondary",
-                    icon: "⚪",
+                    dotColor: "bg-muted-foreground/50",
                     className: "bg-muted text-muted-foreground"
                 };
         }
@@ -79,9 +79,10 @@ const AlertLevelBadge: React.FC<AlertLevelBadgeProps> = ({
             )}
         >
             {showIcon && (
-                <span className="mr-1" role="img" aria-label={config.name}>
-                    {config.icon}
-                </span>
+                <span
+                    className={cn("w-2 h-2 rounded-full mr-1.5 flex-shrink-0", config.dotColor)}
+                    aria-hidden="true"
+                />
             )}
             {config.name}
         </Badge>

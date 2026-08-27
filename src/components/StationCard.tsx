@@ -68,6 +68,20 @@ export default function StationCard({
 
     const stale = isStale(station.current_levels?.updated_at);
 
+    const getBorderColor = (alertLevel: number, isStale: boolean) => {
+        if (isStale) return 'border-l-muted-foreground/30';
+        switch (alertLevel) {
+            case 0: return 'border-l-normal';
+            case 1: return 'border-l-alert';
+            case 2: return 'border-l-warning';
+            case 3: return 'border-l-danger';
+            default: return 'border-l-muted-foreground/30';
+        }
+    };
+
+    const alertLevel = station.current_levels ? Number(station.current_levels.alert_level) : -1;
+    const borderColor = getBorderColor(alertLevel, stale);
+
     const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setAnimKey(k => k + 1);
@@ -97,6 +111,8 @@ export default function StationCard({
                 "mb-3 cursor-pointer transition-all duration-200 hover:shadow-md theme-transition-colors",
                 "border border-border/50 hover:border-primary/50",
                 "active:scale-[0.98] active:border-primary",
+                "border-l-4",
+                borderColor,
                 isSelected && "border-primary shadow-md ring-2 ring-primary/20 bg-primary/5",
                 className
             )}
