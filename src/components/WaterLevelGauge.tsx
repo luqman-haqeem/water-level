@@ -173,7 +173,7 @@ export default function WaterLevelGauge({
               "absolute transition-all duration-1000 ease-out z-10",
               currentAlert.color,
               orientation === 'vertical' ? "w-full h-1" : "h-full w-1",
-              animated && "animate-pulse"
+              animated && currentLevel >= levels.danger && "animate-pulse"
             )}
             style={
               orientation === 'vertical' 
@@ -188,7 +188,7 @@ export default function WaterLevelGauge({
                 orientation === 'vertical' 
                   ? "inset-x-0 bottom-0" 
                   : "inset-y-0 left-0",
-                animated && "animate-pulse"
+                animated && currentLevel >= levels.danger && "animate-pulse"
               )}
               style={
                 orientation === 'vertical' 
