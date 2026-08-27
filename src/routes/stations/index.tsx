@@ -9,10 +9,11 @@ import { haptics } from "@/utils/haptics";
 import { useStations } from "@/hooks/useStations";
 import { useFilter, FilterOptions } from "@/lib/FilterContext";
 import AdvancedFilter from "@/components/AdvancedFilter";
-import usePullToRefresh from "@/hooks/usePullToRefresh";
-import PullToRefreshIndicator from "@/components/PullToRefreshIndicator";
+import StatusSummary from "@/components/StatusSummary";
 import { useLocation } from "@/hooks/useLocation";
 import { calculateDistance } from "@/utils/locationUtils";
+import { isStale } from "@/utils/timeUtils";
+import { getSubscribedStationIds } from "@/services/notificationService";
 import { Id } from "../../../convex/_generated/dataModel";
 
 interface StationData {
@@ -90,7 +91,13 @@ export function StationsRoute() {
             }
             districtMap.get(district)!.push(station);
 
-            const alertLevel = station.current_levels?.alert_level || "0";
+            // Bucket stale or missing-data stations under '-1' so the "No data" filter works
+            const isNoData =
+                !station.current_levels?.alert_level ||
+                isStale(station.current_levels?.updated_at);
+            const alertLevel = isNoData
+                ? "-1"
+                : station.current_levels!.alert_level;
             if (!alertLevelMap.has(alertLevel)) {
                 alertLevelMap.set(alertLevel, []);
             }
@@ -251,16 +258,13 @@ export function StationsRoute() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Request location when 'nearest' sort is selected
+    // Request location unconditionally on mount
     useEffect(() => {
-        if (
-            advancedFilters.sortBy === "nearest" &&
-            !location.coordinates &&
-            !location.isLoading
-        ) {
+        if (!location.coordinates && !location.isLoading) {
             location.requestLocation();
         }
-    }, [advancedFilters.sortBy, location]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         const checkMobile = () => {
@@ -271,19 +275,65 @@ export function StationsRoute() {
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
 
-    // Pull-to-refresh (visual feedback only — Convex auto-updates data in real-time)
-    const pullToRefresh = usePullToRefresh({
-        onRefresh: async () => {
-            // Data is already live via Convex subscriptions.
-            // Brief delay for visual feedback that "something happened"
-            await new Promise((resolve) => setTimeout(resolve, 300));
-        },
-        threshold: 80,
-    });
+    // Get subscribed station IDs - reactive to storage changes and window focus
+    const [subscribedIds, setSubscribedIds] = useState<string[]>(() =>
+        getSubscribedStationIds()
+    );
 
-    // Apply search filter
+    useEffect(() => {
+        const refresh = () => {
+            const fresh = getSubscribedStationIds();
+            setSubscribedIds((prev) => {
+                if (
+                    fresh.length !== prev.length ||
+                    fresh.some((id, i) => id !== prev[i])
+                ) {
+                    return fresh;
+                }
+                return prev;
+            });
+        };
+
+        window.addEventListener("storage", refresh);
+        window.addEventListener("focus", refresh);
+        return () => {
+            window.removeEventListener("storage", refresh);
+            window.removeEventListener("focus", refresh);
+        };
+    }, []);
+
+    // My Stations section: stations the user has subscribed to
+    const myStations = useMemo(() => {
+        if (subscribedIds.length === 0) return [];
+        return stationsData.filter((station) =>
+            subscribedIds.includes(station.id.toString())
+        );
+    }, [stationsData, subscribedIds]);
+
+    // Needs Attention section: non-normal, non-stale, online stations
+    const needsAttentionStations = useMemo(() => {
+        const myStationIds = new Set(myStations.map((s) => s.id.toString()));
+        return stationsData.filter((station) => {
+            if (!station.station_status) return false;
+            const alertLevel = station.current_levels?.alert_level;
+            if (!alertLevel || alertLevel === "0") return false;
+            if (isStale(station.current_levels?.updated_at)) return false;
+            // Exclude stations already in My Stations
+            if (myStationIds.has(station.id.toString())) return false;
+            return true;
+        });
+    }, [stationsData, myStations]);
+
+    // Apply search filter and exclude pinned stations from main grid
     const filteredStations = useMemo(() => {
-        let result = displayedStations;
+        // Build a set of IDs already shown in pinned sections
+        const pinnedIds = new Set<string>();
+        myStations.forEach((s) => pinnedIds.add(s.id.toString()));
+        needsAttentionStations.forEach((s) => pinnedIds.add(s.id.toString()));
+
+        let result = displayedStations.filter(
+            (station) => !pinnedIds.has(station.id.toString())
+        );
 
         if (debouncedSearchTerm.trim()) {
             const searchLower = debouncedSearchTerm.toLowerCase();
@@ -300,7 +350,7 @@ export function StationsRoute() {
         }
 
         return result;
-    }, [displayedStations, debouncedSearchTerm]);
+    }, [displayedStations, debouncedSearchTerm, myStations, needsAttentionStations]);
 
     // Station click handler
     const handleStationClick = useCallback(
@@ -313,39 +363,24 @@ export function StationsRoute() {
     return (
         <>
             <div className="flex-1 flex flex-col bg-background">
-                <div
-                    ref={pullToRefresh.containerRef}
-                    className="flex-1 p-4 sm:p-6 overflow-auto relative min-h-0"
-                >
-                    <PullToRefreshIndicator
-                        isVisible={pullToRefresh.shouldShowIndicator}
-                        isRefreshing={pullToRefresh.isRefreshing}
-                        progress={pullToRefresh.refreshProgress}
-                        yOffset={pullToRefresh.indicatorY}
-                    />
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-heading-1">
-                            Water Level Stations
-                        </h2>
-                        <div className="flex items-center gap-2">
-                            <AdvancedFilter
-                                stations={stationsData}
-                            />
-                        </div>
-                    </div>
+                <div className="flex-1 p-4 sm:p-6 overflow-auto relative min-h-0">
+                    {/* Status Summary Strip */}
+                    <StatusSummary stations={stationsData} />
 
-                    {/* Search Bar */}
-                    <div className="mb-6">
+                    {/* Search Bar + Filter Button (inline) */}
+                    <div className="flex items-center gap-2 mb-4">
                         <Input
                             placeholder="Search stations or districts..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="min-h-touch"
+                            className="min-h-touch flex-1"
                         />
+                        <AdvancedFilter stations={stationsData} />
                     </div>
 
-                    {/* Location Status Indicator for Nearest Sorting */}
-                    {advancedFilters.sortBy === "nearest" && (
+                    {/* Location Status Indicator - only shown during loading or error */}
+                    {advancedFilters.sortBy === "nearest" &&
+                        !location.coordinates && (
                         <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -353,8 +388,6 @@ export function StationsRoute() {
                                     <span className="text-sm font-medium">
                                         {location.isLoading ? (
                                             "Getting your location..."
-                                        ) : location.coordinates ? (
-                                            "Sorting by distance from your location"
                                         ) : location.error ? (
                                             "Unable to get location"
                                         ) : (
@@ -385,6 +418,80 @@ export function StationsRoute() {
                                     order as fallback.
                                 </p>
                             )}
+                        </div>
+                    )}
+
+                    {/* My Stations Section */}
+                    {myStations.length > 0 && (
+                        <div className="mb-6">
+                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                                My Stations
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                {myStations.map((station) => {
+                                    const distance =
+                                        advancedFilters.sortBy === "nearest" &&
+                                        location.coordinates &&
+                                        station.latitude &&
+                                        station.longitude
+                                            ? calculateDistance(
+                                                  location.coordinates,
+                                                  {
+                                                      latitude: station.latitude,
+                                                      longitude: station.longitude,
+                                                  }
+                                              )
+                                            : undefined;
+
+                                    return (
+                                        <StationCard
+                                            key={station.id.toString()}
+                                            station={station}
+                                            isSelected={false}
+                                            showGauge={false}
+                                            distance={distance}
+                                            onSelect={(s) => handleStationClick(s)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Needs Attention Section */}
+                    {needsAttentionStations.length > 0 && (
+                        <div className="mb-6">
+                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                                Needs Attention
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                {needsAttentionStations.map((station) => {
+                                    const distance =
+                                        advancedFilters.sortBy === "nearest" &&
+                                        location.coordinates &&
+                                        station.latitude &&
+                                        station.longitude
+                                            ? calculateDistance(
+                                                  location.coordinates,
+                                                  {
+                                                      latitude: station.latitude,
+                                                      longitude: station.longitude,
+                                                  }
+                                              )
+                                            : undefined;
+
+                                    return (
+                                        <StationCard
+                                            key={station.id.toString()}
+                                            station={station}
+                                            isSelected={false}
+                                            showGauge={false}
+                                            distance={distance}
+                                            onSelect={(s) => handleStationClick(s)}
+                                        />
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
 
