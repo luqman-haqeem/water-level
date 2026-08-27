@@ -264,12 +264,17 @@ export const upsertCurrentLevel = internalMutation({
             updateData.updatedAt = updatedAt;
         }
 
-        // Detect rising transition into danger level
-        const previousAlertLevel = existing?.alertLevel;
-        const risingToDanger =
-            previousAlertLevel !== undefined &&
-            previousAlertLevel < 3 &&
-            alertLevel === 3;
+        // Notify whenever station is at danger level (cooldown logic in notifyDangerForStation prevents spam)
+        const shouldNotifyDanger = alertLevel === 3;
+
+        // Don't notify on stale data (older than 45 minutes)
+        // NOTE: This threshold must stay in sync with the frontend `isStale` utility
+        // in src/utils/timeUtils.ts. Convex backend and Vite frontend cannot share
+        // modules, so the constant is duplicated by necessity.
+        const STALENESS_MS = 2_700_000;
+        const isDataStale = updatedAt
+            ? (Date.now() - new Date(updatedAt).getTime() > STALENESS_MS)
+            : true;
 
         if (existing) {
             // Update existing level
@@ -282,8 +287,8 @@ export const upsertCurrentLevel = internalMutation({
             });
         }
 
-        // Schedule danger notification if rising to danger level
-        if (risingToDanger) {
+        // Schedule danger notification if at danger level with fresh data
+        if (shouldNotifyDanger && !isDataStale) {
             await ctx.scheduler.runAfter(
                 0,
                 internal.notifications.notifyDangerForStation,

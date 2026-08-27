@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Answer-first home: status summary strip, watched stations section, needs-attention section, nearest default, un-comment nearest option, remove page title, remove pull-to-refresh from stations route",
+  "status": "completed",
+  "steps": [
+    "Step 1 - Create branch: Create git branch `feat/r3-answer-first-home` from `main`.",
+    "Step 2 - Create StatusSummary component: Create `src/components/StatusSummary.tsx`. It receives the full station data array. It computes counts for each severity level (Normal=0, Alert=1, Warning=2, Danger=3, No-data=-1). A station counts as 'no data' if it is stale (use `isStale(station.current_levels?.updated_at)` from `src/utils/timeUtils.ts`) OR if its alert_level is missing. Only count online stations (station_status === true). Render as a horizontal strip of tappable segments, each with a coloured dot (w-2 h-2 rounded-full) using the same Tailwind classes as AlertLevelBadge (bg-normal, bg-alert, bg-warning, bg-danger, bg-muted-foreground/50 for no-data). Each segment shows the count. Clicking a segment calls `updateAdvancedFilters({ alertLevels: [level] })` from useFilter() to filter to that status. Use a string-to-number mapping: Normal='0', Alert='1', Warning='2', Danger='3'. For 'no data', filter to alertLevels: ['-1']. If the clicked level is already the only active filter, clear it (set alertLevels: []).",
+    "Step 3 - Change default sort to nearest: In `src/lib/FilterContext.tsx`, change `DEFAULT_FILTERS.sortBy` from `'name'` to `'nearest'`. Also update the `hasActiveAdvancedFilters` check to compare against `'nearest'` instead of `'name'` for sortBy.",
+    "Step 4 - Un-comment nearest sort option: In `src/components/AdvancedFilter.tsx`, un-comment the `<SelectItem value=\"nearest\">Nearest to Me</SelectItem>` line.",
+    "Step 5 - Rewrite stations/index.tsx: In `src/routes/stations/index.tsx`: (a) Remove imports of `usePullToRefresh` and `PullToRefreshIndicator`. (b) Remove the `pullToRefresh` hook call and the `PullToRefreshIndicator` JSX. (c) Remove the `pullToRefresh.containerRef` ref from the container div. (d) Remove the `<h2>Water Level Stations</h2>` heading and its wrapper div. (e) Call `location.requestLocation()` unconditionally on mount using a useEffect (not conditional on sortBy). (f) Add the StatusSummary component at the top (above search bar). (g) Inline the filter button next to the search bar (same row). (h) After the location status indicator and before the main grid, add a 'My Stations' section: use `getSubscribedStationIds()` to get subscribed IDs, filter stationsData to find matching stations, render them in a section with heading 'My Stations' using the same StationCard. Only show if there are subscriptions. (i) Add a 'Needs Attention' section after 'My Stations': filter stationsData for stations with alert_level '1', '2', or '3' that are NOT stale and are online, excluding any already shown in My Stations. Render with heading 'Needs Attention'. Only show if there are any. (j) Keep the main grid as-is below these sections.",
+    "Step 6 - Verify build: Run `bun run build` and confirm it passes. Run `bun run lint` and confirm no new errors beyond the baseline 76."
+  ],
+  "acceptance_criteria": [
+    "StatusSummary component renders coloured dots with counts for Normal, Alert, Warning, Danger, No-data",
+    "Tapping a StatusSummary segment filters the station list to that alert level",
+    "Default sort is 'nearest' (FilterContext DEFAULT_FILTERS.sortBy === 'nearest')",
+    "'Nearest to Me' option is available (not commented out) in the AdvancedFilter sort select",
+    "Location is requested on mount unconditionally (not gated behind sortBy check)",
+    "The 'Water Level Stations' h2 heading is removed",
+    "Pull-to-refresh is removed from stations route (but hook/component files still exist for cameras route)",
+    "'My Stations' section appears when user has subscriptions, showing subscribed station cards",
+    "'Needs Attention' section shows Alert/Warning/Danger stations that are not stale",
+    "Layout order is: StatusSummary -> Search+Filter -> Location indicator -> My Stations -> Needs Attention -> Main grid",
+    "`bun run build` passes with no TypeScript errors",
+    "Lint does not exceed 76 problems"
+  ],
+  "verification": [
+    "Run `bun run build` and confirm exit code 0",
+    "Run `bun run lint 2>&1 | grep -c 'problems'` and confirm the count does not exceed 76"
+  ],
+  "blocked_reason": null,
+  "findings": "Build passes (tsc && vite build). Lint at 71 problems (within 76 baseline). Review round fixed 4 issues: (1) alertLevelMap now buckets stale/missing stations under '-1' so the No Data filter works, (2) filteredStations excludes stations already in My Stations/Needs Attention pinned sections, (3) subscribedIds now uses useState+useEffect listening for storage and focus events for reactivity, (4) location indicator hidden once coordinates resolve (only shows during loading/error). Commit amended with same message."
+}

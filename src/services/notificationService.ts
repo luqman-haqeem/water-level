@@ -55,7 +55,7 @@ export function isSubscribedToStation(stationId: string): boolean {
 /**
  * Save the subscribed stations list to localStorage.
  */
-function saveSubscribedStations(stations: SubscribedStation[]): void {
+export function saveSubscribedStations(stations: SubscribedStation[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stations));
 }
 
@@ -66,11 +66,12 @@ function saveSubscribedStations(stations: SubscribedStation[]): void {
  *
  * @param stationId - The station's Convex document ID
  * @param stationName - Human-readable station name for display in the subscription dialog
+ * @returns Object indicating whether push notification permission was granted
  */
 export async function subscribeToStation(
     stationId: string,
     stationName: string = "Unknown Station"
-): Promise<void> {
+): Promise<{ permissionGranted: boolean }> {
     // Update localStorage first (optimistic)
     const stations = getSubscribedStations();
     if (!stations.some((s) => s.id === stationId)) {
@@ -85,13 +86,23 @@ export async function subscribeToStation(
             await OneSignal.User.PushSubscription.optIn();
         }
 
+        // Check if permission was denied after the opt-in attempt
+        if (Notification.permission === "denied") {
+            // Rollback localStorage
+            const rollback = getSubscribedStations().filter((s) => s.id !== stationId);
+            saveSubscribedStations(rollback);
+            return { permissionGranted: false };
+        }
+
         await OneSignal.User.addTag(`station_${stationId}`, "true");
+        return { permissionGranted: true };
     } catch (error) {
-        // OneSignal not initialized or unavailable - localStorage is still updated
+        // OneSignal not initialized or unavailable
         console.warn(
-            "[notificationService] OneSignal operation failed, localStorage updated:",
+            "[notificationService] OneSignal operation failed:",
             error
         );
+        return { permissionGranted: false };
     }
 }
 

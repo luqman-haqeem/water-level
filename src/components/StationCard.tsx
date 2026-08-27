@@ -15,10 +15,12 @@ import {
     BellIcon,
     BellRingIcon,
 } from '@/components/icons/IconLibrary'
+import { BellOff } from 'lucide-react'
 import { Id } from "../../convex/_generated/dataModel"
 import MicroTrendChart from './MicroTrendChart'
 import { useStationSubscription } from '@/hooks/useStationSubscription'
 import { useToast } from '@/hooks/use-toast'
+import NotificationPermissionDialog from '@/components/NotificationPermissionDialog'
 
 interface Station {
     id: Id<"stations"> | number
@@ -49,7 +51,6 @@ interface StationCardProps {
     onSelect: (station: Station) => void
     className?: string
     showGauge?: boolean
-    compact?: boolean
     distance?: number
 }
 
@@ -59,12 +60,12 @@ export default function StationCard({
     onSelect,
     className,
     showGauge = false,
-    compact = false,
     distance
 }: StationCardProps) {
     const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
     const { toast } = useToast();
     const [animKey, setAnimKey] = useState(0);
+    const [showPermDialog, setShowPermDialog] = useState(false);
 
     const stale = isStale(station.current_levels?.updated_at);
 
@@ -95,6 +96,28 @@ export default function StationCard({
     const cardBg = getCardBg();
     const levelColor = getLevelColor();
 
+    const doSubscribe = async () => {
+        const result = await subscribe();
+        if (result.permissionGranted) {
+            if (alertLevel === 3 && !stale) {
+                toast({
+                    title: `\u26A0\uFE0F ${station.station_name} is currently at Danger level`,
+                    description: `Current level: ${station.current_levels?.current_level ?? 'unknown'}m`,
+                });
+            } else {
+                toast({
+                    title: `\uD83D\uDD14 Subscribed to ${station.station_name}`,
+                    description: "You'll receive alerts when this station reaches danger level",
+                });
+            }
+        } else {
+            toast({
+                title: "Notifications blocked",
+                description: "Notifications blocked \u2014 enable in browser settings",
+            });
+        }
+    };
+
     const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setAnimKey(k => k + 1);
@@ -104,144 +127,165 @@ export default function StationCard({
                 // silently handle background unsubscribe failure
             });
             toast({
-                title: `🔕 Unsubscribed from ${station.station_name}`,
+                title: `\uD83D\uDD15 Unsubscribed from ${station.station_name}`,
                 description: "You'll no longer receive alerts for this station",
             });
         } else {
-            subscribe().catch(() => {
-                // silently handle background subscribe failure
-            });
-            toast({
-                title: `🔔 Subscribed to ${station.station_name}`,
-                description: "You'll receive alerts when this station reaches danger level",
-            });
+            // Read permission at click time for accurate functional check
+            const permissionState = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+            if (permissionState === 'denied') {
+                toast({
+                    title: "Notifications blocked",
+                    description: "Notifications blocked \u2014 enable in browser settings",
+                });
+                return;
+            }
+            if (permissionState === 'default') {
+                setShowPermDialog(true);
+                return;
+            }
+            // Permission already granted
+            doSubscribe();
         }
     };
 
+    // Render-time check for visual indicator (may be slightly stale if user changes permission mid-session)
+    const isDenied = typeof Notification !== 'undefined' && Notification.permission === 'denied';
+
     return (
-        <Card
-            className={cn(
-                "mb-3 cursor-pointer transition-all duration-200 hover:shadow-md",
-                "border border-border/50 hover:border-primary/50",
-                "active:scale-[0.98] active:border-primary",
-                cardBg,
-                isSelected && "border-primary shadow-md ring-2 ring-primary/20 bg-primary/5",
-                className
-            )}
-            onClick={() => {
-                haptics.select()
-                onSelect(station)
-            }}
-        >
-            <CardContent className="p-4 space-y-3">
-                {/* Header Row */}
-                <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <LocationIcon size="sm" className="flex-shrink-0" />
-                            <h3 className="text-station-name truncate">{station.station_name}</h3>
-                            {station.cameras && (
-                                <CameraIcon size="sm" className="text-muted-foreground flex-shrink-0" />
-                            )}
+        <>
+            <Card
+                className={cn(
+                    "mb-3 cursor-pointer transition-all duration-200 hover:shadow-md",
+                    "border border-border/50 hover:border-primary/50",
+                    "active:scale-[0.98] active:border-primary",
+                    cardBg,
+                    isSelected && "border-primary shadow-md ring-2 ring-primary/20 bg-primary/5",
+                    className
+                )}
+                onClick={() => {
+                    haptics.select()
+                    onSelect(station)
+                }}
+            >
+                <CardContent className="p-4 space-y-3">
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <LocationIcon size="sm" className="flex-shrink-0" />
+                                <h3 className="text-station-name truncate">{station.station_name}</h3>
+                                {station.cameras && (
+                                    <CameraIcon size="sm" className="text-muted-foreground flex-shrink-0" />
+                                )}
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <p className="text-metadata truncate">{station.districts.name}</p>
+                                {distance !== undefined && (
+                                    <Badge variant="secondary" className="ml-2 text-xs">
+                                        {formatDistance(distance)}
+                                    </Badge>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <p className="text-metadata truncate">{station.districts.name}</p>
-                            {distance !== undefined && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
-                                    {formatDistance(distance)}
-                                </Badge>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        aria-label="Toggle notification subscription"
-                        data-subscribed={isSubscribed ? "true" : "false"}
-                        onClick={handleBellClick}
-                        className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
-                    >
-                        <span key={animKey} className={cn("inline-flex", animKey > 0 && "animate-bell-ring")}>
-                            {isSubscribed ? (
-                                <BellRingIcon size="sm" className="text-primary" />
-                            ) : (
-                                <BellIcon size="sm" className="text-muted-foreground" />
-                            )}
-                        </span>
-                    </button>
-                </div>
-
-                {/* Data Row with Mini Chart */}
-                <div className="flex items-center justify-between">
-                    {/* Left: Water Level */}
-                    <div className="flex items-center gap-2">
-                        <WaterIcon size="sm" />
-                        <div>
-                            <span className={cn("text-water-level", levelColor)}>
-                                {station.current_levels?.current_level ?? '\u2014'}<span className="text-body-small font-normal">m</span>
+                        <button
+                            type="button"
+                            aria-label={isDenied ? "Notifications blocked" : "Toggle notification subscription"}
+                            data-subscribed={isSubscribed ? "true" : "false"}
+                            onClick={handleBellClick}
+                            className="ml-2 p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
+                        >
+                            <span key={animKey} className={cn("inline-flex", animKey > 0 && "animate-bell-ring")}>
+                                {isSubscribed ? (
+                                    <BellRingIcon size="sm" className="text-primary" />
+                                ) : isDenied ? (
+                                    <BellOff className="h-4 w-4 text-muted-foreground opacity-50" />
+                                ) : (
+                                    <BellIcon size="sm" className="text-muted-foreground" />
+                                )}
                             </span>
+                        </button>
+                    </div>
+
+                    {/* Data Row with Mini Chart */}
+                    <div className="flex items-center justify-between">
+                        {/* Left: Water Level */}
+                        <div className="flex items-center gap-2">
+                            <WaterIcon size="sm" />
+                            <div>
+                                <span className={cn("text-water-level", levelColor)}>
+                                    {station.current_levels?.current_level ?? '\u2014'}<span className="text-body-small font-normal">m</span>
+                                </span>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Center: Mini Trend Chart */}
-                    <div className="flex-1 flex justify-center px-4">
-                        <MicroTrendChart
-                            stationId={station.id.toString()}
-                            currentLevel={station.current_levels?.current_level ?? 0}
-                            alertLevel={station.current_levels ? Number(station.current_levels.alert_level) : -1}
-                            normalLevel={station.normal_water_level}
-                            dangerLevel={station.danger_water_level}
-                        />
-                    </div>
-
-                    {/* Right: Status */}
-                    <div className="text-right">
-                        <div className="flex items-center gap-1 justify-end">
-                            <AlertLevelBadge
-                                alert_level={stale ? -1 : (station.current_levels ? Number(station.current_levels.alert_level) : -1)}
-                                className="text-xs"
+                        {/* Center: Mini Trend Chart */}
+                        <div className="flex-1 flex justify-center px-4">
+                            <MicroTrendChart
+                                stationId={station.id.toString()}
+                                currentLevel={station.current_levels?.current_level ?? 0}
+                                alertLevel={station.current_levels ? Number(station.current_levels.alert_level) : -1}
+                                normalLevel={station.normal_water_level}
+                                dangerLevel={station.danger_water_level}
                             />
                         </div>
-                    </div>
-                </div>
 
-                {/* Bottom Row: Last Updated */}
-                <div className={cn("flex items-center justify-center gap-1 pt-1", stale ? "text-destructive" : "text-metadata")}>
-                    <TimeIcon size="xs" />
-                    <span>
-                        {station.current_levels?.updated_at
-                            ? formatTimestamp(station.current_levels.updated_at.toString())
-                            : 'Unknown'}
-                    </span>
-                </div>
-
-                {/* Visual Water Level Gauge */}
-                {showGauge && station.current_levels && (
-                    <div className="pt-2 border-t border-border/50">
-                        <WaterLevelGauge
-                            currentLevel={station.current_levels.current_level}
-                            levels={{
-                                normal: station.normal_water_level,
-                                alert: station.alert_water_level,
-                                warning: station.warning_water_level,
-                                danger: station.danger_water_level
-                            }}
-                            size="sm"
-                            orientation="horizontal"
-                            showLabels={false}
-                            showCurrentValue={false}
-                            className="mt-2"
-                        />
+                        {/* Right: Status */}
+                        <div className="text-right">
+                            <div className="flex items-center gap-1 justify-end">
+                                <AlertLevelBadge
+                                    alert_level={stale ? -1 : (station.current_levels ? Number(station.current_levels.alert_level) : -1)}
+                                    className="text-xs"
+                                />
+                            </div>
+                        </div>
                     </div>
-                )}
 
-                {/* Station Status Indicator */}
-                {!station.station_status && (
-                    <div className="flex items-center gap-1 text-caption text-destructive">
-                        <div className="w-2 h-2 bg-destructive rounded-full"></div>
-                        <span>Station Offline</span>
+                    {/* Bottom Row: Last Updated */}
+                    <div className={cn("flex items-center justify-center gap-1 pt-1", stale ? "text-destructive" : "text-metadata")}>
+                        <TimeIcon size="xs" />
+                        <span>
+                            {station.current_levels?.updated_at
+                                ? formatTimestamp(station.current_levels.updated_at.toString())
+                                : 'Unknown'}
+                        </span>
                     </div>
-                )}
-            </CardContent>
-        </Card>
+
+                    {/* Visual Water Level Gauge */}
+                    {showGauge && station.current_levels && (
+                        <div className="pt-2 border-t border-border/50">
+                            <WaterLevelGauge
+                                currentLevel={station.current_levels.current_level}
+                                levels={{
+                                    normal: station.normal_water_level,
+                                    alert: station.alert_water_level,
+                                    warning: station.warning_water_level,
+                                    danger: station.danger_water_level
+                                }}
+                                size="sm"
+                                orientation="horizontal"
+                                showLabels={false}
+                                showCurrentValue={false}
+                                className="mt-2"
+                            />
+                        </div>
+                    )}
+
+                    {/* Station Status Indicator */}
+                    {!station.station_status && (
+                        <div className="flex items-center gap-1 text-caption text-destructive">
+                            <div className="w-2 h-2 bg-destructive rounded-full"></div>
+                            <span>Station Offline</span>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <NotificationPermissionDialog
+                open={showPermDialog}
+                onOpenChange={setShowPermDialog}
+                onConfirm={doSubscribe}
+            />
+        </>
     )
 }
