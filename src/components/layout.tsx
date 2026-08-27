@@ -22,12 +22,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const [isMobile, setIsMobile] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
     const { theme, setTheme, resolvedTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
 
     useEffect(() => {
-        setMounted(true);
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768);
         };
@@ -57,10 +55,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             navigate({ to: "/cameras" });
         }
     };
-
-    if (!mounted) {
-        return null;
-    }
 
     return (
         <OneSignalProvider>

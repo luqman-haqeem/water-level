@@ -85,11 +85,7 @@ const config = {
         // Water-themed colors
         "water-blue": {
           DEFAULT: "hsl(var(--water-blue))",
-          light: "hsl(var(--water-blue-light))",
-          dark: "hsl(var(--water-blue-dark))",
         },
-        "water-teal": "hsl(var(--water-teal))",
-        "water-cyan": "hsl(var(--water-cyan))",
         // High contrast colors
         "high-contrast-bg": "hsl(var(--high-contrast-bg))",
         "high-contrast-fg": "hsl(var(--high-contrast-fg))",
