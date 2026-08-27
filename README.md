@@ -17,26 +17,27 @@ Check it out live: [Water Level Monitoring System](https://riverlevel.netlify.ap
 
 ## Tech Stack
 
-[![Next.js](https://img.shields.io/badge/Next.js_14-black?logo=next.js&logoColor=white)](#)
-[![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?logo=react-query&logoColor=white)](#)
+[![Vite](https://img.shields.io/badge/Vite_6-646CFF?logo=vite&logoColor=white)](#)
+[![TanStack Router](https://img.shields.io/badge/TanStack_Router-FF4154?logo=react-query&logoColor=white)](#)
 [![Convex](https://img.shields.io/badge/Convex-FF6F61?logo=convex&logoColor=white)](#)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white)](#)
 [![Radix UI](https://img.shields.io/badge/Radix_UI-161618?logo=radix-ui&logoColor=white)](#)
 
-- **Next.js 14** (Pages Router) - React framework
-- **TanStack Query** - Data fetching and caching
-- **Convex** - Backend database and serverless functions
+- **Vite 6** - Fast build tool and dev server
+- **TanStack Router** - Type-safe client-side routing
+- **Convex** - Real-time backend and database
 - **Tailwind CSS** - Utility-first styling
 - **Radix UI / shadcn/ui** - Accessible UI components
 - **PostHog** - Product analytics
-- **next-pwa** - Progressive Web App support
+- **vite-plugin-pwa** - Progressive Web App support
+- **OneSignal** - Push notifications
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js (v18 or later)
-- npm
+- bun
 
 ### Installation
 
@@ -55,40 +56,41 @@ cd water-level
 3. Install dependencies:
 
 ```bash
-npm install
+bun install
 ```
 
 4. Set up environment variables:
 
 ```bash
 cp .env.example .env.local
-# Add your NEXT_PUBLIC_CONVEX_URL and other required variables
+# Add your VITE_CONVEX_URL and other required variables
 ```
 
 ### Running the Development Server
 
 ```bash
-npm run dev
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:5173](http://localhost:5173) with your browser to see the result.
 
 ### Building for Production
 
 ```bash
-npm run build
+bun run build
 ```
 
 ## Project Structure
 
-- **`pages/`** - Next.js pages and API routes
-- **`components/`** - Reusable React components (includes `ui/` for shadcn components)
-- **`hooks/`** - Custom React hooks (data fetching, gestures, location)
-- **`lib/`** - Utilities, context providers, and query client configuration
+- **`src/routes/`** - TanStack Router route components
+- **`src/components/`** - Reusable React components (includes `ui/` for shadcn)
+- **`src/hooks/`** - Custom React hooks
+- **`src/lib/`** - Utilities, context providers
+- **`src/services/`** - External service integrations (notifications)
+- **`src/utils/`** - Helper utilities
+- **`src/styles/`** - Global styles and Tailwind CSS configuration
 - **`convex/`** - Backend functions, schema, and data sync logic
-- **`utils/`** - Helper utilities
-- **`styles/`** - Global styles and Tailwind CSS configuration
-- **`public/`** - Static assets and service worker
+- **`public/`** - Static assets and PWA manifest
 
 ## Deployment
 
@@ -102,8 +104,4 @@ The Convex backend is automatically deployed via GitHub Actions when files in th
 
 ### Frontend
 
-The frontend is deployed automatically via Netlify on push to `main`.
-
-## API Routes
-
-- **`/api/proxy-image/[id]`** - Proxies camera images from external sources
+The frontend is deployed automatically via Netlify on push to `main`. The build uses Vite to produce optimized static assets.

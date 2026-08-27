@@ -38,10 +38,6 @@
         
         /* Water-themed colors */
         --water-blue: 202 92% 50%;
-        --water-blue-light: 199 89% 62%;
-        --water-blue-dark: 202 92% 40%;
-        --water-teal: 178 77% 48%;
-        --water-cyan: 187 100% 42%;
         
         /* High contrast variants */
         --high-contrast-bg: 0 0% 100%;
@@ -52,11 +48,6 @@
         --input: 214.3 31.8% 91.4%;
         --ring: 202 92% 50%;
         --radius: 0.5rem;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
     }
 
     .dark {
@@ -94,10 +85,6 @@
         
         /* Water-themed colors - Dark Mode */
         --water-blue: 199 89% 62%;
-        --water-blue-light: 199 89% 72%;
-        --water-blue-dark: 202 92% 35%;
-        --water-teal: 178 77% 58%;
-        --water-cyan: 187 100% 52%;
         
         /* High contrast variants - Dark Mode */
         --high-contrast-bg: 0 0% 0%;
@@ -107,11 +94,6 @@
         --border: 217.2 32.6% 17.5%;
         --input: 217.2 32.6% 17.5%;
         --ring: 199 89% 62%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
     }
 }
 
@@ -147,12 +129,6 @@
     }
     
     /* Enhanced typography scale */
-    .text-display {
-        @apply text-3xl md:text-4xl lg:text-5xl font-bold;
-        line-height: 1.1;
-        letter-spacing: -0.025em;
-    }
-    
     .text-heading-1 {
         @apply text-2xl md:text-3xl lg:text-4xl font-bold;
         line-height: 1.2;
@@ -278,27 +254,12 @@
     }
 }
 
-/* Theme transitioning state */
-.theme-transitioning {
-    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-               color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.theme-transitioning * {
-    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-               border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-               color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-               box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
 /* Prefers reduced motion support */
 @media (prefers-reduced-motion: reduce) {
     .theme-transition,
     .theme-transition-colors,
     .theme-transition-fast,
     .theme-transition-slow,
-    .theme-transitioning,
-    .theme-transitioning *,
     body {
         transition: none !important;
     }
