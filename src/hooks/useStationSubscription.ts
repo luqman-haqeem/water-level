@@ -7,7 +7,7 @@ import {
 
 interface UseStationSubscriptionReturn {
     isSubscribed: boolean;
-    subscribe: () => Promise<void>;
+    subscribe: () => Promise<{ permissionGranted: boolean }>;
     unsubscribe: () => Promise<void>;
     isLoading: boolean;
 }
@@ -28,14 +28,20 @@ export function useStationSubscription(
     );
     const [isLoading, setIsLoading] = useState(false);
 
-    const subscribe = useCallback(async () => {
+    const subscribe = useCallback(async (): Promise<{ permissionGranted: boolean }> => {
         setIsLoading(true);
         setIsSubscribed(true); // optimistic update
         try {
-            await subscribeToStation(stationId, stationName);
+            const result = await subscribeToStation(stationId, stationName);
+            if (!result.permissionGranted) {
+                // Revert optimistic React state; localStorage rollback is handled by subscribeToStation
+                setIsSubscribed(false);
+            }
+            return result;
         } catch {
             // revert on error
             setIsSubscribed(isSubscribedToStation(stationId));
+            return { permissionGranted: false };
         } finally {
             setIsLoading(false);
         }

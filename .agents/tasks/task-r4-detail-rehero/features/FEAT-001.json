@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Fix StationCard styling (replace border-l-4 with data-first approach) AND restructure station detail page as gauge-first hero layout with plain-language delta, fix gauge animation, and fix text-water-level sizing.",
+  "status": "completed",
+  "steps": [
+    "Create branch feat/r4-detail-rehero from main",
+    "In src/components/StationCard.tsx: Remove the getBorderColor function entirely. Remove 'border-l-4', borderColor, and 'theme-transition-colors' from the Card className. Add getCardBg() and getLevelColor() helper functions as specified in the user instruction. Apply cardBg to Card className and levelColor to the water level <span className='text-water-level'> using cn().",
+    "In src/components/WaterLevelGauge.tsx: Find the two instances of `animated && \"animate-pulse\"` and change both to `animated && currentLevel >= levels.danger && \"animate-pulse\"` so pulse only activates at danger level.",
+    "In src/routes/stations/$id.tsx: Add a getThresholdDelta() helper function that computes plain-language distance to the next threshold (exact implementation provided in user instruction).",
+    "In src/routes/stations/$id.tsx: Add a severity color helper for the hero number, similar to getLevelColor in StationCard (text-alert, text-warning, text-danger based on alert level).",
+    "In src/routes/stations/$id.tsx: Restructure the main content area to new layout order: (1) Staleness banner at top if stale, (2) Hero section with large water level number (text-4xl font-bold tabular-nums, no responsive reduction) + severity color + plain-language delta + AlertLevelBadge - NO card wrapper, (3) WaterLevelGauge rendered directly (horizontal, md size, NOT inside ExpandableSection), (4) MiniTrendChart rendered directly (NOT inside ExpandableSection), (5) Threshold reference as vertical list (each on own line: dot + name + value), (6) Camera feed with stale note when applicable.",
+    "In src/routes/stations/$id.tsx: Remove the ExpandableSection import and all ExpandableSection usage. Remove unused imports (Card, CardContent, CardHeader, CardTitle if no longer needed, WaterIcon if no longer needed).",
+    "In src/styles/globals.css: The text-water-level class currently has 'text-2xl md:text-3xl lg:text-4xl'. This is the global class used by StationCard too, so DO NOT change it globally. Instead, on the detail page hero, override by applying custom class directly (text-4xl font-bold tabular-nums) instead of relying on text-water-level class.",
+    "Run bun run build to verify TypeScript compiles and vite builds successfully.",
+    "Run bun run lint and verify no more than 71 problems.",
+    "Commit all changes with message: feat: detail page re-hero with gauge-first layout and data-coloured cards (#44)"
+  ],
+  "acceptance_criteria": [
+    "StationCard no longer has border-l-4 or getBorderColor - uses getCardBg/getLevelColor instead",
+    "WaterLevelGauge animate-pulse only fires at danger level (currentLevel >= levels.danger)",
+    "Detail page shows hero number at top (large, severity-coloured) with plain-language delta",
+    "Detail page renders gauge and chart directly without ExpandableSection wrapper",
+    "Detail page threshold reference is a vertical list not a horizontal flex row",
+    "Detail page shows staleness banner at top when data is stale",
+    "Camera section shows stale note when data is stale",
+    "bun run build passes",
+    "bun run lint has no more than 71 problems"
+  ],
+  "verification": [
+    "bun run build",
+    "bun run lint"
+  ],
+  "blocked_reason": null,
+  "findings": "Build passes cleanly. Lint stays at baseline 71 problems (none from changed files). ExpandableSection and WaterIcon imports removed from detail page. The detail page no longer uses Card wrapper for the hero section. WaterLevelGauge animate-pulse now conditional on currentLevel >= levels.danger (both instances). StationCard uses getCardBg/getLevelColor instead of getBorderColor/border-l-4."
+}

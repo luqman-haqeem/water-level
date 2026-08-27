@@ -1,0 +1,35 @@
+{
+  "project_type": "Vite 6 + React 18 + TypeScript + TanStack Router + Convex (backend) + Tailwind CSS + shadcn/ui",
+  "language": "TypeScript/TSX",
+  "build_system": "bun (npm not available). Vite for bundling.",
+  "test_framework": "vitest with jsdom (tests won't run due to jsdom/bun incompatibility in sandbox)",
+  "build_command": "bun run build",
+  "test_command": "bun run build (TypeScript build passing is verification; bun run test won't work in sandbox)",
+  "verification_instructions": "1. Run `bun run build` (tsc && vite build) and confirm it passes. 2. Run `bun run lint` and confirm no MORE than 76 problems (baseline).",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Already set up. bun is available. Run `bun run build` to verify baseline.",
+  "environment_constraints": "npm not available - use bun. Tests (vitest) won't run due to jsdom/bun incompatibility. TypeScript compilation is the primary verification. Convex backend must NOT be modified.",
+  "contribution_requirements": "Single commit: feat: answer-first home with status summary, watched stations, and nearest default (#43). Branch: feat/r3-answer-first-home from main.",
+  "key_patterns": {
+    "colored_dots": "AlertLevelBadge uses w-2 h-2 rounded-full with bg-normal, bg-alert, bg-warning, bg-danger, bg-muted-foreground/50 for no-data",
+    "staleness": "isStale(updatedAt) from src/utils/timeUtils.ts - returns true if >45min old or undefined",
+    "subscriptions": "getSubscribedStationIds() from src/services/notificationService.ts returns string[] of station IDs from localStorage",
+    "filter_context": "FilterContext in src/lib/FilterContext.tsx stores advancedFilters globally with updateAdvancedFilters(partial) method",
+    "station_data": "StationData interface in stations/index.tsx with id, station_name, current_levels (alert_level string '0'|'1'|'2'|'3'), station_status boolean, latitude, longitude",
+    "location_hook": "useLocation() from src/hooks/useLocation.ts exports { coordinates, isLoading, error, requestLocation }",
+    "pull_to_refresh": "usePullToRefresh and PullToRefreshIndicator also used in cameras route - do NOT delete the files, just remove from stations"
+  },
+  "relevant_files": [
+    "src/routes/stations/index.tsx",
+    "src/lib/FilterContext.tsx",
+    "src/components/AdvancedFilter.tsx",
+    "src/components/AlertLevelBadge.tsx",
+    "src/services/notificationService.ts",
+    "src/utils/timeUtils.ts",
+    "src/hooks/useLocation.ts",
+    "src/hooks/usePullToRefresh.ts",
+    "src/components/PullToRefreshIndicator.tsx",
+    "src/utils/locationUtils.ts"
+  ],
+  "directory_structure": "src/routes/stations/index.tsx = main stations page. src/components/ = reusable components. src/lib/ = context providers. src/hooks/ = custom hooks. src/services/ = service layer. src/utils/ = utilities."
+}

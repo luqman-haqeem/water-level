@@ -2,7 +2,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { useStationSubscription } from "@/hooks/useStationSubscription";
 
 // Mock the notificationService
-const mockSubscribeToStation = vi.fn().mockResolvedValue(undefined);
+const mockSubscribeToStation = vi.fn().mockResolvedValue({ permissionGranted: true });
 const mockUnsubscribeFromStation = vi.fn().mockResolvedValue(undefined);
 const mockIsSubscribedToStation = vi.fn().mockReturnValue(false);
 
@@ -15,6 +15,7 @@ vi.mock("@/services/notificationService", () => ({
         mockIsSubscribedToStation(...args),
     getSubscribedStations: () => [],
     getSubscribedStationIds: () => [],
+    saveSubscribedStations: vi.fn(),
     reconcileTagsWithLocalStorage: vi.fn(),
 }));
 
@@ -51,6 +52,7 @@ describe("useStationSubscription", () => {
     it("after calling subscribe(), isSubscribed becomes true", async () => {
         mockSubscribeToStation.mockImplementation(async () => {
             mockIsSubscribedToStation.mockReturnValue(true);
+            return { permissionGranted: true };
         });
 
         const { result } = renderHook(() =>
@@ -90,6 +92,7 @@ describe("useStationSubscription", () => {
     it("persists state to localStorage for optimistic UI", async () => {
         mockSubscribeToStation.mockImplementation(async () => {
             mockIsSubscribedToStation.mockReturnValue(true);
+            return { permissionGranted: true };
         });
 
         const { result } = renderHook(() =>
@@ -139,6 +142,7 @@ describe("useStationSubscription", () => {
         mockSubscribeToStation.mockImplementation(async () => {
             // Simulates localStorage-only update (OneSignal error handled internally)
             mockIsSubscribedToStation.mockReturnValue(true);
+            return { permissionGranted: true };
         });
 
         const { result } = renderHook(() =>
@@ -154,8 +158,8 @@ describe("useStationSubscription", () => {
     });
 
     it("shows isLoading=true while async operation is in progress", async () => {
-        let resolveSubscribe: () => void;
-        const subscribePromise = new Promise<void>((resolve) => {
+        let resolveSubscribe: (value: { permissionGranted: boolean }) => void;
+        const subscribePromise = new Promise<{ permissionGranted: boolean }>((resolve) => {
             resolveSubscribe = resolve;
         });
 
@@ -166,7 +170,7 @@ describe("useStationSubscription", () => {
         );
 
         // Start subscribe but don't await
-        let subscribeAction: Promise<void>;
+        let subscribeAction: Promise<{ permissionGranted: boolean }>;
         act(() => {
             subscribeAction = result.current.subscribe();
         });
@@ -179,7 +183,7 @@ describe("useStationSubscription", () => {
         // Resolve and complete
         await act(async () => {
             mockIsSubscribedToStation.mockReturnValue(true);
-            resolveSubscribe!();
+            resolveSubscribe!({ permissionGranted: true });
             await subscribeAction;
         });
 

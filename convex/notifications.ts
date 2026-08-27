@@ -65,13 +65,9 @@ export function buildNotificationPayload(args: {
   siteUrl: string;
   updatedAt?: string;
 }) {
-  const { appId, stationId, stationName, currentLevel, siteUrl, updatedAt } =
-    args;
+  const { appId, stationId, stationName, siteUrl } = args;
 
-  let contentMessage = `Station ${stationName} has reached danger level (${currentLevel}m)`;
-  if (updatedAt) {
-    contentMessage += ` as of ${updatedAt}`;
-  }
+  const contentMessage = `${stationName} has reached Danger level. Check the app for details.`;
 
   return {
     app_id: appId,

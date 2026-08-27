@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Expand } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, BellOff } from "lucide-react";
 import { BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
 import useSwipeGestures from "@/hooks/useSwipeGestures";
 import AlertLevelBadge from "@/components/AlertLevelBadge";
@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { useStationSubscription } from "@/hooks/useStationSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -63,6 +64,7 @@ export function StationDetailRoute() {
 
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("");
+    const [showPermDialog, setShowPermDialog] = useState(false);
 
     // Find current station's position in the list for navigation
     const currentIndex = stationsData.findIndex(
@@ -85,23 +87,58 @@ export function StationDetailRoute() {
     );
     const { toast } = useToast();
 
+    const stale = currentStation ? isStale(currentStation.current_levels?.updated_at) : false;
+    const alertLevel = currentStation?.current_levels
+        ? Number(currentStation.current_levels.alert_level)
+        : -1;
+
+    const doSubscribe = async () => {
+        const result = await subscribe();
+        if (result.permissionGranted) {
+            if (alertLevel === 3 && !stale) {
+                toast({
+                    title: `\u26A0\uFE0F ${currentStation?.station_name} is currently at Danger level`,
+                    description: `Current level: ${currentStation?.current_levels?.current_level ?? 'unknown'}m`,
+                });
+            } else {
+                toast({
+                    title: `\uD83D\uDD14 Subscribed to ${currentStation?.station_name}`,
+                    description: "You'll receive alerts when this station reaches danger level",
+                });
+            }
+        } else {
+            toast({
+                title: "Notifications blocked",
+                description: "Notifications blocked \u2014 enable in browser settings",
+            });
+        }
+    };
+
     const handleSubscribeClick = () => {
         if (isSubscribed) {
             unsubscribe().catch(() => {
                 // silently handle background unsubscribe failure
             });
             toast({
-                title: `🔕 Unsubscribed from ${currentStation?.station_name}`,
+                title: `\uD83D\uDD15 Unsubscribed from ${currentStation?.station_name}`,
                 description: "You'll no longer receive alerts for this station",
             });
         } else {
-            subscribe().catch(() => {
-                // silently handle background subscribe failure
-            });
-            toast({
-                title: `🔔 Subscribed to ${currentStation?.station_name}`,
-                description: "You'll receive alerts when this station reaches danger level",
-            });
+            // Read permission at click time for accurate functional check
+            const permissionState = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+            if (permissionState === 'denied') {
+                toast({
+                    title: "Notifications blocked",
+                    description: "Notifications blocked \u2014 enable in browser settings",
+                });
+                return;
+            }
+            if (permissionState === 'default') {
+                setShowPermDialog(true);
+                return;
+            }
+            // Permission already granted
+            doSubscribe();
         }
     };
 
@@ -164,11 +201,6 @@ export function StationDetailRoute() {
         );
     }
 
-    const stale = isStale(currentStation.current_levels?.updated_at);
-    const alertLevel = currentStation.current_levels
-        ? Number(currentStation.current_levels.alert_level)
-        : -1;
-
     // Severity colour for the hero number
     const getHeroLevelColor = () => {
         if (stale || alertLevel < 0) return 'text-muted-foreground';
@@ -198,6 +230,8 @@ export function StationDetailRoute() {
 
     const thresholdDelta = getThresholdDelta();
     const heroLevelColor = getHeroLevelColor();
+    // Render-time check for visual indicator (may be slightly stale if user changes permission mid-session)
+    const isDenied = typeof Notification !== 'undefined' && Notification.permission === 'denied';
 
     return (
         <>
@@ -231,6 +265,11 @@ export function StationDetailRoute() {
                             <>
                                 <BellRingIcon size="sm" className="text-current" />
                                 <span>Alerts On</span>
+                            </>
+                        ) : isDenied ? (
+                            <>
+                                <BellOff className="h-4 w-4 opacity-50" />
+                                <span>Alerts Blocked</span>
                             </>
                         ) : (
                             <>
@@ -472,6 +511,12 @@ export function StationDetailRoute() {
                 cameraName={`${currentStation.station_name} Camera Feed`}
                 onSwipeUp={() => closeFullscreen()}
                 showControls={false}
+            />
+
+            <NotificationPermissionDialog
+                open={showPermDialog}
+                onOpenChange={setShowPermDialog}
+                onConfirm={doSubscribe}
             />
         </>
     );

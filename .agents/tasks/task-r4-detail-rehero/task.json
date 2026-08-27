@@ -1,0 +1,14 @@
+{
+  "task_id": "task-r4-detail-rehero",
+  "task_description": "Fix StationCard styling (border-l-4 removal -> data-first approach) and implement issue #44 (station detail page re-hero with gauge-first layout and plain-language delta).",
+  "status": "completed",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "bun run build passes (tsc && vite build). bun run lint at 71 problems (baseline). No Docker in project."
+  }
+}

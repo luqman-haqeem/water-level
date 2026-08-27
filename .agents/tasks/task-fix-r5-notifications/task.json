@@ -1,0 +1,7 @@
+{
+  "task_id": "task-fix-r5-notifications",
+  "task_description": "Fix notification reliability (issue #45) and honest opt-in flow (issue #46). Backend: simplify danger trigger to alertLevel===3 with staleness guard and hourly cooldown. Frontend: add permission pre-explainer dialog, fix toast timing to await permission result, rollback on denial, show denied state on bell, and acknowledge active danger on subscribe.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
