@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Expand } from "lucide-react";
-import { WaterIcon, BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
+import { BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
 import useSwipeGestures from "@/hooks/useSwipeGestures";
 import AlertLevelBadge from "@/components/AlertLevelBadge";
 import WaterLevelGauge from "@/components/WaterLevelGauge";
@@ -14,11 +14,11 @@ import FullscreenModal from "@/components/FullscreenModal";
 import { useStationDetail } from "@/hooks/useStationDetail";
 import { useStations } from "@/hooks/useStations";
 import { useFilter } from "@/lib/FilterContext";
-import ExpandableSection from "@/components/ExpandableSection";
 import MiniTrendChart from "@/components/MiniTrendChart";
 import { useEffect } from "react";
 import { useStationSubscription } from "@/hooks/useStationSubscription";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -165,6 +165,39 @@ export function StationDetailRoute() {
     }
 
     const stale = isStale(currentStation.current_levels?.updated_at);
+    const alertLevel = currentStation.current_levels
+        ? Number(currentStation.current_levels.alert_level)
+        : -1;
+
+    // Severity colour for the hero number
+    const getHeroLevelColor = () => {
+        if (stale || alertLevel < 0) return 'text-muted-foreground';
+        switch (alertLevel) {
+            case 1: return 'text-alert';
+            case 2: return 'text-warning';
+            case 3: return 'text-danger';
+            default: return '';  // inherit default foreground
+        }
+    };
+
+    // Plain-language delta to next threshold
+    const getThresholdDelta = () => {
+        if (!currentStation.current_levels) return null;
+        const level = currentStation.current_levels.current_level;
+        const danger = currentStation.danger_water_level;
+        const warning = currentStation.warning_water_level;
+        const alert = currentStation.alert_water_level;
+        const normal = currentStation.normal_water_level;
+
+        if (level >= danger) return { text: 'At or above Danger level', severity: 'danger' };
+        if (level >= warning) return { text: `${(danger - level).toFixed(2)}m below Danger`, severity: 'warning' };
+        if (level >= alert) return { text: `${(warning - level).toFixed(2)}m below Warning`, severity: 'alert' };
+        if (level >= normal) return { text: `${(alert - level).toFixed(2)}m below Alert`, severity: 'normal' };
+        return { text: `${(alert - level).toFixed(2)}m below Alert`, severity: 'normal' };
+    };
+
+    const thresholdDelta = getThresholdDelta();
+    const heroLevelColor = getHeroLevelColor();
 
     return (
         <>
@@ -220,185 +253,140 @@ export function StationDetailRoute() {
                         </div>
                     )}
 
-                    {/* Primary Information */}
-                    <div className="grid grid-cols-1 gap-4 mb-6">
-                        <Card className="theme-transition-colors">
-                            <CardContent className="p-4">
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm font-medium text-muted-foreground">
-                                            Current Water Level
-                                        </p>
-                                        <AlertLevelBadge
-                                            alert_level={
-                                                stale ? -1 : (currentStation.current_levels
-                                                    ? Number(
-                                                          currentStation
-                                                              .current_levels
-                                                              .alert_level
-                                                      )
-                                                    : -1)
-                                            }
-                                        />
-                                    </div>
-                                    <p className="text-water-level">
-                                        {currentStation.current_levels
-                                            ?.current_level ?? "\u2014"}{" "}
-                                        m
-                                    </p>
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                        <span>
-                                            Last updated:{" "}
-                                            {currentStation.current_levels
-                                                ?.updated_at
-                                                ? formatTimestamp(
-                                                      currentStation.current_levels.updated_at.toString()
-                                                  )
-                                                : "Unknown"}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <div
-                                                className={`w-2 h-2 rounded-full ${currentStation.station_status ? "bg-success" : "bg-destructive"}`}
-                                            />
-                                            {currentStation.station_status
-                                                ? "Station Online"
-                                                : "Station Offline"}
-                                        </span>
-                                    </div>
-                                    {stale && (
-                                        <p className="text-xs text-destructive mt-2">
-                                            Data may be delayed — last updated{" "}
-                                            {currentStation.current_levels?.updated_at
-                                                ? new Date(currentStation.current_levels.updated_at).toLocaleString()
-                                                : "unknown"}
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Water Level Details - Expandable */}
-                    {currentStation.current_levels && (
-                        <ExpandableSection
-                            title="Water Level Details"
-                            icon={<WaterIcon size="sm" />}
-                            defaultExpanded={true}
-                            variant="card"
-                            className="mb-2"
-                        >
-                            <div className="space-y-4">
-                                {/* 3-Hour Trend Chart */}
-                                <div>
-                                    <div className="mb-3">
-                                        <p className="text-sm font-medium text-muted-foreground">
-                                            3-Hour Water Level Trend
-                                        </p>
-                                    </div>
-                                    <MiniTrendChart
-                                        stationId={currentStation.id.toString()}
-                                        currentLevel={
-                                            currentStation.current_levels
-                                                ?.current_level || 0
-                                        }
-                                        thresholds={{
-                                            normal: currentStation.normal_water_level,
-                                            alert: currentStation.alert_water_level,
-                                            warning:
-                                                currentStation.warning_water_level,
-                                            danger: currentStation.danger_water_level,
-                                        }}
-                                        height={120}
-                                        className="mb-4"
-                                    />
-                                </div>
-
-                                {/* Threshold Levels */}
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-2">
-                                        Threshold Levels
-                                    </p>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-success rounded-full" />
-                                            <span className="text-xs text-muted-foreground">
-                                                Normal
-                                            </span>
-                                            <span className="text-xs font-medium">
-                                                {
-                                                    currentStation.normal_water_level
-                                                }
-                                                m
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-alert rounded-full" />
-                                            <span className="text-xs text-muted-foreground">
-                                                Alert
-                                            </span>
-                                            <span className="text-xs font-medium">
-                                                {
-                                                    currentStation.alert_water_level
-                                                }
-                                                m
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-warning rounded-full" />
-                                            <span className="text-xs text-muted-foreground">
-                                                Warning
-                                            </span>
-                                            <span className="text-xs font-medium">
-                                                {
-                                                    currentStation.warning_water_level
-                                                }
-                                                m
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-destructive rounded-full" />
-                                            <span className="text-xs text-muted-foreground">
-                                                Danger
-                                            </span>
-                                            <span className="text-xs font-medium">
-                                                {
-                                                    currentStation.danger_water_level
-                                                }
-                                                m
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Visual Gauge */}
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground mb-2">
-                                        Current Level Gauge
-                                    </p>
-                                    <WaterLevelGauge
-                                        currentLevel={
-                                            currentStation.current_levels
-                                                .current_level
-                                        }
-                                        levels={{
-                                            normal: currentStation.normal_water_level,
-                                            alert: currentStation.alert_water_level,
-                                            warning:
-                                                currentStation.warning_water_level,
-                                            danger: currentStation.danger_water_level,
-                                        }}
-                                        size="md"
-                                        orientation="vertical"
-                                        showLabels={true}
-                                        showCurrentValue={true}
-                                        className="flex justify-center"
-                                    />
-                                </div>
-                            </div>
-                        </ExpandableSection>
+                    {/* Staleness Banner */}
+                    {stale && (
+                        <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3">
+                            <p className="text-sm font-medium text-destructive">
+                                Data may be delayed — last updated{" "}
+                                {currentStation.current_levels?.updated_at
+                                    ? new Date(currentStation.current_levels.updated_at).toLocaleString()
+                                    : "unknown"}
+                            </p>
+                        </div>
                     )}
 
-                    {/* Camera Feed */}
+                    {/* 1. Hero Section — no card wrapper */}
+                    <div className="mb-6 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-muted-foreground">
+                                Current Water Level
+                            </p>
+                            <AlertLevelBadge
+                                alert_level={
+                                    stale ? -1 : (currentStation.current_levels
+                                        ? Number(currentStation.current_levels.alert_level)
+                                        : -1)
+                                }
+                            />
+                        </div>
+                        <p className={cn("text-4xl font-bold tabular-nums", heroLevelColor)}>
+                            {currentStation.current_levels?.current_level ?? "\u2014"}{" "}
+                            m
+                        </p>
+                        {thresholdDelta && (
+                            <p className={cn(
+                                "text-sm",
+                                thresholdDelta.severity === 'danger' && "text-danger",
+                                thresholdDelta.severity === 'warning' && "text-warning",
+                                thresholdDelta.severity === 'alert' && "text-alert",
+                                thresholdDelta.severity === 'normal' && "text-muted-foreground"
+                            )}>
+                                {thresholdDelta.text}
+                            </p>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                                Last updated:{" "}
+                                {currentStation.current_levels?.updated_at
+                                    ? formatTimestamp(
+                                          currentStation.current_levels.updated_at.toString()
+                                      )
+                                    : "Unknown"}
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <div
+                                    className={`w-2 h-2 rounded-full ${currentStation.station_status ? "bg-success" : "bg-destructive"}`}
+                                />
+                                {currentStation.station_status
+                                    ? "Station Online"
+                                    : "Station Offline"}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 2. Gauge — rendered directly */}
+                    {currentStation.current_levels && (
+                        <div className="mb-6">
+                            <WaterLevelGauge
+                                currentLevel={
+                                    currentStation.current_levels.current_level
+                                }
+                                levels={{
+                                    normal: currentStation.normal_water_level,
+                                    alert: currentStation.alert_water_level,
+                                    warning: currentStation.warning_water_level,
+                                    danger: currentStation.danger_water_level,
+                                }}
+                                size="md"
+                                orientation="horizontal"
+                                showLabels={true}
+                                showCurrentValue={false}
+                            />
+                        </div>
+                    )}
+
+                    {/* 3. Trend Chart — rendered directly */}
+                    {currentStation.current_levels && (
+                        <div className="mb-6">
+                            <p className="text-sm font-medium text-muted-foreground mb-3">
+                                3-Hour Water Level Trend
+                            </p>
+                            <MiniTrendChart
+                                stationId={currentStation.id.toString()}
+                                currentLevel={
+                                    currentStation.current_levels?.current_level || 0
+                                }
+                                thresholds={{
+                                    normal: currentStation.normal_water_level,
+                                    alert: currentStation.alert_water_level,
+                                    warning: currentStation.warning_water_level,
+                                    danger: currentStation.danger_water_level,
+                                }}
+                                height={120}
+                            />
+                        </div>
+                    )}
+
+                    {/* 4. Threshold Reference — vertical list */}
+                    <div className="mb-6">
+                        <p className="text-sm font-medium text-muted-foreground mb-2">
+                            Threshold Levels
+                        </p>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-normal rounded-full" />
+                                <span className="text-sm text-muted-foreground w-16">Normal</span>
+                                <span className="text-sm font-medium">{currentStation.normal_water_level}m</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-alert rounded-full" />
+                                <span className="text-sm text-muted-foreground w-16">Alert</span>
+                                <span className="text-sm font-medium">{currentStation.alert_water_level}m</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-warning rounded-full" />
+                                <span className="text-sm text-muted-foreground w-16">Warning</span>
+                                <span className="text-sm font-medium">{currentStation.warning_water_level}m</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-danger rounded-full" />
+                                <span className="text-sm text-muted-foreground w-16">Danger</span>
+                                <span className="text-sm font-medium">{currentStation.danger_water_level}m</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 5. Camera Feed */}
                     <Card className="mb-6">
                         <CardHeader className="p-4">
                             <CardTitle className="text-sm font-medium">
@@ -408,27 +396,34 @@ export function StationDetailRoute() {
                         <CardContent className="p-4 pt-0">
                             {currentStation?.cameras &&
                             currentStation?.cameras?.is_enabled ? (
-                                <div
-                                    onClick={() =>
-                                        openFullscreen(
-                                            `/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`
-                                        )
-                                    }
-                                    className="relative cursor-pointer"
-                                >
-                                    <img
-                                        key={currentStation.current_levels?.updated_at?.toString()}
-                                        src={`/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`}
-                                        alt="Live camera feed"
-                                        className="w-full rounded-md"
-                                        onError={(e) =>
-                                            (e.currentTarget.src =
-                                                "/nocctv.png")
+                                <div>
+                                    <div
+                                        onClick={() =>
+                                            openFullscreen(
+                                                `/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`
+                                            )
                                         }
-                                    />
-                                    <div className="absolute top-0 right-0 m-2">
-                                        <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
+                                        className="relative cursor-pointer"
+                                    >
+                                        <img
+                                            key={currentStation.current_levels?.updated_at?.toString()}
+                                            src={`/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`}
+                                            alt="Live camera feed"
+                                            className="w-full rounded-md"
+                                            onError={(e) =>
+                                                (e.currentTarget.src =
+                                                    "/nocctv.png")
+                                            }
+                                        />
+                                        <div className="absolute top-0 right-0 m-2">
+                                            <Expand className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
+                                        </div>
                                     </div>
+                                    {stale && (
+                                        <p className="text-xs text-destructive mt-2">
+                                            Sensor data may be delayed — check camera for current conditions
+                                        </p>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="text-center text-muted-foreground">

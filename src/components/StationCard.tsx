@@ -68,19 +68,32 @@ export default function StationCard({
 
     const stale = isStale(station.current_levels?.updated_at);
 
-    const getBorderColor = (alertLevel: number, isStale: boolean) => {
-        if (isStale) return 'border-l-muted-foreground/30';
+    const alertLevel = station.current_levels ? Number(station.current_levels.alert_level) : -1;
+
+    // Severity styling: colour the data, not the container.
+    // Normal cards are plain; only exceptions get visual treatment.
+    const getCardBg = () => {
+        if (stale || alertLevel < 0) return 'opacity-60';
         switch (alertLevel) {
-            case 0: return 'border-l-normal';
-            case 1: return 'border-l-alert';
-            case 2: return 'border-l-warning';
-            case 3: return 'border-l-danger';
-            default: return 'border-l-muted-foreground/30';
+            case 1: return 'bg-alert/5';
+            case 2: return 'bg-warning/8';
+            case 3: return 'bg-danger/10';
+            default: return '';
         }
     };
 
-    const alertLevel = station.current_levels ? Number(station.current_levels.alert_level) : -1;
-    const borderColor = getBorderColor(alertLevel, stale);
+    const getLevelColor = () => {
+        if (stale || alertLevel < 0) return 'text-muted-foreground';
+        switch (alertLevel) {
+            case 1: return 'text-alert';
+            case 2: return 'text-warning';
+            case 3: return 'text-danger';
+            default: return '';  // inherit default foreground
+        }
+    };
+
+    const cardBg = getCardBg();
+    const levelColor = getLevelColor();
 
     const handleBellClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -108,11 +121,10 @@ export default function StationCard({
     return (
         <Card
             className={cn(
-                "mb-3 cursor-pointer transition-all duration-200 hover:shadow-md theme-transition-colors",
+                "mb-3 cursor-pointer transition-all duration-200 hover:shadow-md",
                 "border border-border/50 hover:border-primary/50",
                 "active:scale-[0.98] active:border-primary",
-                "border-l-4",
-                borderColor,
+                cardBg,
                 isSelected && "border-primary shadow-md ring-2 ring-primary/20 bg-primary/5",
                 className
             )}
@@ -164,7 +176,7 @@ export default function StationCard({
                     <div className="flex items-center gap-2">
                         <WaterIcon size="sm" />
                         <div>
-                            <span className="text-water-level">
+                            <span className={cn("text-water-level", levelColor)}>
                                 {station.current_levels?.current_level ?? '\u2014'}<span className="text-body-small font-normal">m</span>
                             </span>
                         </div>
