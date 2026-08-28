@@ -1,25 +1,60 @@
-name: Validate Convex Schema
+name: PR Checks
 
-# Runs on PRs that touch convex/ files — catches schema validation
-# failures BEFORE merging, not after.
+# Runs on all PRs to main — catches issues BEFORE merging
 on:
   pull_request:
-    paths:
-      - 'convex/**'
+    branches: [main]
 
 jobs:
-  validate:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-
       - run: npm ci
+      - name: Lint
+        run: npx eslint src/ convex/ --ext .ts,.tsx
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Type check & Build
+        run: npm run build
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run tests
+        run: npm run test
+
+  validate-convex:
+    name: Convex Schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
       - name: Validate Convex deploy (dry-run)
         run: npx convex deploy --dry-run
         env:

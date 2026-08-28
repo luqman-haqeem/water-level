@@ -17,7 +17,7 @@ export function OfflineBanner() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-foreground/70 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-warning-foreground" />
                 </span>
-                You're offline — showing cached data. Will update when reconnected.
+                You&apos;re offline — showing cached data. Will update when reconnected.
             </span>
         </div>
     );

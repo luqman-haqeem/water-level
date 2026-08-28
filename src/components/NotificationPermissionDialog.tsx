@@ -24,7 +24,7 @@ export default function NotificationPermissionDialog({
                 <DialogHeader>
                     <DialogTitle>Enable Flood Alerts</DialogTitle>
                     <DialogDescription>
-                        You'll receive a push notification when this station
+                        You&apos;ll receive a push notification when this station
                         reaches Danger level. Alerts are rare - typically during
                         heavy rain seasons.
                     </DialogDescription>

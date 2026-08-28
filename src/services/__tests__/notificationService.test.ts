@@ -7,6 +7,12 @@ import {
     reconcileTagsWithLocalStorage,
 } from "@/services/notificationService";
 
+// Mock Notification API (not available in jsdom)
+Object.defineProperty(globalThis, 'Notification', {
+    value: { permission: 'granted' },
+    writable: true,
+});
+
 // Mock the react-onesignal module
 const mockAddTag = vi.fn().mockResolvedValue(undefined);
 const mockRemoveTag = vi.fn().mockResolvedValue(undefined);

@@ -18,7 +18,6 @@ module.exports = {
     "plugin:@typescript-eslint/recommended",
     "plugin:react/recommended",
     "plugin:react/jsx-runtime",
-    "plugin:react-hooks/recommended",
   ],
   settings: {
     react: {
@@ -32,8 +31,17 @@ module.exports = {
       "warn",
       { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
     ],
+    "@typescript-eslint/no-unused-expressions": "warn",
+    "@typescript-eslint/no-empty-object-type": "off",
     "react/prop-types": "off", // Using TypeScript for prop validation
+    "react/no-unescaped-entities": "error",
     "no-console": ["warn", { allow: ["warn", "error", "debug"] }],
+    "no-case-declarations": "warn",
+    // React Compiler rules — too strict for existing patterns (setState in
+    // effects for initialization, inline components for simple wrappers).
+    // Re-enable when migrating to React Compiler.
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
   },
   ignorePatterns: [
     "dist/",

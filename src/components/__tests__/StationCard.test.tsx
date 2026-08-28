@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import StationCard from "@/components/StationCard";
 
 // Mock useStationSubscription hook
-const mockSubscribe = vi.fn().mockResolvedValue(undefined);
+const mockSubscribe = vi.fn().mockResolvedValue({ permissionGranted: true });
 const mockUnsubscribe = vi.fn().mockResolvedValue(undefined);
 let mockIsSubscribed = false;
 
@@ -37,10 +37,21 @@ vi.mock("@/components/WaterLevelGauge", () => ({
     default: () => <div data-testid="water-level-gauge" />,
 }));
 
+// Mock NotificationPermissionDialog
+vi.mock("@/components/NotificationPermissionDialog", () => ({
+    default: () => null,
+}));
+
 // Mock haptics
 vi.mock("@/utils/haptics", () => ({
     haptics: { select: vi.fn() },
 }));
+
+// Mock Notification API (not available in jsdom)
+Object.defineProperty(globalThis, 'Notification', {
+    value: { permission: 'granted' },
+    writable: true,
+});
 
 const mockStation = {
     id: "station123" as unknown as import("../../../convex/_generated/dataModel").Id<"stations">,
