@@ -37,7 +37,7 @@ export const patchStationCoordinates = internalMutation({
 });
 
 export const seedCoordinatesFromApi = action({
-    handler: async (ctx) => {
+    handler: async (ctx): Promise<{ fetched: number; updated: number; notFound: number }> => {
         const response = await fetch(
             "https://infobanjirjps.selangor.gov.my/JPSAPI/api/StationRiverLevels"
         );
@@ -48,18 +48,18 @@ export const seedCoordinatesFromApi = action({
 
         const data = await response.json();
 
-        const stations = data
+        const stations: { jpsSelId: string; latitude: number; longitude: number }[] = data
             .filter((s: any) => s.latitude && s.longitude && s.stationId)
             .map((s: any) => ({
                 jpsSelId: s.stationId.toString(),
                 latitude: parseFloat(s.latitude),
                 longitude: parseFloat(s.longitude),
             }))
-            .filter((s: any) => !isNaN(s.latitude) && !isNaN(s.longitude) && s.latitude !== 0 && s.longitude !== 0);
+            .filter((s: { latitude: number; longitude: number }) => !isNaN(s.latitude) && !isNaN(s.longitude) && s.latitude !== 0 && s.longitude !== 0);
 
         console.log(`📍 Fetched ${stations.length} stations with coordinates from JPS API`);
 
-        const result = await ctx.runMutation(
+        const result: { updated: number; notFound: number } = await ctx.runMutation(
             internal.seedCoordinates.patchStationCoordinates,
             { stations }
         );
