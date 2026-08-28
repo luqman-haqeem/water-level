@@ -1,0 +1,26 @@
+name: Validate Convex Schema
+
+# Runs on PRs that touch convex/ files — catches schema validation
+# failures BEFORE merging, not after.
+on:
+  pull_request:
+    paths:
+      - 'convex/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Validate Convex deploy (dry-run)
+        run: npx convex deploy --dry-run
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
