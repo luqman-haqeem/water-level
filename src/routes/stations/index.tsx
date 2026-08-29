@@ -389,14 +389,14 @@ export function StationsRoute() {
                                         {location.isLoading ? (
                                             "Getting your location..."
                                         ) : location.error ? (
-                                            "Unable to get location"
+                                            "Location blocked"
                                         ) : (
                                             "Location permission needed"
                                         )}
                                     </span>
                                 </div>
                                 {!location.coordinates &&
-                                    !location.isLoading && (
+                                    !location.isLoading && !location.error && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -406,16 +406,14 @@ export function StationsRoute() {
                                             }}
                                             className="text-xs"
                                         >
-                                            {location.error
-                                                ? "Retry"
-                                                : "Allow Location"}
+                                            Allow Location
                                         </Button>
                                     )}
                             </div>
                             {location.error && (
                                 <p className="text-xs text-muted-foreground mt-2">
-                                    {location.error}. Showing alphabetical
-                                    order as fallback.
+                                    Enable location in your browser settings to sort stations by distance.
+                                    Showing alphabetical order as fallback.
                                 </p>
                             )}
                         </div>
