@@ -1,6 +1,6 @@
 # Resilient read path: static snapshot on Cloudflare R2
 
-**Status:** draft — under review in PR
+**Status:** approved 2026-08-29 (PR #63)
 **Date:** 2026-08-29
 **Author:** luqman-haqeem (design brainstormed with Claude)
 
@@ -49,9 +49,9 @@ the fallback itself gets the traffic spike.**
 | Scraper location | **Stays in Convex**; adds an "upload to R2" step | Cloudflare Worker scraper: Workers free plan allows 50 subrequests per invocation — a scrape (10 district calls + 91 image fetches + 91 R2 puts) can't fit without Workers Paid + Queues. Documented as a future upgrade (§10). |
 | Frontend consumption | Browser fetches R2 JSON directly with a short poll | ISR/`getStaticProps` rebuilds (slow, metered builds); Next API route proxying R2 (puts Netlify functions back in the hot path) |
 
-### Open decision for the reviewer
+### Decision: domain (resolved 2026-08-29)
 
-**A domain on Cloudflare is needed for the "unlimited CDN" property.**
+**Resolved: the owner already has a domain on Cloudflare; the snapshot is served from a subdomain of it.** Background:
 `*.r2.dev` public URLs are rate-limited and uncached (Cloudflare says not for
 production); `*.workers.dev` is capped at 100 k requests/day on the free plan,
 which a flood-day spike can exhaust in hours. A custom domain on a free

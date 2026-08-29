@@ -22,7 +22,9 @@
       "Bash(test:*)",
       "Bash(npx convex env:*)",
       "WebFetch(domain:capable-crane-384.convex.cloud)",
-      "WebFetch(domain:capable-crane-384.convex.cloud)"
+      "WebFetch(domain:capable-crane-384.convex.cloud)",
+      "Bash(xargs ls -la)",
+      "Bash(xargs cat)"
     ],
     "deny": [],
     "ask": []
