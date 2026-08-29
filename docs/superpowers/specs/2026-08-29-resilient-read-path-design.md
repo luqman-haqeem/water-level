@@ -1,8 +1,16 @@
 # Resilient read path: static snapshot on Cloudflare R2
 
-**Status:** approved 2026-08-29 (PR #63)
+**Status:** approved 2026-08-29 (PR #63); revised 2026-08-29 for the Vite codebase on `main`
 **Date:** 2026-08-29
 **Author:** luqman-haqeem (design brainstormed with Claude)
+
+> **Revision note.** The first draft was written against the stale
+> `feature/danger-level-notifications` branch (Next.js Pages Router, Convex
+> auth + favorites). `main` is 95 commits ahead: the frontend is a **Vite 6 +
+> TanStack Router SPA** (`src/`), there is **no Convex auth or favorites**,
+> notifications are OneSignal tag-based, the camera proxy is a Netlify
+> Function, and Vitest + CI already exist. The architecture decisions are
+> unchanged; every file reference below now matches `main`.
 
 ## 1. Why
 
@@ -15,22 +23,26 @@ the fallback itself gets the traffic spike.**
 
 ### What is already true
 
-- Water-level data is already decoupled from JPS: a Convex cron scrapes JPS every
-  15 min into Convex tables, and the UI reads Convex. If JPS dies, the last
-  snapshot stays in Convex and the cron simply throws.
+- Water-level data is already decoupled from JPS: a Convex cron
+  (`convex/sync/waterLevelUpdater.ts`) scrapes JPS every 15 min into Convex
+  tables, and the UI reads Convex. If JPS dies, the last snapshot stays in
+  Convex and the cron simply throws. (Verified 2026-08-29: latest reading in
+  production was 19 minutes old — the Convex runtime reaches the JPS
+  water-level endpoints fine; commit `8c7fded`'s "Convex cannot reach JPS API"
+  was about the coordinates endpoint only.)
 
 ### What breaks today
 
-| Failure | Cause |
+| Failure | Cause (on `main`) |
 |---|---|
-| Our site falls over under a traffic spike | Every visitor opens a Convex WebSocket for the full station list **plus one `useQuery` per `StationCard` → `MicroTrendChart` (~270 subscriptions per visitor)**. Convex free-tier bandwidth/function quotas and Netlify function limits are hit exactly when JPS is down. |
-| Users cannot tell data is stale | No "last synced" / "JPS last reported" indicator. Cron failure is silent. Our 15-min cron on top of JPS's irregular cadence adds lag. |
-| Camera page goes blank | `pages/api/proxy-image/[id].js` fetches `infobanjirjps.selangor.gov.my/.../CCTV_Image/{id}.jpg` live on every request. JPS down ⇒ every camera 500s. |
-| Social share cards are broken | (a) `/stations/[id]` emits **no `og:*` tags** for crawlers — the `<Head>` is inside the branch that needs client-side `useQuery` data, so SSR renders "Station not found". (b) `/og/station/:id` returns **502**: the edge function calls `waterLevelData:getCurrentLevelByStationId`, which does not exist, and the URL-param fallback in `utils/ogUrlGenerator.ts` is never wired up. |
+| Our site falls over under a traffic spike | Every visitor opens a Convex WebSocket for the full station list (`src/hooks/useStations.ts`) **plus one `useQuery` per `StationCard` → `MicroTrendChart` → `useStationTrend` (~270 subscriptions per visitor)**. Convex free-tier bandwidth/function quotas are hit exactly when JPS is down. |
+| Users cannot tell data is stale | Per-station `isStale()` (45 min) exists, but there is no global "last synced" / "JPS last reported" indicator and cron failure is silent. Our 15-min cron on top of JPS's irregular cadence adds lag. |
+| Camera page goes blank | `netlify/functions/proxy-image.ts` (via the `/api/proxy-image/*` redirect in `netlify.toml`) fetches `infobanjirjps.selangor.gov.my/.../CCTV_Image/{id}.jpg` live on every request. JPS down ⇒ every camera 500s; JPS slow ⇒ Netlify function time and invocations burn. |
+| Social share cards are broken | (a) It is an SPA: `index.html` has **no `og:*` tags** and every route serves the same shell, so crawlers see a generic card. (b) `/og/station/:id` returns **502**: `netlify/edge-functions/og-image.tsx` calls `waterLevelData:getCurrentLevelByStationId`, which does not exist, and its URL-param fallback is never populated. |
 
 ### Sizing (measured against production on 2026-08-29)
 
-- 270 stations, 91 cameras.
+- 270 stations (103 with a current reading), 91 cameras.
 - `getStationsWithDetails` payload ≈ 97 KB raw, ≈ 15 KB gzipped.
 - Cloudflare R2 free tier: 10 GB storage, 1 M Class A (write) ops/month,
   10 M Class B (read) ops/month, **free egress**.
@@ -38,77 +50,78 @@ the fallback itself gets the traffic spike.**
   ⇒ ≈ 786 k — too close to the cap, so 5-min refresh is reserved for cameras at
   alert-or-above stations only.
 
-## 2. Decisions made during brainstorming
+## 2. Decisions
 
 | Decision | Choice | Alternatives rejected |
 |---|---|---|
 | Scope | Full resilience pass: scale, staleness UX, camera cache, OG images | Partial fixes |
 | Budget | Free tiers; Netlify + Convex stay; add Cloudflare | Paying for Convex/Netlify Pro |
-| Public read path | **Always** read a static JSON snapshot; Convex only for auth/favorites/push | "Convex first, snapshot fallback" (two code paths, Convex still eats the spike); "cache + badges only" (doesn't protect quotas) |
-| Snapshot storage | **Cloudflare R2**, public bucket behind Cloudflare CDN | Netlify Blobs (same vendor as frontend; counts against 100 GB/month bandwidth) |
+| Public read path | **Always** read a static JSON snapshot. After cleanup the browser opens **no Convex connection at all** (nothing on `main` needs one: notifications are OneSignal tags, subscriptions live in localStorage) | "Convex first, snapshot fallback" (two code paths, Convex still eats the spike); "cache + badges only" (doesn't protect quotas) |
+| Snapshot storage | **Cloudflare R2**, public bucket on a custom subdomain of the owner's existing Cloudflare domain | Netlify Blobs (same vendor as frontend; counts against 100 GB/month bandwidth); `r2.dev` (rate-limited, uncached); `workers.dev` (100 k req/day cap) |
 | Scraper location | **Stays in Convex**; adds an "upload to R2" step | Cloudflare Worker scraper: Workers free plan allows 50 subrequests per invocation — a scrape (10 district calls + 91 image fetches + 91 R2 puts) can't fit without Workers Paid + Queues. Documented as a future upgrade (§10). |
-| Frontend consumption | Browser fetches R2 JSON directly with a short poll | ISR/`getStaticProps` rebuilds (slow, metered builds); Next API route proxying R2 (puts Netlify functions back in the hot path) |
-
-### Decision: domain (resolved 2026-08-29)
-
-**Resolved: the owner already has a domain on Cloudflare; the snapshot is served from a subdomain of it.** Background:
-`*.r2.dev` public URLs are rate-limited and uncached (Cloudflare says not for
-production); `*.workers.dev` is capped at 100 k requests/day on the free plan,
-which a flood-day spike can exhaust in hours. A custom domain on a free
-Cloudflare zone gives normal CDN caching with no request cap. The spec assumes
-`https://cdn.<your-domain>` as `NEXT_PUBLIC_SNAPSHOT_BASE_URL`; `r2.dev` can be
-used for development and as an interim.
+| Frontend consumption | Browser fetches R2 JSON directly with ETag polling | Build-time prerender per station (couples deploys to data); Netlify function proxying R2 (functions back in the hot path) |
+| OG tags for an SPA | **Bot-only edge function** on `/stations/:id` that serves a tiny HTML with `og:*` tags; humans pass through to the static shell | HTMLRewriter on every response (Netlify Edge lacks a native one); prerendering 270 HTML files at build |
 
 ## 3. Architecture
 
 ```
 JPS API ──(Convex cron, every 5 min)──► sync/waterLevelUpdater.updateWaterLevels
-                                            │  skip DB writes if JPS allLastUpdated unchanged
+                                            │  skip DB writes if JPS fingerprint unchanged
                                             ├─► Convex tables (UNCHANGED: currentLevels,
-                                            │   waterLevelHistory, waterLevelSummaries)
-                                            │     └─ still drive favorites + danger push
-                                            └─► sync/snapshotPublisher.publishSnapshot
-                                                  ├─ stations.json  (= getStationsWithDetails + syncedAt)
-                                                  ├─ cameras.json   (= getCamerasWithDetails + capturedAt)
-                                                  ├─ trends.json    (3 h history, keyed by station id)
-                                                  └─ meta.json      (syncedAt, jpsLastUpdate, status, error)
+                                            │   waterLevelHistory) + danger push scheduling
+                                            ├─► syncState row (fingerprint, timestamps, status)
+                                            └─► sync/snapshotPublisher.publishSnapshot ("use node")
+                                                  ├─ trends.json    {generatedAt, items: {stationId: TrendPoint[]}}
+                                                  ├─ cameras.json   {generatedAt, items: getCamerasWithDetails[]}
+                                                  ├─ stations.json  {generatedAt, items: getStationsWithDetails[]}
+                                                  └─ meta.json      {syncedAt, attemptedAt, jpsLastUpdate, status, failingSince?, error?}
                                                           │
                                                           ▼
-                                                  Cloudflare R2 bucket  ──► Cloudflare CDN
+                                                  Cloudflare R2 bucket ──► Cloudflare CDN (cdn.<domain>)
                                                                                  ▲
 JPS CCTV ──(every 15 min; 5 min for alert+)──► sync/cameraImageSync ──► cam/{jpsCameraId}.jpg
+                                                                       └─► re-publish JSON (captured_at)
 
-Browser ──► {SNAPSHOT_BASE}/stations.json, cameras.json, trends.json, meta.json
-        ──► {SNAPSHOT_BASE}/cam/{id}.jpg?v={capturedAt}
-        ──► Convex WebSocket ONLY when logged in (favorites, user)
+Browser (Vite SPA) ──► {VITE_SNAPSHOT_BASE_URL}/stations.json | cameras.json | trends.json | meta.json
+                   ──► {VITE_SNAPSHOT_BASE_URL}/cam/{id}.jpg?v={captured_at}
+                   ──► (no Convex connection after cleanup)
 
-Netlify ──► static Next.js bundle only
-        ──► edge fn /og/station/:id  (reads stations.json from R2, s-maxage=300)
+Netlify ──► static Vite bundle (dist/)
+        ──► edge fn /stations/:id   (bots only: HTML with og:* tags, reads stations.json)
+        ──► edge fn /og/station/:id (PNG rendered from stations.json + cam jpg, s-maxage=300)
 ```
 
 Properties:
 
-- **Anonymous readers never touch Convex or Netlify functions.**
-- **Convex tables and notifications are untouched.** The R2 upload is an extra
-  step after a successful scrape, not a replacement.
+- **Anonymous readers never touch Convex or Netlify Functions.** The only
+  server compute is the two edge functions, and they are bot-only / CDN-cached.
+- **Convex tables, the scraper's parsing, and danger-notification scheduling
+  are untouched.** The R2 upload is an extra step after a successful scrape.
 - **Scrape failure leaves the last good snapshot in place** and only rewrites
   `meta.json` with `status: "upstream_error"`.
 - **JPS's own lag is surfaced separately from our sync time**:
-  `meta.jpsLastUpdate` (from JPS `allLastUpdated`) vs `meta.syncedAt` (our clock).
-- **Writer is swappable**: the frontend only knows R2 URLs, so the scraper can
-  move to a Worker later without frontend changes.
+  `meta.jpsLastUpdate` (max of JPS `allLastUpdated`, UTC) vs `meta.syncedAt`.
+- **Writer is swappable**: the frontend only knows R2 URLs.
 
 ## 4. Cloudflare setup (one-time, manual)
 
-1. Create R2 bucket `riverlevel-snapshot` (and `riverlevel-snapshot-dev`).
-2. Public access: custom domain `cdn.<domain>` on the bucket (or enable r2.dev
-   for interim/dev).
-3. CORS on the bucket: `GET, HEAD` from `https://riverlevel.netlify.app`,
-   `http://localhost:3000`; expose `ETag`.
-4. Create an R2 API token scoped to the bucket with **Object Read & Write**.
-5. Cache rules (zone level): honour origin `Cache-Control`; nothing else needed.
+1. Create R2 buckets `riverlevel-snapshot` (prod) and `riverlevel-snapshot-dev`.
+2. Public access: connect custom domain `cdn.<domain>` to the prod bucket
+   (R2 → bucket → Settings → Custom Domains). Enable `r2.dev` on the dev bucket.
+3. CORS policy on both buckets:
+   ```json
+   [{
+     "AllowedOrigins": ["https://riverlevel.netlify.app", "http://localhost:5173"],
+     "AllowedMethods": ["GET", "HEAD"],
+     "AllowedHeaders": ["If-None-Match"],
+     "ExposeHeaders": ["ETag"],
+     "MaxAgeSeconds": 3600
+   }]
+   ```
+4. Create an R2 API token with **Object Read & Write** scoped to the two buckets.
+5. No cache rules needed: objects carry their own `Cache-Control`.
 
-Convex environment variables (set on both dev and prod deployments):
+Convex environment variables (`npx convex env set …` on dev, dashboard on prod):
 
 ```
 R2_ACCOUNT_ID
@@ -117,202 +130,168 @@ R2_SECRET_ACCESS_KEY
 R2_BUCKET                      # riverlevel-snapshot | riverlevel-snapshot-dev
 ```
 
-Netlify / `.env.local`:
+Netlify (dashboard) / `.env.local`:
 
 ```
-NEXT_PUBLIC_SNAPSHOT_BASE_URL  # https://cdn.<domain>
-NEXT_PUBLIC_DATA_SOURCE        # snapshot | convex   (rollback switch, see §11)
+VITE_SNAPSHOT_BASE_URL         # https://cdn.<domain>   (no trailing slash)
+VITE_DATA_SOURCE               # snapshot | convex   (phase-2 rollback switch, removed in phase 5)
+VITE_SITE_URL                  # https://riverlevel.netlify.app (already exists; used by edge fns)
 ```
 
-## 5. Backend: snapshot publisher and scraper changes (Convex)
+## 5. Backend (Convex)
 
-### 5.1 `convex/lib/r2.ts` — thin S3 client
+### 5.1 Schema (`convex/schema.ts`)
 
-- Uses `aws4fetch` (fetch + WebCrypto, no Node deps) so it runs in Convex's
-  default runtime. If the default runtime rejects it, the publisher file gets a
-  `"use node"` directive — it is isolated in its own file for exactly this reason.
-- API: `putObject(key, body, { contentType, cacheControl })`. Nothing else.
-- Endpoint: `https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com/{R2_BUCKET}`.
+- New table `syncState`: `{ key, lastJpsFingerprint?, lastJpsUpdate?, lastSyncedAt?, lastAttemptAt, lastStatus: "ok"|"upstream_error", failingSince?, lastError? }`, index `by_key`. One row, `key = "waterLevels"`.
+- `cameras.lastImageAt: v.optional(v.string())`.
 
-### 5.2 `convex/sync/snapshotPublisher.ts` — `internalAction publishSnapshot`
+### 5.2 Pure helpers (unit-tested, no Convex runtime)
 
-Args: `{ status: "ok" | "upstream_error", jpsLastUpdate?: string, error?: string, includeData: boolean }`.
+- `convex/sync/jpsDate.ts` — `convertJpsDateToIso` moved out of the updater and exported.
+- `convex/sync/changeDetection.ts` — `computeJpsFingerprint(districts)` (sorted `districtId:allLastUpdated` joined by `|`) and `latestJpsUpdate(districts)` (max ISO).
+- `convex/lib/fetchWithRetry.ts` — `fetchWithRetry(url, { timeoutMs=20000, retries=1, backoffMs=5000 })` using `AbortController`; injectable `fetchImpl`/`sleep`.
+- `convex/lib/concurrency.ts` — `runWithConcurrency(items, limit, fn)`.
+- `convex/lib/r2.ts` — `r2ConfigFromEnv(env)`, `createR2Client(config).putObject(key, body, { contentType, cacheControl })` built on `aws4fetch` (SigV4 over `fetch`, no Node-only deps).
+- `convex/sync/snapshotBuilder.ts` — `SNAPSHOT_KEYS`, `cameraImageKey(id)`, `buildDataFiles(...)`, `buildMetaFile(...)`, `JSON_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300"`.
 
-1. If `includeData`: `ctx.runQuery` the **existing** `stations.getStationsWithDetails`,
-   `cameras.getCamerasWithDetails`, and a new `waterLevelHistory.getAllTrends`
-   (one indexed pass over the last 3 h, grouped by station). Reusing the existing
-   queries guarantees the JSON shape matches what components already consume.
-2. Upload, in order: `trends.json`, `cameras.json`, `stations.json`, then
-   `meta.json` **last** so a reader never sees `meta.syncedAt` newer than the data.
-3. Object headers: `Content-Type: application/json`,
-   `Cache-Control: public, max-age=60, stale-while-revalidate=300`.
+### 5.3 `convex/sync/snapshotPublisher.ts` — `"use node"` `internalAction publishSnapshot({ includeData })`
 
-`meta.json`:
+1. Reads the `syncState` row to build `meta.json` (single source of truth for status/timestamps).
+2. If `includeData`: `ctx.runQuery` the **existing** `api.stations.getStationsWithDetails`, `api.cameras.getCamerasWithDetails`, and new `internal.waterLevelHistory.getAllTrends`. Reusing the existing queries guarantees the JSON items match what components already consume.
+3. Uploads `trends.json`, `cameras.json`, `stations.json`, then `meta.json` **last** so a reader never sees `meta.syncedAt` newer than the data.
+4. Runs in the Node runtime so `aws4fetch` + WebCrypto are guaranteed; isolated in its own file because `"use node"` files may only export actions.
 
-```json
-{
-  "syncedAt":      "2026-08-29T08:05:12Z",   // our clock, last successful full sync
-  "attemptedAt":   "2026-08-29T08:20:03Z",   // our clock, last attempt (success or not)
-  "jpsLastUpdate": "2026-08-29T07:45:00Z",   // JPS allLastUpdated, converted to UTC
-  "status":        "ok" | "upstream_error",
-  "error":         "HTTP 503 ..."             // present only on upstream_error
-}
-```
+### 5.4 `convex/sync/waterLevelUpdater.ts` changes
 
-### 5.3 `convex/sync/waterLevelUpdater.ts` changes
+- Cron **15 min → 5 min** (`convex/crons.ts`).
+- Summary fetch via `fetchWithRetry`. Compute fingerprint; if equal to `syncState.lastJpsFingerprint`, **skip all DB writes**, record the attempt, publish `meta.json` only.
+- On summary-fetch failure: **do not throw**. Record `upstream_error` (+ `failingSince` preserved from the previous failing run), publish `meta.json` only, return `{ success: false }`. Last good data stays in Convex and R2.
+- Per-district failures stay warn-and-continue as today.
+- After a successful changed run: record `ok` with `lastSyncedAt = attemptedAt`, publish with `includeData: true`. Publisher errors are caught and logged — an R2 outage must not fail the Convex write.
+- Function-call budget: 5-min cron ⇒ ~8.6 k runs/month × ~13 calls ≈ 110 k/month (Convex free: 1 M).
 
-- Cron interval **15 min → 5 min**. Skip DB writes when the JPS summary's
-  `allLastUpdated` equals the stored value from the previous run (a new
-  `syncState` table with a single row: `lastJpsUpdate`, `lastSyncedAt`,
-  `lastAttemptAt`, `lastStatus`, `lastError`). Always call `publishSnapshot` with
-  `includeData: changed`, so `meta.attemptedAt` moves even on no-change runs.
-- Fetches get an `AbortController` timeout (20 s) and one retry with 5 s backoff.
-  A slow JPS must not hold the action for its full 10-min budget.
-- On failure: **do not throw** after logging. Write `syncState`, call
-  `publishSnapshot({ status: "upstream_error", includeData: false })`, return
-  `{ success: false }`. The last good data stays in both Convex and R2.
-- Function-call budget: 5-min cron ⇒ ~8.6 k runs/month × (1 action + ~12
-  mutations/queries) ≈ 110 k calls/month, well under Convex's 1 M free.
+### 5.5 `convex/sync/cameraImageSync.ts` — `"use node"` `internalAction syncCameraImages({ tier })`
 
-### 5.4 `convex/sync/cameraImageSync.ts` — `internalAction`
+- `tier: "all"` every 15 min (all enabled cameras); `tier: "alert"` every 5 min (cameras whose station's `currentLevels.alertLevel ≥ 1`, via new `internal.cameras.listForImageSync`).
+- Per camera, concurrency 5: `fetchWithRetry(CCTV url, { timeoutMs: 10000, retries: 0 })`; require `content-type` starting with `image/` and a non-empty body; PUT to `cam/{jpsCameraId}.jpg` with `Cache-Control: public, max-age=300`; `internal.cameras.setLastImageAt`. Failures are skipped — the previous image stays on R2.
+- After the loop, `publishSnapshot({ includeData: true })` so `captured_at` in the JSON is current.
+- `cameras.lastImageAt` is exposed as `captured_at` in `getCamerasWithDetails` and under `cameras.captured_at` in the three station queries.
 
-- Args `{ tier: "all" | "alert" }`. `all` runs every 15 min for every enabled
-  camera; `alert` runs every 5 min for cameras whose linked station has
-  `alertLevel ≥ 1` (typically a handful).
-- Per camera: fetch `http://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/{id}.jpg`
-  with a 10 s timeout, concurrency 5; on 200 + `image/jpeg`, PUT to
-  `cam/{jpsCameraId}.jpg` with `Cache-Control: public, max-age=300` and patch
-  `cameras.lastImageAt` in Convex (new optional field). On failure: skip — the
-  previous image stays on R2.
-- `cameras.lastImageAt` flows into `cameras.json` as `captured_at`, and into
-  `stations.json` under `cameras.captured_at`.
-- Delete `pages/api/proxy-image/[id].js`.
-
-### 5.5 `convex/crons.ts` (production only, as today)
+### 5.6 `convex/crons.ts`
 
 | Job | Interval | Function |
 |---|---|---|
-| update water levels | 5 min | `sync/waterLevelUpdater.updateWaterLevels` |
-| camera images (all) | 15 min | `sync/cameraImageSync` `{tier:"all"}` |
-| camera images (alert) | 5 min | `sync/cameraImageSync` `{tier:"alert"}` |
+| update water levels | 5 min | `api.sync.waterLevelUpdater.updateWaterLevels` |
+| camera images (all) | 15 min | `internal.sync.cameraImageSync.syncCameraImages {tier:"all"}` |
+| camera images (alert) | 5 min | `internal.sync.cameraImageSync.syncCameraImages {tier:"alert"}` |
 | station / camera metadata | weekly | unchanged |
 | cleanup history | 4 h | unchanged |
 
-## 6. Frontend: snapshot data layer
+## 6. Frontend (Vite SPA)
 
-### 6.1 `lib/snapshot.ts`
+### 6.1 `src/lib/snapshotStore.ts` (framework-free, unit-tested)
 
-- `useSnapshot<T>(file: "stations" | "cameras" | "trends" | "meta", opts?)`
-  → `{ data, error, isLoading, refresh }`.
-- Fetches `${NEXT_PUBLIC_SNAPSHOT_BASE_URL}/${file}.json` with `If-None-Match`
-  (ETag) so unchanged polls are 304s. Polls every **120 s**, and on
-  `visibilitychange` → visible, `focus`, and pull-to-refresh (the existing
-  hook in `hooks/`). Exponential backoff on error, capped at 10 min.
-- One in-memory cache per file shared across components (module-level store),
-  so mounting 270 cards costs zero extra requests.
-- Persists the last good payload to `localStorage` (`snapshot:<file>`) and
-  hydrates from it on load, so a cold start with the CDN unreachable still
-  renders data, flagged as stale.
-- Behind `NEXT_PUBLIC_DATA_SOURCE`: when `"convex"`, the hook wraps the existing
-  `useQuery` calls instead. This is the rollback switch and is removed in §11
-  cleanup.
+`createSnapshotStore<T>({ baseUrl, file, pollMs = 120_000, fetchImpl, storage, now })` → `{ subscribe, getState, refresh, start, stop }`.
 
-### 6.2 Component changes
+- State: `{ data, error, isLoading, fetchedAt, fromCache }`, replaced immutably (works with `useSyncExternalStore`).
+- `start()` hydrates from `storage["snapshot:<file>"]` (data flagged `fromCache`), then `refresh()`.
+- `refresh()` GETs `${baseUrl}/${file}.json` with `If-None-Match` when an ETag is known; 304 keeps data; 200 replaces data, stores ETag, persists. Errors keep old data and set `error`.
+- Poll timer: `pollMs` after each completed refresh; on error, `min(pollMs × 2^failures, 600_000)`.
+- One store per file (module singleton in `src/hooks/useSnapshot.ts`), so mounting 270 cards costs zero extra requests.
+
+### 6.2 `src/hooks/useSnapshot.ts`
+
+`useSnapshot<T>(file)` = `useSyncExternalStore` over the shared store + `visibilitychange`/`focus` listeners that call `refresh()`. `refreshSnapshots()` for pull-to-refresh.
+
+### 6.3 Data hooks keep their signatures
 
 | File | Change |
 |---|---|
-| `pages/stations/index.tsx` | `useQuery(api.stations.getStationsWithDetails)` → `useSnapshot("stations")`; the manual `convex.query` refresh paths → `refresh()`. |
-| `pages/stations/[id].tsx` | same; trend from `useSnapshot("trends")`. |
-| `pages/cameras/index.tsx` | `useSnapshot("cameras")`. |
-| `components/MicroTrendChart.tsx`, `MiniTrendChart.tsx` | Drop per-card `useQuery`; take `points` as a prop from `trends.json`. **Removes ~270 subscriptions per visitor.** |
-| `components/CameraCard.tsx`, camera thumbnails in `StationCard` | `src = ${SNAPSHOT_BASE}/cam/${jps_camera_id}.jpg?v=${captured_at}`; caption "captured N min ago". |
-| `pages/api/stations/[stationId].ts` | Delete (only consumer was the OG function). |
-| `pages/_app.tsx` | Keep `ConvexAuthProvider`; Convex is still used for auth/favorites. |
+| `src/hooks/useStations.ts` | `useStations()` → `stations` store. `useDistricts` deleted (unused). |
+| `src/hooks/useCameras.ts` | `useCameras()` → `cameras` store. |
+| `src/hooks/useStationDetail.ts` | `useStationDetail(id)` → `find` in `stations` store (same item shape as the Convex detail query). |
+| `src/hooks/useWaterLevelHistory.ts` | `useStationTrend(id)` → `trends` store lookup. `MicroTrendChart`/`MiniTrendChart` are untouched; the ~270 Convex subscriptions disappear because the hook no longer subscribes. |
+| `src/lib/snapshotTypes.ts` | `SnapshotEnvelope<T>`, `SnapshotStation`/`SnapshotCamera` derived with `FunctionReturnType<typeof api.…>` so the frontend shape is provably the Convex query shape; `TrendPoint`, `SnapshotMeta`. |
 
-### 6.3 Service worker (`next.config.mjs` → `next-pwa` `runtimeCaching`)
+Phase 2 keeps a build-time switch: each hook module exports `VITE_DATA_SOURCE === "convex" ? convexImpl : snapshotImpl` (no conditional hook calls). Removed in phase 5 together with `ConvexProvider`, `src/lib/convexClient.ts`, and `VITE_CONVEX_URL`.
 
-Add a rule for `NEXT_PUBLIC_SNAPSHOT_BASE_URL`: `NetworkFirst`,
-`networkTimeoutSeconds: 8`, cache `snapshot`, `maxAgeSeconds: 86400`. Camera
-images: `StaleWhileRevalidate`, `maxEntries: 120`. With this, an installed PWA
-shows the last data even if R2 is unreachable.
+### 6.4 Camera images
+
+`src/lib/cameraImageUrl.ts`: `cameraImageUrl(baseUrl, jpsCameraId, capturedAt?)` → `${baseUrl}/cam/${id}.jpg?v=${capturedAt}`. Used in `src/components/CameraCard.tsx`, `src/routes/cameras/index.tsx` (fullscreen matching), `src/routes/stations/$id.tsx`. `CameraCard` shows "Captured N min ago" from `captured_at`. Delete `netlify/functions/proxy-image.ts` and its redirect.
+
+### 6.5 PWA (`vite.config.ts` → `VitePWA.workbox.runtimeCaching`)
+
+Replace the `/api/proxy-image/` rule with two rules keyed on `VITE_SNAPSHOT_BASE_URL` (read via `loadEnv`, compiled into a `RegExp` literal because Workbox serialises the config): JSON → `NetworkFirst` (`networkTimeoutSeconds: 8`, `maxAgeSeconds: 86400`); `cam/*.jpg` → `StaleWhileRevalidate` (`maxEntries: 120`, `maxAgeSeconds: 3600`). The `convex.cloud` rule is removed in phase 5.
 
 ## 7. Staleness UX
 
-`components/DataFreshnessBanner.tsx`, rendered under the header on the stations
-and cameras pages, driven by `useSnapshot("meta")` plus the fetch state:
+`src/lib/freshness.ts` — pure `getFreshnessState(meta, fetchError, now)`:
 
-| State | Condition | Banner |
+| State | Condition | Banner (`src/components/DataFreshnessBanner.tsx`, mounted in `src/routes/__root.tsx` under `OfflineBanner`) |
 |---|---|---|
-| fresh | `status=ok` and `now − jpsLastUpdate < 30 min` | none (timestamps shown in the footer only) |
-| jps-lagging | `status=ok` and `now − jpsLastUpdate ≥ 30 min` | amber: "JPS last reported at 15:45 (1 h 10 m ago). Their feed is lagging; we last checked at 16:50." |
-| upstream-down | `status=upstream_error` | red: "Can't reach JPS since 16:32. Showing last good data from 16:15." |
-| snapshot-unreachable | fetch of `meta.json` failing | grey: "Offline — showing data saved on this device at 16:15." |
+| `fresh` | `status=ok` and `now − jpsLastUpdate < 45 min` (reuses `STALENESS_THRESHOLD_MS` from `src/utils/timeUtils.ts`) | none |
+| `jps-lagging` | `status=ok` and `now − jpsLastUpdate ≥ 45 min` | amber: "JPS last reported {fromNow}. Their feed is lagging — we last checked {fromNow}." |
+| `upstream-down` | `status=upstream_error` | red: "Can't reach JPS since {fromNow}. Showing last good data from {fromNow}." |
+| `snapshot-unreachable` | `meta.json` fetch failing (data may be from localStorage/SW) | grey: "Can't reach the data server — showing data saved on this device {fromNow}." |
 
-Every `StationCard` keeps showing the station's own `updated_at` (from JPS) as
-today. Threshold 30 min is a constant in `lib/freshness.ts` alongside a pure
-`getFreshnessState(meta, fetchError, now)` so the logic is unit-testable.
+Per-station `isStale()` badges on cards are unchanged.
 
 ## 8. OG images for social sharing
 
-- `pages/stations/[id].tsx`: emit `og:image`, `og:image:width/height`, `og:url`,
-  `twitter:card` from `router.query.id` **outside** the data-loaded branch, so
-  they appear in SSR HTML. `og:title`/`og:description` stay generic at SSR; the
-  image carries the station-specific content.
-- `netlify/edge-functions/og-image.tsx`: replace the dead Convex call with one
-  fetch of `${SNAPSHOT_BASE}/stations.json`, find the station by id, render name,
-  district, level, alert colour, `updated_at`, and the camera thumbnail from
-  `${SNAPSHOT_BASE}/cam/{id}.jpg`. Keep `s-maxage=300`. Remove the URL-param
-  fallback and delete `utils/ogUrlGenerator.ts`.
-- Not in this pass: bot-only edge rewrite for station-specific `og:title`.
+- `index.html` gets static default `og:*`/`twitter:*` tags (site-wide card).
+- New `netlify/edge-functions/station-meta.ts` on `path: "/stations/:id"`: if the `User-Agent` matches a crawler list (facebookexternalhit, Twitterbot, WhatsApp, TelegramBot, LinkedInBot, Slackbot, Discordbot, Googlebot, bingbot, Pinterest, SkypeUriPreview), fetch `stations.json`, find the station, and return a minimal HTML document with station-specific `og:title`, `og:description`, `og:image = {VITE_SITE_URL}/og/station/{id}`, `og:url`, `twitter:card`, plus a `meta refresh` to the SPA route; cached `s-maxage=300`. Otherwise `context.next()`. Pure HTML/UA helpers live in `netlify/edge-functions/lib/stationMeta.ts` and are unit-tested.
+- `netlify/edge-functions/og-image.tsx`: replace the dead Convex call with one fetch of `${VITE_SNAPSHOT_BASE_URL}/stations.json`; render name, district, level, alert colour, `updated_at`, online state, and the camera thumbnail from `${VITE_SNAPSHOT_BASE_URL}/cam/{id}.jpg` when the station has a camera. Remove the URL-param fallback. Pin `og_edge` to a version. Keep `s-maxage=300`.
 
 ## 9. Testing
 
-There is no test suite today. This change adds **Vitest** for pure logic only:
+Vitest (jsdom, `@testing-library/react`) already runs in CI (`.github/workflows/validate-convex.yml`: lint, `tsc && vite build`, `vitest run`, `convex deploy --dry-run`). `npm run lint` uses `--max-warnings 0`, so new code must be warning-free (no `any`, no `console.log`).
 
-- `lib/freshness.test.ts` — every row of the §7 table, plus boundary at 30 min.
-- `convex/sync/__tests__/changeDetection.test.ts` — "skip when `allLastUpdated`
-  unchanged", "publish meta on failure without touching data".
-- `lib/snapshot.test.ts` — ETag/304 handling, localStorage hydration, backoff.
+Unit tests (new):
+
+- `convex/sync/__tests__/jpsDate.test.ts`, `changeDetection.test.ts`, `snapshotBuilder.test.ts`
+- `convex/lib/__tests__/fetchWithRetry.test.ts`, `concurrency.test.ts`, `r2.test.ts` (stubbed `fetch`; asserts URL, method, SigV4 `Authorization`, headers)
+- `src/lib/__tests__/snapshotStore.test.ts`, `freshness.test.ts`, `cameraImageUrl.test.ts`
+- `src/components/__tests__/DataFreshnessBanner.test.tsx`
+- `netlify/edge-functions/lib/__tests__/stationMeta.test.ts`
+
+Convex functions themselves (`syncState`, `getAllTrends`, actions) are thin orchestration and are verified against the dev deployment, matching the repo's existing convention (see the note in `convex/__tests__/notifications.test.ts`).
 
 Integration verification (manual, dev deployment + dev bucket):
 
-1. `npx convex run sync/waterLevelUpdater:updateWaterLevels` → four objects
-   appear in the dev bucket; `stations.json` deep-equals the Convex query result.
-2. Point `STATION_URL` at an unreachable host → `meta.json` becomes
-   `upstream_error`, `stations.json` unchanged, banner turns red.
-3. `npx convex run sync/cameraImageSync '{"tier":"all"}'` → 91 JPEGs.
-4. `curl -A facebookexternalhit /stations/<id>` shows `og:image`; the OG URL
-   returns 200 `image/png`.
-5. Block `cdn.<domain>` in DevTools → page still renders from localStorage /
-   SW cache with the grey banner.
-6. `npm run build && npm run lint` clean.
+1. `npx convex run sync/waterLevelUpdater:updateWaterLevels` → four objects in the dev bucket; `stations.json.items` deep-equals `npx convex run stations:getStationsWithDetails`.
+2. Run it again immediately → `meta.attemptedAt` moves, `syncedAt` does not, only `meta.json` re-uploaded.
+3. Temporarily point `BASE_URL` at an unreachable host → `meta.status = upstream_error`, `stations.json` unchanged, red banner.
+4. `npx convex run sync/cameraImageSync:syncCameraImages '{"tier":"all"}'` → 91 JPEGs, `captured_at` populated.
+5. `curl -A facebookexternalhit https://…/stations/<id>` → HTML with `og:image`; `curl -I …/og/station/<id>` → `200 image/png`.
+6. Block `cdn.<domain>` in DevTools → page still renders from localStorage/SW with the grey banner.
+7. `npm run lint && npm run build && npm run test` clean.
 
 ## 10. Future: move the scraper to a Cloudflare Worker
 
-If Convex becomes the weak link (outage or quota), the writer can move to a
-Worker cron on Workers Paid (~USD 5/month) writing the same R2 keys and pushing
-to Convex through an HTTP action for favorites/push. The frontend, OG function
-and R2 layout do not change. Not planned now.
+If Convex becomes the weak link, the writer can move to a Worker cron on
+Workers Paid (~USD 5/month) writing the same R2 keys and pushing to Convex through
+an HTTP action for danger notifications. Frontend, edge functions and R2 layout
+do not change. Not planned now.
 
 ## 11. Rollout
 
 | Phase | Work | Rollback |
 |---|---|---|
-| 0 | Domain on Cloudflare, buckets, tokens, env vars | — |
-| 1 | §5.1–5.3: publisher + scraper changes. Frontend untouched. Verify objects for a few days. | Remove cron change |
-| 2 | §6–7 with `NEXT_PUBLIC_DATA_SOURCE=snapshot` on Netlify | Flip to `convex` and redeploy |
-| 3 | §5.4 camera pipeline, delete `proxy-image` | Restore proxy route |
-| 4 | §8 OG images | Revert edge function |
-| 5 | Cleanup: remove `DATA_SOURCE` switch and Convex read path from pages, delete `api/stations/[stationId].ts`, `ogUrlGenerator.ts`; update `CLAUDE.md` (also fix the stale note that `ConvexAuthProvider` is commented out — it is live). | — |
+| 0 | §4: buckets, custom domain, CORS, token, env vars; `npm i aws4fetch` | — |
+| 1 | §5.1–5.4, 5.6 (water-level cron only): publisher + scraper changes. Frontend untouched. Verify objects for a few days. | Revert `convex/` — `deploy-convex.yml` redeploys |
+| 2 | §6.1–6.3, §6.5 (JSON rule), §7 with `VITE_DATA_SOURCE=snapshot` on Netlify | Set `VITE_DATA_SOURCE=convex`, redeploy |
+| 3 | §5.5 + §6.4 camera pipeline; delete `proxy-image` function + redirect; SW image rule | Revert the phase-3 commits |
+| 4 | §8 OG: `index.html` tags, `station-meta`, `og-image` rewrite | Revert edge functions |
+| 5 | Cleanup: remove `VITE_DATA_SOURCE` branches, `ConvexProvider`, `src/lib/convexClient.ts`, `useDistricts`, `convex.cloud` SW rule, `VITE_CONVEX_URL` from `.env.example`/`vite-env.d.ts`/Netlify; update README | — |
 
 ## 12. Monthly cost at free tier (estimate)
 
 | Resource | Usage | Free limit |
 |---|---|---|
-| R2 writes | ≈ 300 k (26 k JSON + 262 k images + alert tier) | 1 M |
+| R2 writes | ≈ 320 k (water-level JSON ≈ 35 k + camera images ≈ 262 k + camera re-publish ≈ 9 k + alert tier) | 1 M |
 | R2 reads | CDN-cached; origin reads ≪ 10 M | 10 M |
 | R2 storage | < 50 MB | 10 GB |
 | R2 egress | unlimited | free |
-| Convex function calls | ≈ 150 k (water-level cron ≈ 110 k + camera crons ≈ 40 k) + logged-in users | 1 M |
+| Convex function calls | ≈ 150 k (water-level cron ≈ 110 k + camera crons ≈ 40 k) | 1 M |
 | Netlify bandwidth | static bundle only | 100 GB |
-| Netlify edge invocations | OG only, 5-min cached | 3 M |
+| Netlify edge invocations | `station-meta` on direct `/stations/:id` loads (bots + humans pass-through) + `og-image` (5-min cached) | 1 M |
