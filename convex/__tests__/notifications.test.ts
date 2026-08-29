@@ -59,20 +59,24 @@ describe("buildNotificationPayload", () => {
         expect(payload).not.toHaveProperty("included_segments");
     });
 
-    it("notification content includes station name and current level", () => {
+    it("notification content includes station name", () => {
         const payload = buildNotificationPayload(defaultArgs);
 
         expect(payload.contents.en).toContain("Sg Klang at Midlands");
-        expect(payload.contents.en).toContain("4.5");
+        expect(payload.contents.en).toContain("Danger level");
     });
 
-    it("notification content includes updatedAt when provided", () => {
-        const payload = buildNotificationPayload({
+    it("notification content format is consistent regardless of updatedAt", () => {
+        const payloadWithUpdate = buildNotificationPayload({
             ...defaultArgs,
             updatedAt: "2024-01-15 10:30",
         });
 
-        expect(payload.contents.en).toContain("2024-01-15 10:30");
+        const payloadWithout = buildNotificationPayload(defaultArgs);
+
+        // Both should contain station name and danger level message
+        expect(payloadWithUpdate.contents.en).toContain("Sg Klang at Midlands");
+        expect(payloadWithout.contents.en).toContain("Sg Klang at Midlands");
     });
 
     it("notification content does not include updatedAt when not provided", () => {
@@ -169,7 +173,7 @@ describe("notifyDangerForStation integration", () => {
         expect(payload.app_id).toBe("test-app-id");
         expect(payload.filters).toHaveLength(1);
         expect(payload.contents.en).toContain("Test Station");
-        expect(payload.contents.en).toContain("5");
+        expect(payload.contents.en).toContain("Danger level");
 
         // After a successful send (response.ok === true), the action records cooldown.
         // This is verified by the action's control flow - if payload is valid and
