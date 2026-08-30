@@ -48,4 +48,23 @@ describe("useSnapshot", () => {
         await act(() => refreshSnapshots());
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
+
+    it("registers visibility listeners once per store, not per subscriber", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(json({ items: [] }));
+        vi.stubGlobal("fetch", fetchMock);
+        renderHook(() => useSnapshot("trends"));
+        renderHook(() => useSnapshot("trends"));
+        renderHook(() => useSnapshot("trends"));
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+        await act(async () => {
+            Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+            document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+        await act(async () => {
+            await new Promise((r) => setTimeout(r, 0));
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
 });
