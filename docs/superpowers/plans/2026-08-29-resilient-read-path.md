@@ -40,8 +40,8 @@
 
 - [ ] **Step 1: Cloudflare console (manual)**
 
-1. R2 → Create bucket `riverlevel-snapshot-dev`; enable the `r2.dev` public URL (Settings → Public access). Note the URL, e.g. `https://pub-xxxx.r2.dev`.
-2. R2 → Create bucket `riverlevel-snapshot`; Settings → Custom Domains → connect `cdn.<your-domain>`.
+1. R2 → Create bucket `riverlevel-snapshot-dev`; Settings → Public access → R2.dev subdomain → Allow Access. Note the URL, e.g. `https://pub-xxxx.r2.dev`.
+2. R2 → Create bucket `riverlevel-snapshot`; enable its R2.dev subdomain the same way and note its URL (this is the production `VITE_SNAPSHOT_BASE_URL` for now). No custom domain yet — decision 2026-08-30; when one is on Cloudflare, Settings → Custom Domains → connect `cdn.<domain>` and update the Netlify env var.
 3. On **both** buckets, Settings → CORS policy:
 
 ```json

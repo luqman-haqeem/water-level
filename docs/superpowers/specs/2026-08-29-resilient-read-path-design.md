@@ -57,7 +57,7 @@ the fallback itself gets the traffic spike.**
 | Scope | Full resilience pass: scale, staleness UX, camera cache, OG images | Partial fixes |
 | Budget | Free tiers; Netlify + Convex stay; add Cloudflare | Paying for Convex/Netlify Pro |
 | Public read path | **Always** read a static JSON snapshot. After cleanup the browser opens **no Convex connection at all** (nothing on `main` needs one: notifications are OneSignal tags, subscriptions live in localStorage) | "Convex first, snapshot fallback" (two code paths, Convex still eats the spike); "cache + badges only" (doesn't protect quotas) |
-| Snapshot storage | **Cloudflare R2**, public bucket on a custom subdomain of the owner's existing Cloudflare domain | Netlify Blobs (same vendor as frontend; counts against 100 GB/month bandwidth); `r2.dev` (rate-limited, uncached); `workers.dev` (100 k req/day cap) |
+| Snapshot storage | **Cloudflare R2** public bucket. **Decision 2026-08-30: no custom domain yet — start on the free `pub-*.r2.dev` URL** (documented by Cloudflare as rate-limited and uncached) and move to `cdn.<domain>` once a domain is on Cloudflare; the switch is an env-var change (`VITE_SNAPSHOT_BASE_URL`) + redeploy, no code change | Netlify Blobs (same vendor as frontend; counts against 100 GB/month bandwidth); `workers.dev` (100 k req/day cap); proxying JSON through a Netlify redirect (puts Netlify back in the hot path) |
 | Scraper location | **Stays in Convex**; adds an "upload to R2" step | Cloudflare Worker scraper: Workers free plan allows 50 subrequests per invocation — a scrape (10 district calls + 91 image fetches + 91 R2 puts) can't fit without Workers Paid + Queues. Documented as a future upgrade (§10). |
 | Frontend consumption | Browser fetches R2 JSON directly with ETag polling | Build-time prerender per station (couples deploys to data); Netlify function proxying R2 (functions back in the hot path) |
 | OG tags for an SPA | **Bot-only edge function** on `/stations/:id` that serves a tiny HTML with `og:*` tags; humans pass through to the static shell | HTMLRewriter on every response (Netlify Edge lacks a native one); prerendering 270 HTML files at build |
@@ -106,8 +106,11 @@ Properties:
 ## 4. Cloudflare setup (one-time, manual)
 
 1. Create R2 buckets `riverlevel-snapshot` (prod) and `riverlevel-snapshot-dev`.
-2. Public access: connect custom domain `cdn.<domain>` to the prod bucket
-   (R2 → bucket → Settings → Custom Domains). Enable `r2.dev` on the dev bucket.
+2. Public access: on **both** buckets enable the `r2.dev` subdomain (R2 → bucket →
+   Settings → Public access → R2.dev subdomain → Allow) and note each
+   `https://pub-<hash>.r2.dev` URL. Later, when a domain is on Cloudflare, connect
+   `cdn.<domain>` to the prod bucket (Settings → Custom Domains) and change
+   `VITE_SNAPSHOT_BASE_URL` in Netlify — nothing else changes.
 3. CORS policy on both buckets:
    ```json
    [{
@@ -133,7 +136,7 @@ R2_BUCKET                      # riverlevel-snapshot | riverlevel-snapshot-dev
 Netlify (dashboard) / `.env.local`:
 
 ```
-VITE_SNAPSHOT_BASE_URL         # https://cdn.<domain>   (no trailing slash)
+VITE_SNAPSHOT_BASE_URL         # https://pub-<hash>.r2.dev now; https://cdn.<domain> later (no trailing slash)
 VITE_DATA_SOURCE               # snapshot | convex   (phase-2 rollback switch, removed in phase 5)
 VITE_SITE_URL                  # https://riverlevel.netlify.app (already exists; used by edge fns)
 ```
