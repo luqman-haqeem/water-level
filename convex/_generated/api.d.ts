@@ -25,6 +25,8 @@ import type * as stations from "../stations.js";
 import type * as sync_cameraUpdater from "../sync/cameraUpdater.js";
 import type * as sync_changeDetection from "../sync/changeDetection.js";
 import type * as sync_jpsDate from "../sync/jpsDate.js";
+import type * as sync_snapshotBuilder from "../sync/snapshotBuilder.js";
+import type * as sync_snapshotPublisher from "../sync/snapshotPublisher.js";
 import type * as sync_stationUpdater from "../sync/stationUpdater.js";
 import type * as sync_waterLevelUpdater from "../sync/waterLevelUpdater.js";
 import type * as syncState from "../syncState.js";
@@ -52,6 +54,8 @@ declare const fullApi: ApiFromModules<{
   "sync/cameraUpdater": typeof sync_cameraUpdater;
   "sync/changeDetection": typeof sync_changeDetection;
   "sync/jpsDate": typeof sync_jpsDate;
+  "sync/snapshotBuilder": typeof sync_snapshotBuilder;
+  "sync/snapshotPublisher": typeof sync_snapshotPublisher;
   "sync/stationUpdater": typeof sync_stationUpdater;
   "sync/waterLevelUpdater": typeof sync_waterLevelUpdater;
   syncState: typeof syncState;
