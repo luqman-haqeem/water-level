@@ -8,12 +8,16 @@ import {
     LocationIcon,
 } from '@/components/icons/IconLibrary'
 import { Id } from "../../convex/_generated/dataModel"
+import { cameraImageUrl } from "@/lib/cameraImageUrl"
+import { snapshotBaseUrl } from "@/lib/snapshotEnv"
+import formatTimestamp from "@/utils/timeUtils"
 
 interface Camera {
     id: Id<"cameras"> | number
     camera_name: string
     img_url: string | undefined
     jps_camera_id: string
+    captured_at?: string | null
     districts: {
         name: string
     }
@@ -34,7 +38,7 @@ export default function CameraCard({
     const [hasImageError, setHasImageError] = useState(false)
     const [imageKey, setImageKey] = useState(0)
 
-    const imageUrl = `/api/proxy-image/${camera.jps_camera_id}`
+    const imageUrl = cameraImageUrl(snapshotBaseUrl(), camera.jps_camera_id, camera.captured_at)
 
     const handleImageLoad = () => {
         setIsImageLoading(false)
@@ -90,6 +94,12 @@ export default function CameraCard({
                             onLoad={handleImageLoad}
                             loading="lazy"
                         />
+
+                        {camera.captured_at && (
+                            <span className="absolute bottom-1 right-2 text-[11px] text-white/90 bg-black/50 px-1.5 py-0.5 rounded">
+                                Captured {formatTimestamp(camera.captured_at)}
+                            </span>
+                        )}
 
                         {/* Loading spinner */}
                         {isImageLoading && (

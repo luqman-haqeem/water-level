@@ -20,6 +20,8 @@ import { useStationSubscription } from "@/hooks/useStationSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
+import { cameraImageUrl } from "@/lib/cameraImageUrl";
+import { snapshotBaseUrl } from "@/lib/snapshotEnv";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -439,14 +441,22 @@ export function StationDetailRoute() {
                                     <div
                                         onClick={() =>
                                             openFullscreen(
-                                                `/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`
+                                                cameraImageUrl(
+                                                    snapshotBaseUrl(),
+                                                    currentStation?.cameras?.jps_camera_id ?? "",
+                                                    currentStation?.cameras?.captured_at
+                                                )
                                             )
                                         }
                                         className="relative cursor-pointer"
                                     >
                                         <img
                                             key={currentStation.current_levels?.updated_at?.toString()}
-                                            src={`/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`}
+                                            src={cameraImageUrl(
+                                                snapshotBaseUrl(),
+                                                currentStation.cameras.jps_camera_id,
+                                                currentStation.cameras.captured_at
+                                            )}
                                             alt="Live camera feed"
                                             className="w-full rounded-md"
                                             onError={(e) =>

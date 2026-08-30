@@ -7,6 +7,8 @@ import { useCameras } from "@/hooks/useCameras";
 import { refreshSnapshots } from "@/hooks/useSnapshot";
 import usePullToRefresh from "@/hooks/usePullToRefresh";
 import PullToRefreshIndicator from "@/components/PullToRefreshIndicator";
+import { cameraImageUrl } from "@/lib/cameraImageUrl";
+import { snapshotBaseUrl } from "@/lib/snapshotEnv";
 
 export function CamerasRoute() {
     // Search state
@@ -70,7 +72,7 @@ export function CamerasRoute() {
     const getCurrentCameraIndex = () => {
         return filteredCameras.findIndex(
             (camera) =>
-                `/api/proxy-image/${camera.jps_camera_id}` ===
+                cameraImageUrl(snapshotBaseUrl(), camera.jps_camera_id, camera.captured_at) ===
                 fullscreenImageSrc
         );
     };
@@ -100,7 +102,7 @@ export function CamerasRoute() {
         const newCamera = filteredCameras[newIndex];
         if (newCamera) {
             setFullscreenImageSrc(
-                `/api/proxy-image/${newCamera.jps_camera_id}`
+                cameraImageUrl(snapshotBaseUrl(), newCamera.jps_camera_id, newCamera.captured_at)
             );
         }
     };

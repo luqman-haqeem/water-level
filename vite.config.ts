@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
     const snapshotJsonPattern = snapshotBase
         ? new RegExp(`^${escapeRegExp(snapshotBase)}/[a-z]+\\.json$`, "i")
         : /$^/;
+    const cameraImagePattern = snapshotBase
+        ? new RegExp(`^${escapeRegExp(snapshotBase)}/cam/.+\\.jpg`, "i")
+        : /$^/;
 
     return {
         plugins: [
@@ -84,19 +87,13 @@ export default defineConfig(({ mode }) => {
                             },
                         },
                         {
-                            // Cache camera proxy images with network-first (show latest, fallback to cached)
-                            urlPattern: /\/api\/proxy-image\/.*/i,
-                            handler: "NetworkFirst",
+                            // Mirrored CCTV frames: show cached instantly, refresh in background
+                            urlPattern: cameraImagePattern,
+                            handler: "StaleWhileRevalidate",
                             options: {
-                                cacheName: "camera-images-cache",
-                                expiration: {
-                                    maxEntries: 50,
-                                    maxAgeSeconds: 60 * 15, // 15 minutes (matches cron sync interval)
-                                },
-                                cacheableResponse: {
-                                    statuses: [0, 200],
-                                },
-                                networkTimeoutSeconds: 10,
+                                cacheName: "camera-images",
+                                expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 },
+                                cacheableResponse: { statuses: [0, 200] },
                             },
                         },
                         {
