@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.hoisted(() => {
     vi.stubEnv("VITE_SNAPSHOT_BASE_URL", "https://cdn.test");
-    vi.stubEnv("VITE_DATA_SOURCE", "snapshot");
 });
 
 import { resetSnapshotStoresForTests } from "@/hooks/useSnapshot";

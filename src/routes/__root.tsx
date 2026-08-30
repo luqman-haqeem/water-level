@@ -1,6 +1,4 @@
 import { Outlet } from "@tanstack/react-router";
-import { ConvexProvider } from "convex/react";
-import { convex } from "@/lib/convexClient";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -26,17 +24,15 @@ export function RootLayout() {
     return (
         <ErrorBoundary>
             <PostHogProvider client={posthog}>
-                <ConvexProvider client={convex}>
-                    <ThemeProvider>
-                        <OfflineBanner />
-                        <DataFreshnessBanner />
-                        <Layout>
-                            <ErrorBoundary>
-                                <Outlet />
-                            </ErrorBoundary>
-                        </Layout>
-                    </ThemeProvider>
-                </ConvexProvider>
+                <ThemeProvider>
+                    <OfflineBanner />
+                    <DataFreshnessBanner />
+                    <Layout>
+                        <ErrorBoundary>
+                            <Outlet />
+                        </ErrorBoundary>
+                    </Layout>
+                </ThemeProvider>
             </PostHogProvider>
         </ErrorBoundary>
     );

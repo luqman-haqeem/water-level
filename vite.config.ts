@@ -96,24 +96,6 @@ export default defineConfig(({ mode }) => {
                                 cacheableResponse: { statuses: [0, 200] },
                             },
                         },
-                        {
-                            // Cache Convex API responses with network-first
-                            // This ensures latest data is shown when online,
-                            // but cached data is available when offline
-                            urlPattern: /^https:\/\/.*\.convex\.cloud\/.*/i,
-                            handler: "NetworkFirst",
-                            options: {
-                                cacheName: "convex-api-cache",
-                                expiration: {
-                                    maxEntries: 100,
-                                    maxAgeSeconds: 60 * 30, // 30 minutes
-                                },
-                                cacheableResponse: {
-                                    statuses: [0, 200],
-                                },
-                                networkTimeoutSeconds: 10,
-                            },
-                        },
                     ],
                 },
             }),

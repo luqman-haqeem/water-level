@@ -5,10 +5,6 @@ export function snapshotBaseUrl(): string {
     return (import.meta.env.VITE_SNAPSHOT_BASE_URL ?? "").replace(/\/+$/, "");
 }
 
-export function dataSource(): "snapshot" | "convex" {
-    return import.meta.env.VITE_DATA_SOURCE === "convex" ? "convex" : "snapshot";
-}
-
 export function requireSnapshotBaseUrl(): string {
     const base = snapshotBaseUrl();
     if (!base) {

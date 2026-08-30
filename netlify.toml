@@ -5,8 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
-  # VITE_CONVEX_URL must be set via Netlify dashboard environment variables (not committed to source control)
-  # VITE_SNAPSHOT_BASE_URL and VITE_DATA_SOURCE are set in the Netlify dashboard.
+  # VITE_SNAPSHOT_BASE_URL and VITE_SITE_URL are set in the Netlify dashboard.
 
 # Headers for better caching
 [[headers]]
