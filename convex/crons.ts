@@ -15,10 +15,12 @@ const crons = cronJobs();
 // To manually trigger any function:
 //   npx convex run sync.waterLevelUpdater.updateWaterLevels
 
-// Update water levels every 15 minutes
+// Update water levels every 5 minutes. JPS publishes irregularly (15 min nominal,
+// 25 min–hours under load); polling often and skipping unchanged data keeps our
+// lag minimal without extra DB writes (see sync/changeDetection.ts).
 crons.interval(
     "update water levels",
-    { minutes: 15 },
+    { minutes: 5 },
     api.sync.waterLevelUpdater.updateWaterLevels
 );
 
