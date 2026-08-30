@@ -11,6 +11,10 @@ describe("convertJpsDateToIso", () => {
         expect(convertJpsDateToIso("01/01/2026 03:00:00")).toBe("2025-12-31T19:00:00.000Z");
     });
 
+    it("accepts unpadded day, month and hour components", () => {
+        expect(convertJpsDateToIso("1/8/2025 9:05:00")).toBe("2025-08-01T01:05:00.000Z");
+    });
+
     it("returns an ISO string for garbage input instead of throwing", () => {
         const out = convertJpsDateToIso("not a date");
         expect(() => new Date(out).toISOString()).not.toThrow();

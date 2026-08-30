@@ -1,7 +1,8 @@
 const MALAYSIA_OFFSET_MS = 8 * 60 * 60 * 1000;
 
-// "DD/MM/YYYY HH:mm:ss" — used by JPS station records (lastUpdate)
-const LEGACY_RE = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
+// "DD/MM/YYYY HH:mm:ss" — used by JPS station records (lastUpdate); day, month
+// and hour are sometimes emitted unpadded ("1/8/2025 9:05:00")
+const LEGACY_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2})$/;
 // "YYYY-MM-DDTHH:mm[:ss]" or "YYYY-MM-DD HH:mm[:ss]" without a zone — used by
 // JPS district summaries (allLastUpdated); wall-clock time in Asia/Kuala_Lumpur
 const LOCAL_ISO_RE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/;
