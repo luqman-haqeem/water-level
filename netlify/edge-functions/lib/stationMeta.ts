@@ -2,7 +2,7 @@
 // they run under Vitest too.
 
 export const CRAWLER_UA =
-    /facebookexternalhit|facebot|twitterbot|whatsapp|telegrambot|linkedinbot|slackbot|discordbot|googlebot|bingbot|pinterest|skypeuripreview|applebot/i;
+    /facebookexternalhit|facebot|twitterbot|whatsapp|telegrambot|linkedinbot|slackbot|discordbot|googlebot|bingbot|pinterestbot|skypeuripreview|applebot/i;
 
 export function isCrawler(userAgent: string | null): boolean {
     return !!userAgent && CRAWLER_UA.test(userAgent);
@@ -68,7 +68,9 @@ export function buildStationMetaHtml(input: {
         tag(`name="twitter:title" content="${escapeHtml(title)}"`),
         tag(`name="twitter:description" content="${escapeHtml(description)}"`),
         tag(`name="twitter:image" content="${imageUrl}"`),
-        tag(`http-equiv="refresh" content="0;url=${pageUrl}"`),
+        // No meta refresh: this document is only served to crawlers, and a
+        // refresh back to the same URL risks a redirect loop for anything the
+        // UA test misclassifies. The anchor is enough for a human who lands here.
         `</head><body><a href="${pageUrl}">${escapeHtml(title)}</a></body></html>`,
     ].join("\n");
 }
