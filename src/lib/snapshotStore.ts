@@ -104,7 +104,9 @@ export function createSnapshotStore<T>(options: SnapshotStoreOptions): SnapshotS
             const response = await fetchImpl(url, { headers, cache: "no-cache" });
             if (response.status === 304) {
                 failures = 0;
-                setState({ error: null, isLoading: false });
+                // Nothing changed upstream — only notify if this run actually
+                // clears something, so a steady poll causes no re-renders.
+                if (state.error !== null || state.isLoading) setState({ error: null, isLoading: false });
                 return;
             }
             if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);

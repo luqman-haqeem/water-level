@@ -59,6 +59,30 @@ describe("createSnapshotStore", () => {
         store.stop();
     });
 
+    it("does not notify subscribers on a no-op 304", async () => {
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValueOnce(json({ items: [1] }, { headers: { etag: '"e1"' } }))
+            .mockResolvedValueOnce(new Response(null, { status: 304 }));
+        const store = createSnapshotStore<{ items: number[] }>({
+            baseUrl: "https://cdn.test", file: "meta", fetchImpl, storage: null, pollMs: 120_000,
+        });
+        const listener = vi.fn();
+        store.subscribe(listener);
+        store.start();
+        await vi.advanceTimersByTimeAsync(0);
+
+        const callsAfterFirstLoad = listener.mock.calls.length;
+        const stateAfterFirstLoad = store.getState();
+
+        await vi.advanceTimersByTimeAsync(120_000);
+
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+        expect(listener).toHaveBeenCalledTimes(callsAfterFirstLoad);
+        expect(store.getState()).toBe(stateAfterFirstLoad);
+        store.stop();
+    });
+
     it("hydrates from storage before the network answers and flags fromCache", async () => {
         const storage = memoryStorage();
         storage.setItem("snapshot:cameras", JSON.stringify({ data: { items: ["cached"] }, etag: '"old"', fetchedAt: 5 }));
