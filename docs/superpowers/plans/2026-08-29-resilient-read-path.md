@@ -1553,7 +1553,7 @@ export function snapshotBaseUrl(): string {
 }
 
 export function dataSource(): "snapshot" | "convex" {
-    return import.meta.env.VITE_dataSource() === "convex" ? "convex" : "snapshot";
+    return import.meta.env.VITE_DATA_SOURCE === "convex" ? "convex" : "snapshot";
 }
 
 export function requireSnapshotBaseUrl(): string {
