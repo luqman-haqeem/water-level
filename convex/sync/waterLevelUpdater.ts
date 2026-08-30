@@ -2,7 +2,7 @@ import { action, internalMutation, ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { convertJpsDateToIso } from "./jpsDate";
-import { computeJpsFingerprint, latestJpsUpdate } from "./changeDetection";
+import { computeJpsFingerprint, fingerprintToRecord, latestJpsUpdate } from "./changeDetection";
 import { fetchWithRetry } from "../lib/fetchWithRetry";
 import { WATER_LEVELS_KEY } from "../lib/syncKeys";
 
@@ -149,6 +149,7 @@ export const updateWaterLevels = action({
 
         // 3. District station data (per-district failures are warn-and-continue)
         let totalStationsSaved = 0;
+        let failedDistricts = 0;
         for (const district of summaryData) {
             try {
                 const districtResponse = await fetchWithRetry(
@@ -199,16 +200,47 @@ export const updateWaterLevels = action({
                 );
                 if (result.success) totalStationsSaved += result.stationsCount;
             } catch (error) {
+                failedDistricts += 1;
                 console.warn(`Failed to fetch district ${district.districtId}: ${error}`);
             }
         }
 
-        // 4. Record success and publish the full snapshot
+        // Every district failed: JPS answered the summary but served nothing
+        // else, so treat the run as an upstream outage, not a successful sync.
+        if (summaryData.length > 0 && failedDistricts === summaryData.length) {
+            const message = `All ${summaryData.length} district fetches failed`;
+            console.error(`❌ ${message}`);
+            await ctx.runMutation(internal.syncState.record, {
+                key: WATER_LEVELS_KEY,
+                attemptedAt,
+                status: "upstream_error",
+                error: message,
+            });
+            await publishQuietly(ctx, false);
+            return {
+                success: false,
+                changed: false,
+                districtsCount: summaryData.length,
+                stationsCount: 0,
+                overallStatus,
+                timestamp: attemptedAt,
+                error: message,
+            };
+        }
+
+        if (failedDistricts > 0) {
+            console.warn(
+                `${failedDistricts} district fetch(es) failed; fingerprint not recorded so the next run retries`
+            );
+        }
+
+        // 4. Record success and publish the full snapshot. When some districts
+        // failed the fingerprint is withheld so the next run re-fetches them.
         await ctx.runMutation(internal.syncState.record, {
             key: WATER_LEVELS_KEY,
             attemptedAt,
             status: "ok",
-            fingerprint,
+            fingerprint: fingerprintToRecord(fingerprint, failedDistricts),
             jpsLastUpdate,
             syncedAt: attemptedAt,
         });

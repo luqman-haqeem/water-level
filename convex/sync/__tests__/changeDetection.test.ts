@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { computeJpsFingerprint, latestJpsUpdate } from "../changeDetection";
+import { computeJpsFingerprint, fingerprintToRecord, latestJpsUpdate } from "../changeDetection";
 
 const districts = [
     { districtId: 3, allLastUpdated: "29/08/2026 15:45:00" },
@@ -24,6 +24,16 @@ describe("computeJpsFingerprint", () => {
 
     it("is empty for no districts", () => {
         expect(computeJpsFingerprint([])).toBe("");
+    });
+});
+
+describe("fingerprintToRecord", () => {
+    it("returns the fingerprint when every district fetch succeeded", () => {
+        expect(fingerprintToRecord("x", 0)).toBe("x");
+    });
+
+    it("withholds the fingerprint when any district fetch failed", () => {
+        expect(fingerprintToRecord("x", 1)).toBeUndefined();
     });
 });
 

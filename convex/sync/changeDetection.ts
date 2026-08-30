@@ -16,6 +16,16 @@ export function computeJpsFingerprint(districts: DistrictStamp[]): string {
         .join("|");
 }
 
+/**
+ * Fingerprint to persist after a run. If any district fetch failed we must NOT
+ * remember the new fingerprint, otherwise the next run would take the
+ * "unchanged" path and the failed district would stay stale until JPS's
+ * timestamps move again (hours, during a flood).
+ */
+export function fingerprintToRecord(fingerprint: string, failedDistricts: number): string | undefined {
+    return failedDistricts > 0 ? undefined : fingerprint;
+}
+
 /** Most recent JPS allLastUpdated across districts, as UTC ISO; null if none. */
 export function latestJpsUpdate(districts: DistrictStamp[]): string | null {
     let latest: string | null = null;
