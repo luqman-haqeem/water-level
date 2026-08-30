@@ -4,6 +4,7 @@ import { convex } from "@/lib/convexClient";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { DataFreshnessBanner } from "@/components/DataFreshnessBanner";
 import Layout from "@/components/layout";
 import { useEffect } from "react";
 import posthog from "posthog-js";
@@ -28,6 +29,7 @@ export function RootLayout() {
                 <ConvexProvider client={convex}>
                     <ThemeProvider>
                         <OfflineBanner />
+                        <DataFreshnessBanner />
                         <Layout>
                             <ErrorBoundary>
                                 <Outlet />
