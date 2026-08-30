@@ -72,3 +72,10 @@ declare var Deno: {
         toObject(): Record<string, string>;
     };
 };
+
+// Netlify global available inside Edge Functions
+declare const Netlify: {
+    env: {
+        get(key: string): string | undefined;
+    };
+};
