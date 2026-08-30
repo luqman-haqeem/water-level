@@ -1,7 +1,10 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.stubEnv("VITE_SNAPSHOT_BASE_URL", "https://cdn.test");
+vi.hoisted(() => {
+    vi.stubEnv("VITE_SNAPSHOT_BASE_URL", "https://cdn.test");
+    vi.stubEnv("VITE_DATA_SOURCE", "snapshot");
+});
 
 import { useSnapshot, resetSnapshotStoresForTests, refreshSnapshots } from "@/hooks/useSnapshot";
 
