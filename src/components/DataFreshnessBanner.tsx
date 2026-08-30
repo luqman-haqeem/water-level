@@ -9,7 +9,8 @@ const ago = (iso: string | null) => (iso ? formatTimestamp(iso) : "unknown");
 
 /**
  * Global banner explaining *why* data may be old: JPS lagging, JPS unreachable,
- * or our own snapshot server unreachable. Sits under OfflineBanner.
+ * our own snapshot server unreachable, or our own snapshot gone stale (publish
+ * failure / dead cron / stale service-worker copy). Sits under OfflineBanner.
  */
 export function DataFreshnessBanner() {
     const isOnline = useOnlineStatus();
@@ -31,7 +32,9 @@ export function DataFreshnessBanner() {
             ? `JPS last reported ${ago(state.jpsLastUpdate)}. Their feed is lagging — we last checked ${ago(state.attemptedAt)}.`
             : state.kind === "upstream-down"
               ? `Can't reach JPS since ${ago(state.since)}. Showing last good data from ${ago(state.lastGood)}.`
-              : `Can't reach the data server — showing data saved on this device ${ago(state.lastGood)}.`;
+              : state.kind === "snapshot-stale"
+                ? `Data may be out of date — last successful check ${ago(state.attemptedAt)}.`
+                : `Can't reach the data server — showing data saved on this device ${ago(state.lastGood)}.`;
 
     return (
         <div

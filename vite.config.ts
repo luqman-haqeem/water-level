@@ -10,8 +10,11 @@ export default defineConfig(({ mode }) => {
     const snapshotBase = (env.VITE_SNAPSHOT_BASE_URL ?? "").replace(/\/+$/, "");
     // Workbox serialises runtimeCaching into the SW file, so patterns must be
     // literal RegExps (a closure over `snapshotBase` would not survive).
+    // meta.json is deliberately excluded: the snapshot store keeps its own
+    // localStorage copy and must see real fetch errors (and real attemptedAt
+    // values) rather than a service-worker cache hit that looks fresh.
     const snapshotJsonPattern = snapshotBase
-        ? new RegExp(`^${escapeRegExp(snapshotBase)}/[a-z]+\\.json$`, "i")
+        ? new RegExp(`^${escapeRegExp(snapshotBase)}/(stations|cameras|trends)\\.json$`, "i")
         : /$^/;
     const cameraImagePattern = snapshotBase
         ? new RegExp(`^${escapeRegExp(snapshotBase)}/cam/.+\\.jpg`, "i")

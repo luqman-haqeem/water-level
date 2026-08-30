@@ -30,6 +30,21 @@ describe("getFreshnessState", () => {
         expect(getFreshnessState(meta, null, NOW)).toEqual({ kind: "upstream-down", since: meta.attemptedAt, lastGood: null });
     });
 
+    it("is snapshot-stale when our own last attempt is older than the threshold", () => {
+        const meta = { status: "ok" as const, syncedAt: iso(16 * 60_000), attemptedAt: iso(16 * 60_000), jpsLastUpdate: iso(60_000) };
+        expect(getFreshnessState(meta, null, NOW)).toEqual({ kind: "snapshot-stale", attemptedAt: meta.attemptedAt });
+    });
+
+    it("is fresh when the last attempt is still inside the threshold", () => {
+        const meta = { status: "ok" as const, syncedAt: iso(14 * 60_000), attemptedAt: iso(14 * 60_000), jpsLastUpdate: iso(60_000) };
+        expect(getFreshnessState(meta, null, NOW)).toEqual({ kind: "fresh" });
+    });
+
+    it("prefers snapshot-stale over jps-lagging when both apply", () => {
+        const meta = { status: "ok" as const, syncedAt: iso(16 * 60_000), attemptedAt: iso(16 * 60_000), jpsLastUpdate: iso(2 * 3_600_000) };
+        expect(getFreshnessState(meta, null, NOW)).toEqual({ kind: "snapshot-stale", attemptedAt: meta.attemptedAt });
+    });
+
     it("is snapshot-unreachable when the fetch fails, keeping cached lastGood", () => {
         const cached = { status: "ok" as const, syncedAt: iso(600_000), attemptedAt: iso(600_000), jpsLastUpdate: iso(600_000) };
         expect(getFreshnessState(cached, new Error("HTTP 502"), NOW)).toEqual({ kind: "snapshot-unreachable", lastGood: cached.syncedAt });

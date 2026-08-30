@@ -35,6 +35,13 @@ describe("DataFreshnessBanner", () => {
         expect(screen.getByRole("alert")).toHaveTextContent(/Can't reach JPS/i);
     });
 
+    it("shows the snapshot-stale message with role=status when our own check is old", () => {
+        const stale = new Date(Date.now() - 16 * 60_000).toISOString();
+        useSnapshotMock.mockReturnValue({ ...base, error: null, data: { status: "ok", syncedAt: stale, attemptedAt: stale, jpsLastUpdate: new Date().toISOString() } });
+        render(<DataFreshnessBanner />);
+        expect(screen.getByRole("status")).toHaveTextContent(/Data may be out of date — last successful check/i);
+    });
+
     it("shows the unreachable message when meta fails to load", () => {
         useSnapshotMock.mockReturnValue({ ...base, error: new Error("HTTP 502"), data: undefined });
         render(<DataFreshnessBanner />);
