@@ -8,10 +8,14 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "VITE_");
     const snapshotBase = (env.VITE_SNAPSHOT_BASE_URL ?? "").replace(/\/+$/, "");
-    // Without it the app has no data source at all, so fail loudly at build
-    // time rather than shipping a bundle that fetches "/stations.json".
-    if (mode === "production" && !snapshotBase) {
-        throw new Error("VITE_SNAPSHOT_BASE_URL must be set for production builds (Netlify env).");
+    // Without it the app has no data source at all, so fail loudly on a real
+    // deploy build (Netlify sets NETLIFY=true) rather than shipping a bundle
+    // that fetches "/stations.json". CI's verification build has no deploy
+    // env and must keep passing, so the guard is keyed on the deployer, not
+    // on Vite's mode.
+    const isDeployBuild = process.env.NETLIFY === "true";
+    if (isDeployBuild && mode === "production" && !snapshotBase) {
+        throw new Error("VITE_SNAPSHOT_BASE_URL must be set for Netlify deploy builds (set it in the Netlify dashboard).");
     }
     // Workbox serialises runtimeCaching into the SW file, so patterns must be
     // literal RegExps (a closure over `snapshotBase` would not survive).
