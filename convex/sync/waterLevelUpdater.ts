@@ -1,6 +1,7 @@
 import { action, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { convertJpsDateToIso } from "./jpsDate";
 
 const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
@@ -47,38 +48,6 @@ interface JpsStationData {
 
 interface JpsDistrictStationsResponse {
     stations: JpsStationData[];
-}
-
-// Helper function to convert JPS date format (DD/MM/YYYY HH:mm:ss) to ISO string
-// JPS provides Malaysian local time (UTC+8), we need to convert to UTC
-function convertJpsDateToIso(jpsDate: string): string {
-    if (!jpsDate) return new Date().toISOString();
-
-    try {
-        // JPS format: "21/08/2025 21:15:00" (Malaysian local time UTC+8)
-        const [datePart, timePart] = jpsDate.split(" ");
-        const [day, month, year] = datePart.split("/");
-        const [hour, minute, second] = timePart.split(":");
-
-        // Create Date object in Malaysian timezone (UTC+8)
-        // First create as if it's UTC, then subtract 8 hours to convert from Malaysian time to UTC
-        const malaysianDate = new Date(
-            parseInt(year),
-            parseInt(month) - 1,
-            parseInt(day),
-            parseInt(hour),
-            parseInt(minute),
-            parseInt(second)
-        );
-
-        // Subtract 8 hours to convert from Malaysian time (UTC+8) to UTC
-        const utcDate = new Date(malaysianDate.getTime() - 8 * 60 * 60 * 1000);
-
-        return utcDate.toISOString();
-    } catch (error) {
-        console.warn(`Failed to convert JPS date "${jpsDate}":`, error);
-        return new Date().toISOString();
-    }
 }
 
 export const updateWaterLevels = action({
