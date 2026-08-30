@@ -8,6 +8,11 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "VITE_");
     const snapshotBase = (env.VITE_SNAPSHOT_BASE_URL ?? "").replace(/\/+$/, "");
+    // Without it the app has no data source at all, so fail loudly at build
+    // time rather than shipping a bundle that fetches "/stations.json".
+    if (mode === "production" && !snapshotBase) {
+        throw new Error("VITE_SNAPSHOT_BASE_URL must be set for production builds (Netlify env).");
+    }
     // Workbox serialises runtimeCaching into the SW file, so patterns must be
     // literal RegExps (a closure over `snapshotBase` would not survive).
     // meta.json is deliberately excluded: the snapshot store keeps its own
