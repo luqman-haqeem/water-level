@@ -24,6 +24,22 @@ crons.interval(
     api.sync.waterLevelUpdater.updateWaterLevels
 );
 
+// Mirror CCTV frames to R2. All cameras every 15 min keeps R2 writes ≈ 262k/month
+// (free tier: 1M); cameras at alert+ stations refresh every 5 min.
+crons.interval(
+    "mirror camera images (all)",
+    { minutes: 15 },
+    internal.sync.cameraImageSync.syncCameraImages,
+    { tier: "all" }
+);
+
+crons.interval(
+    "mirror camera images (alert)",
+    { minutes: 5 },
+    internal.sync.cameraImageSync.syncCameraImages,
+    { tier: "alert" }
+);
+
 // Update station metadata every week (Sundays at 2 AM UTC)
 crons.weekly(
     "sync station details",

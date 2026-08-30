@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getCamerasWithDetails = query({
@@ -62,5 +62,37 @@ export const getCamerasByStation = query({
       .withIndex("by_station", (q) => q.eq("stationId", stationId))
       .filter((q) => q.eq(q.field("isEnabled"), true))
       .collect();
+  },
+});
+
+/**
+ * Cameras to mirror. "all" = every enabled camera; "alert" = only cameras whose
+ * linked station is currently at alert level or above (refreshed more often).
+ */
+export const listForImageSync = internalQuery({
+  args: { tier: v.union(v.literal("all"), v.literal("alert")) },
+  handler: async (ctx, { tier }) => {
+    const cameras = await ctx.db
+      .query("cameras")
+      .withIndex("by_enabled", (q) => q.eq("isEnabled", true))
+      .collect();
+
+    let selected = cameras;
+    if (tier === "alert") {
+      const levels = await ctx.db.query("currentLevels").collect();
+      const elevated = new Set(
+        levels.filter((l) => l.alertLevel >= 1).map((l) => l.stationId)
+      );
+      selected = cameras.filter((c) => c.stationId !== undefined && elevated.has(c.stationId));
+    }
+
+    return selected.map((c) => ({ _id: c._id, jpsCameraId: c.jpsCameraId }));
+  },
+});
+
+export const setLastImageAt = internalMutation({
+  args: { cameraId: v.id("cameras"), capturedAt: v.string() },
+  handler: async (ctx, { cameraId, capturedAt }) => {
+    await ctx.db.patch(cameraId, { lastImageAt: capturedAt });
   },
 });

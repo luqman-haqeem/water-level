@@ -22,6 +22,7 @@ import type * as lib_syncKeys from "../lib/syncKeys.js";
 import type * as notifications from "../notifications.js";
 import type * as seedCoordinates from "../seedCoordinates.js";
 import type * as stations from "../stations.js";
+import type * as sync_cameraImageSync from "../sync/cameraImageSync.js";
 import type * as sync_cameraUpdater from "../sync/cameraUpdater.js";
 import type * as sync_changeDetection from "../sync/changeDetection.js";
 import type * as sync_jpsDate from "../sync/jpsDate.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   seedCoordinates: typeof seedCoordinates;
   stations: typeof stations;
+  "sync/cameraImageSync": typeof sync_cameraImageSync;
   "sync/cameraUpdater": typeof sync_cameraUpdater;
   "sync/changeDetection": typeof sync_changeDetection;
   "sync/jpsDate": typeof sync_jpsDate;
