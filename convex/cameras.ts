@@ -27,6 +27,7 @@ export const getCamerasWithDetails = query({
         camera_name: camera.cameraName,
         img_url: camera.imgUrl,
         jps_camera_id: camera.jpsCameraId,
+        captured_at: camera.lastImageAt ?? null,
         districts: {
           name: district?.name || "Unknown"
         }

@@ -69,7 +69,8 @@ export const getStationsWithDetails = query({
                 cameras: stationCamera ? {
                     img_url: stationCamera.imgUrl,
                     jps_camera_id: stationCamera.jpsCameraId,
-                    is_enabled: stationCamera.isEnabled
+                    is_enabled: stationCamera.isEnabled,
+                    captured_at: stationCamera.lastImageAt ?? null
                 } : null,
                 normal_water_level: station.normalWaterLevel || 0,
                 alert_water_level: station.alertWaterLevel || 0,
@@ -143,7 +144,8 @@ export const getStationsByDistrictWithDetails = query({
                 cameras: stationCamera ? {
                     img_url: stationCamera.imgUrl,
                     jps_camera_id: stationCamera.jpsCameraId,
-                    is_enabled: stationCamera.isEnabled
+                    is_enabled: stationCamera.isEnabled,
+                    captured_at: stationCamera.lastImageAt ?? null
                 } : null,
                 normal_water_level: station.normalWaterLevel || 0,
                 alert_water_level: station.alertWaterLevel || 0,
@@ -196,7 +198,8 @@ export const getStationDetailById = query({
             cameras: stationCamera ? {
                 img_url: stationCamera.imgUrl,
                 jps_camera_id: stationCamera.jpsCameraId,
-                is_enabled: stationCamera.isEnabled
+                is_enabled: stationCamera.isEnabled,
+                captured_at: stationCamera.lastImageAt ?? null
             } : null,
             normal_water_level: station.normalWaterLevel || 0,
             alert_water_level: station.alertWaterLevel || 0,
