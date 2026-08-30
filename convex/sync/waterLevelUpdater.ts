@@ -95,7 +95,11 @@ export const updateWaterLevels = action({
                 `${BASE_URL}/StationRiverLevels/GetWLStationSummary`,
                 { timeoutMs: 20_000, retries: 1, backoffMs: 5_000 }
             );
-            summaryData = await summaryResponse.json();
+            const parsed: unknown = await summaryResponse.json();
+            if (!Array.isArray(parsed)) {
+                throw new Error("JPS summary response is not an array");
+            }
+            summaryData = parsed as JpsDistrictSummary[];
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("❌ JPS summary fetch failed:", message);
