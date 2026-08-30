@@ -1,4 +1,5 @@
 import { useSnapshot } from "@/hooks/useSnapshot";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getFreshnessState } from "@/lib/freshness";
 import type { SnapshotMeta } from "@/lib/snapshotTypes";
 import formatTimestamp from "@/utils/timeUtils";
@@ -11,9 +12,11 @@ const ago = (iso: string | null) => (iso ? formatTimestamp(iso) : "unknown");
  * or our own snapshot server unreachable. Sits under OfflineBanner.
  */
 export function DataFreshnessBanner() {
+    const isOnline = useOnlineStatus();
     const { data: meta, error } = useSnapshot<SnapshotMeta>("meta");
     const state = getFreshnessState(meta, error, Date.now());
 
+    if (!isOnline) return null;
     if (state.kind === "fresh") return null;
 
     const tone =
