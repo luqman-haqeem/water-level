@@ -46,7 +46,7 @@ export const record = internalMutation({
             lastAttemptAt: args.attemptedAt,
             lastStatus: args.status,
             failingSince,
-            lastError: args.status === "upstream_error" ? args.error : undefined,
+            lastError: args.status === "upstream_error" ? (args.error ?? existing?.lastError) : undefined,
         };
 
         if (existing) {
