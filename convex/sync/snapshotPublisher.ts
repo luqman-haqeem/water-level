@@ -18,7 +18,9 @@ const JSON_PUT = { contentType: "application/json", cacheControl: JSON_CACHE_CON
  * Uploads the public snapshot to R2.
  * - includeData=true: trends.json, cameras.json, stations.json, then meta.json.
  * - includeData=false: meta.json only (attempt/status heartbeat).
- * meta.json is always uploaded last so readers never see syncedAt newer than the data.
+ * syncState is read *before* the data queries and meta.json is uploaded last,
+ * so meta can only ever describe a sync at or older than the data beside it —
+ * never one the data hasn't caught up with.
  * Runs in the Node runtime so aws4fetch + WebCrypto are guaranteed.
  */
 export const publishSnapshot = internalAction({
@@ -27,6 +29,10 @@ export const publishSnapshot = internalAction({
         const r2 = createR2Client(r2ConfigFromEnv(process.env));
         const generatedAt = new Date().toISOString();
         const uploaded: string[] = [];
+
+        // Read first: a sync that lands while we upload must not be described
+        // by this meta.json, or it would advertise data we never published.
+        const state = await ctx.runQuery(internal.syncState.get, { key: WATER_LEVELS_KEY });
 
         if (includeData) {
             const [stations, cameras, trends] = await Promise.all([
@@ -40,7 +46,6 @@ export const publishSnapshot = internalAction({
             }
         }
 
-        const state = await ctx.runQuery(internal.syncState.get, { key: WATER_LEVELS_KEY });
         const meta = buildMetaFile(metaFromSyncState(state, generatedAt));
         await r2.putObject(meta.key, meta.body, JSON_PUT);
         uploaded.push(meta.key);
