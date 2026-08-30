@@ -4,6 +4,7 @@ import FullscreenModal from "@/components/FullscreenModal";
 import CameraCard from "@/components/CameraCard";
 import { CameraSkeleton } from "@/components/SkeletonCard";
 import { useCameras } from "@/hooks/useCameras";
+import { refreshSnapshots } from "@/hooks/useSnapshot";
 import usePullToRefresh from "@/hooks/usePullToRefresh";
 import PullToRefreshIndicator from "@/components/PullToRefreshIndicator";
 
@@ -57,11 +58,10 @@ export function CamerasRoute() {
         setFullscreenImageSrc("");
     };
 
-    // Pull-to-refresh (visual feedback only — Convex auto-updates data in real-time)
+    // Pull-to-refresh: refetch the snapshot files (ETag-revalidated, cheap)
     const pullToRefresh = usePullToRefresh({
         onRefresh: async () => {
-            // Data is already live via Convex subscriptions.
-            await new Promise((resolve) => setTimeout(resolve, 300));
+            await refreshSnapshots();
         },
         threshold: 80,
     });
