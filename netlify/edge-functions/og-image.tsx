@@ -1,5 +1,5 @@
 import type { Config, Context } from "https://edge.netlify.com/v1/mod.ts";
-import { ImageResponse } from "https://deno.land/x/og_edge/mod.ts";
+import { ImageResponse } from "https://deno.land/x/og_edge@0.0.6/mod.ts";
 import React from "https://esm.sh/react@18.2.0";
 
 // Styles for the Open Graph image
@@ -224,61 +224,54 @@ function getAlertInfo(alertLevel: string, isOnline: boolean) {
     return ALERT_COLORS[alertLevel as keyof typeof ALERT_COLORS] || ALERT_COLORS.offline;
 }
 
-// Function to fetch only current water level (minimal API call)
-async function getCurrentWaterLevel(stationId: string) {
-    try {
-        // Only fetch current level - much smaller payload
-        const convexUrl = "https://quick-warbler-518.convex.cloud";
-        const response = await fetch(`${convexUrl}/api/query`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                path: "waterLevelData:getCurrentLevelByStationId", // Assuming you have this function
-                args: { stationId: stationId }
-            })
-        });
+interface SnapshotStationForOg {
+    id: string;
+    station_name: string;
+    districts: { name: string };
+    current_levels: { current_level: number; alert_level: string; updated_at?: string } | null;
+    cameras: { jps_camera_id: string; is_enabled: boolean } | null;
+    station_status: boolean;
+}
 
+const SNAPSHOT_BASE_URL = (Netlify.env.get("VITE_SNAPSHOT_BASE_URL") ?? "").replace(/\/+$/, "");
+
+// One CDN-cached fetch; no Convex, no JPS. Returns null if the snapshot is unreachable.
+async function getStationFromSnapshot(stationId: string): Promise<SnapshotStationForOg | null> {
+    if (!SNAPSHOT_BASE_URL) return null;
+    try {
+        const response = await fetch(`${SNAPSHOT_BASE_URL}/stations.json`);
         if (!response.ok) {
-            console.log(`Current level API failed: ${response.status}`);
+            console.warn(`og-image: stations.json HTTP ${response.status}`);
             return null;
         }
-
-        const result = await response.json();
-        return result;
+        const body = (await response.json()) as { items: SnapshotStationForOg[] };
+        return body.items.find((s) => s.id === stationId) ?? null;
     } catch (error) {
-        console.log("Failed to fetch current level, using URL fallback");
+        console.warn("og-image: snapshot fetch failed", error);
         return null;
     }
 }
 
 export default async (request: Request, context: Context) => {
     const { stationId } = context.params;
-    const url = new URL(request.url);
 
     if (!stationId) {
         return new Response("Station ID is required", { status: 400 });
     }
 
-    // Extract station data from URL parameters (reliable fallback)
-    const stationName = url.searchParams.get('name') || "Unknown Station";
-    const district = url.searchParams.get('district') || "Unknown District";
-    const fallbackLevel = parseFloat(url.searchParams.get('level') || "0");
-    const fallbackAlert = url.searchParams.get('alert') || "0";
-    const fallbackUpdated = url.searchParams.get('updated') || new Date().toISOString();
-    const fallbackOnline = url.searchParams.get('online') === 'true';
-    const cameraUrl = url.searchParams.get('camera') || null;
+    const station = await getStationFromSnapshot(stationId);
 
-    // Try to get real-time water level (optional enhancement)
-    const currentData = await getCurrentWaterLevel(stationId);
-
-    // Use real-time data if available, otherwise fallback to URL params
-    const currentLevel = currentData?.current_level ?? fallbackLevel;
-    const alertLevel = currentData?.alert_level ?? fallbackAlert;
-    const updatedAt = currentData?.updated_at ?? fallbackUpdated;
-    const isOnline = currentData ? (currentData.station_status ?? fallbackOnline) : fallbackOnline;
-    const hasCameraImage = cameraUrl && url.searchParams.get('cameraEnabled') === 'true';
+    const stationName = station?.station_name ?? "Unknown Station";
+    const district = station?.districts?.name ?? "Unknown District";
+    const currentLevel = station?.current_levels?.current_level ?? 0;
+    const alertLevel = station?.current_levels?.alert_level ?? "0";
+    const updatedAt = station?.current_levels?.updated_at ?? new Date().toISOString();
+    const isOnline = station?.station_status ?? false;
+    const cameraUrl =
+        station?.cameras?.is_enabled && station.cameras.jps_camera_id
+            ? `${SNAPSHOT_BASE_URL}/cam/${station.cameras.jps_camera_id}.jpg`
+            : null;
+    const hasCameraImage = cameraUrl !== null;
 
     const alertInfo = getAlertInfo(alertLevel, isOnline);
     const lastUpdated = formatDateTime(updatedAt);
@@ -310,7 +303,7 @@ export default async (request: Request, context: Context) => {
                     </div>
                 </div>
             ),
-            { width: 1200, height: 630 }
+            { width: 1200, height: 630, headers: { "cache-control": "public, s-maxage=300, max-age=300" } }
         );
     } else {
         // Centered layout without camera
@@ -333,7 +326,7 @@ export default async (request: Request, context: Context) => {
                     </div>
                 </div>
             ),
-            { width: 1200, height: 630 }
+            { width: 1200, height: 630, headers: { "cache-control": "public, s-maxage=300, max-age=300" } }
         );
     }
 };
