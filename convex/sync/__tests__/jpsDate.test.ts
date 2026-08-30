@@ -15,4 +15,17 @@ describe("convertJpsDateToIso", () => {
         const out = convertJpsDateToIso("not a date");
         expect(() => new Date(out).toISOString()).not.toThrow();
     });
+
+    it("parses ISO-style local time without a zone as Malaysian time (UTC+8)", () => {
+        expect(convertJpsDateToIso("2026-08-30T11:15:00")).toBe("2026-08-30T03:15:00.000Z");
+    });
+
+    it("accepts ISO-style local time with a space separator and no seconds", () => {
+        expect(convertJpsDateToIso("2026-08-30 11:15")).toBe("2026-08-30T03:15:00.000Z");
+    });
+
+    it("passes through ISO strings that already carry a zone", () => {
+        expect(convertJpsDateToIso("2026-08-30T03:15:00.000Z")).toBe("2026-08-30T03:15:00.000Z");
+        expect(convertJpsDateToIso("2026-08-30T11:15:00+08:00")).toBe("2026-08-30T03:15:00.000Z");
+    });
 });
