@@ -265,7 +265,7 @@ export default async (request: Request, context: Context) => {
     const district = station?.districts?.name ?? "Unknown District";
     const currentLevel = station?.current_levels?.current_level ?? 0;
     const alertLevel = station?.current_levels?.alert_level ?? "0";
-    const updatedAt = station?.current_levels?.updated_at ?? new Date().toISOString();
+    const updatedAt = station?.current_levels?.updated_at ?? null;
     const isOnline = station?.station_status ?? false;
     const cameraUrl =
         station?.cameras?.is_enabled && station.cameras.jps_camera_id
@@ -274,7 +274,7 @@ export default async (request: Request, context: Context) => {
     const hasCameraImage = cameraUrl !== null;
 
     const alertInfo = getAlertInfo(alertLevel, isOnline);
-    const lastUpdated = formatDateTime(updatedAt);
+    const lastUpdated = updatedAt ? formatDateTime(updatedAt) : "No recent reading";
 
     // Choose layout based on camera availability
     if (hasCameraImage) {

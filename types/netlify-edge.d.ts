@@ -36,7 +36,7 @@ declare module "https://edge.netlify.com/v1/mod.ts" {
     }
 }
 
-declare module "https://deno.land/x/og_edge/mod.ts" {
+declare module "https://deno.land/x/og_edge@0.0.6/mod.ts" {
     export class ImageResponse extends Response {
         constructor(
             element: React.ReactElement,
