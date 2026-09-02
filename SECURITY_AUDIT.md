@@ -4,6 +4,50 @@
 **Stack:** React 18 + Vite 6 SPA (TanStack Router), Convex backend, Netlify functions/edge functions, OneSignal push, PostHog analytics
 **Assessed:** 2 Sep 2026
 
+---
+
+## ⚠️ Remediation status
+
+**The findings below describe the code as it stood at `c023497`. Read them as a record of what was found, not as a description of current `main`.** 17 of 18 are remediated.
+
+| ID | Finding | Severity | Status |
+|---|---|---|---|
+| C-1 | Unauthenticated arbitrary station overwrite → alert threshold tampering | Critical | ✅ Fixed — #68 |
+| C-2 | Unauthenticated arbitrary camera overwrite | Critical | ✅ Fixed — #68 |
+| H-1 | Public sync actions: amplification + push abuse | High | ✅ Fixed — #68 |
+| H-2 | One-shot migrations publicly callable | High | ✅ Fixed — #68 |
+| H-3 | SSRF / open proxy via path traversal in image proxy | High | ✅ Fixed — #71 |
+| H-4 | OG endpoint: SSRF sink + alert-level spoofing | High | ✅ Fixed — #71 |
+| M-1 | `gsmNumber` + device telemetry via raw-document queries | Medium | ✅ Fixed — #72 |
+| M-2 | No security headers (CSP, HSTS, XFO, Referrer-Policy) | Medium | ✅ Fixed — #72 (CSP report-only pending promotion) |
+| M-3 | Unbounded array → read-amplification DoS | Medium | ✅ Fixed — #72 |
+| M-4 | `v.any()` on the indexed upsert key | Medium | ✅ Fixed — #71 |
+| M-5 | Non-atomic check-then-insert → duplicate districts | Medium | ✅ Fixed — #72 |
+| M-6 | Production deploy key exposed to PR-triggered CI | Medium | ⚠️ **Open — needs key rotation** |
+| M-7 | Device-local, unauthenticated subscription state | Medium | 🔵 Accepted / by design (revisit with auth) |
+| L-1 | 21 build-time dependency advisories | Low | ✅ Fixed — #72 (0 reported) |
+| L-2 | No rate limiting | Low | 🔵 Mitigated — write surface removed; consider for the 5 public queries |
+| L-3 | Dead code + misleading security comment | Low | ✅ Fixed — #71, #72 |
+| L-4 | Service worker caches API responses | Low | 🔵 Accepted — all cached data is public; revisit with auth |
+| L-5 | Analytics without consent gating | Low | 🔵 Open — privacy/compliance, not a vulnerability |
+
+**Net effect on the public API: 23 functions → 5, all read-only.** Zero public mutations, zero public actions.
+
+### Still outstanding
+
+1. **M-6 — rotate `CONVEX_DEPLOY_KEY`.** It has been available to `pull_request`-triggered CI, where `npm ci` runs lifecycle scripts from the PR branch. Forks receive no secrets, so this was never internet-exploitable, but the key grants full write access to the production deployment — including replacing function code. Rotate it, point `.github/workflows/validate-convex.yml:61` at a preview-scoped key, and add `permissions: contents: read` to both workflows.
+2. **Promote the CSP** from `Content-Security-Policy-Report-Only` to enforcing, once validated against a real session (see the comment in `netlify.toml`).
+3. **L-5** — gate `posthog.init` behind consent, or set `opt_out_capturing_by_default: true`.
+
+### Corrections to this report
+
+Two findings were wrong or became wrong, and are flagged inline below:
+
+- **L-3 / `insertDistrict`** — described here as an unused duplicate of `createDistrict`. #68 deleted `createDistrict`, so `insertDistrict` is now the only manual district-seed path. It is internal, so it carries no exposure. It was deliberately **kept**.
+- **H-4** — this report says the OG endpoint prefers live data and falls back to query parameters. In fact the live path never worked: `waterLevelData:getCurrentLevelByStationId` does not exist (verified against the deployment — it returns a Server Error), and the response envelope was never unwrapped. **Every** OG card ever served used the spoofable parameters, making this worse in practice than described.
+
+---
+
 ## Executive summary
 
 The application has **no authentication or authorization layer of any kind**. `ctx.auth.getUserIdentity()` appears zero times; there is no `convex/auth.config.ts`, no auth provider, and no `users` table. For a read-only public-data app that is a defensible design — but **9 of the 23 public Convex functions write to the database or trigger outbound work**, and in Convex every `mutation`/`action` is an internet-reachable endpoint. The deployment URL is shipped to browsers in the client bundle as `VITE_CONVEX_URL`, so it is not a secret and cannot serve as an access control.
@@ -12,12 +56,12 @@ The most serious consequence is not ordinary data vandalism. Because flood alert
 
 Encouraging signs: no hardcoded secrets anywhere in the repo or git history, a correct `.gitignore`, an `.env.example` containing only placeholders, no XSS sinks (`dangerouslySetInnerHTML`/`eval`/`innerHTML` all absent), no SQL (document DB with server-side validators), and the codebase clearly *knows* the right pattern — `convex/waterLevelData.ts:164-166` even carries the comment *"Internal-only to prevent unauthenticated writes"*. The defect is that the pattern was applied inconsistently.
 
-| Severity | Count |
-|---|---|
-| Critical | 2 |
-| High | 4 |
-| Medium | 7 |
-| Low | 5 |
+| Severity | Count | Remediated |
+|---|---|---|
+| Critical | 2 | 2 |
+| High | 4 | 4 |
+| Medium | 7 | 5 (1 open, 1 accepted) |
+| Low | 5 | 2 (3 accepted/open) |
 
 ### Root cause
 
@@ -768,20 +812,19 @@ Confirmed by targeted inspection rather than assumed:
 
 ## Remediation priority
 
-**Do first (closes both Criticals and H-1/H-2 — roughly a 30-line change):**
-1. `convex/crons.ts` — swap the three `api.sync.*` references to `internal.sync.*` (H-1 root cause).
-2. `convex/sync/stationUpdater.ts` / `cameraUpdater.ts` — `action` → `internalAction`; delete `createStation`, `createCamera`, `getAllDistricts`; `createDistrict` → `internalMutation` (C-1, C-2).
-3. Delete `migrateJpsSelIdToString` and make `seedCoordinatesFromHardcoded` internal (H-2).
-4. Redeploy, then verify externally that every write path now returns "Could not find public function."
+*Historical — this was the recommended order. Items 1–9 and 11 are done (#68, #71, #72); item 10 (M-6) is outstanding. See the status table at the top.*
 
-**Then:**
-5. Validate `id` in `netlify/functions/proxy-image.ts`; switch to HTTPS; bound the response (H-3).
-6. Rewrite `netlify/edge-functions/og-image.tsx` to derive all displayed values server-side from `stationId` (H-4).
-7. Project fields in `getStationById` / `getStationsByDistrict` to drop `gsmNumber`; filter `getCameras` on `isEnabled` (M-1).
-8. Add the security-headers block to `netlify.toml`, starting in report-only mode (M-2).
-9. Bound `getMultipleStationsTrend`; fix `v.any()`; add `districts` indexes and the transactional re-check (M-3, M-4, M-5).
-10. Swap the PR workflow to a preview deploy key, add `permissions: contents: read`, and **rotate `CONVEX_DEPLOY_KEY`** (M-6).
-11. `npm audit fix` and enable Dependabot (L-1).
+1. `convex/crons.ts` — swap the three `api.sync.*` references to `internal.sync.*` (H-1 root cause). ✅
+2. `convex/sync/stationUpdater.ts` / `cameraUpdater.ts` — `action` → `internalAction`; delete `createStation`, `createCamera`, `getAllDistricts`; `createDistrict` → `internalMutation` (C-1, C-2). ✅
+3. Delete `migrateJpsSelIdToString` and make `seedCoordinatesFromHardcoded` internal (H-2). ✅
+4. Redeploy, then verify externally that every write path now returns "Could not find public function." ✅
+5. Validate `id` in `netlify/functions/proxy-image.ts`; switch to HTTPS; bound the response (H-3). ✅
+6. Rewrite `netlify/edge-functions/og-image.tsx` to derive all displayed values server-side from `stationId` (H-4). ✅
+7. Project fields in `getStationById` / `getStationsByDistrict` to drop `gsmNumber`; filter `getCameras` on `isEnabled` (M-1). ✅ — resolved by *deleting* all three, since every one proved unreferenced.
+8. Add the security-headers block to `netlify.toml`, starting in report-only mode (M-2). ✅
+9. Bound `getMultipleStationsTrend`; fix `v.any()`; add `districts` indexes and the transactional re-check (M-3, M-4, M-5). ✅ — `getMultipleStationsTrend` deleted rather than bounded (unreferenced).
+10. Swap the PR workflow to a preview deploy key, add `permissions: contents: read`, and **rotate `CONVEX_DEPLOY_KEY`** (M-6). ⚠️ **Outstanding.**
+11. `npm audit fix` and enable Dependabot (L-1). ✅ audit clean; Dependabot still worth enabling.
 
 ### Verifying the fix
 
