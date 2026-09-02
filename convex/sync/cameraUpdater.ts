@@ -1,8 +1,8 @@
-import { action, internalMutation, mutation } from "../_generated/server";
+import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
-export const updateCameras = action({
+export const updateCameras = internalAction({
   handler: async (ctx): Promise<{
     success: boolean;
     camerasCount: number;
@@ -96,30 +96,6 @@ export const getDistricts = internalMutation({
 export const getCameras = internalMutation({
   handler: async (ctx) => {
     return await ctx.db.query("cameras").take(5);
-  },
-});
-
-export const createCamera = mutation({
-  args: {
-    districtId: v.id("districts"),
-    cameraData: v.object({
-      jpsCameraId: v.string(),
-      cameraBrand: v.optional(v.string()),
-      cameraName: v.string(),
-      imgUrl: v.optional(v.string()),
-      isEnabled: v.boolean(),
-      isOnline: v.optional(v.boolean()),
-      latitude: v.optional(v.number()),
-      longitude: v.optional(v.number()),
-      mainBasin: v.optional(v.string()),
-      subBasin: v.optional(v.string()),
-    })
-  },
-  handler: async (ctx, { districtId, cameraData }): Promise<void> => {
-    await ctx.runMutation(internal.sync.cameraUpdater.upsertCamera, {
-      districtId,
-      cameraData
-    });
   },
 });
 

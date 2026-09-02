@@ -1,4 +1,4 @@
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
@@ -126,10 +126,11 @@ export const patchStationCoordinates = internalMutation({
  *
  * HOW TO RUN:
  * Go to Convex Dashboard → Functions → seedCoordinates → seedCoordinatesFromHardcoded → Run
+ * (the Dashboard authenticates with an admin key, so it can run internal functions)
  *
  * Safe to run multiple times — idempotent (just re-patches same values).
  */
-export const seedCoordinatesFromHardcoded = mutation({
+export const seedCoordinatesFromHardcoded = internalMutation({
     handler: async (ctx): Promise<{ total: number; updated: number; notFound: number }> => {
         const result = await ctx.runMutation(
             internal.seedCoordinates.patchStationCoordinates,
