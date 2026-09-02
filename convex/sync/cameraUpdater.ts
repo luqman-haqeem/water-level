@@ -93,12 +93,6 @@ export const getDistricts = internalMutation({
   },
 });
 
-export const getCameras = internalMutation({
-  handler: async (ctx) => {
-    return await ctx.db.query("cameras").take(5);
-  },
-});
-
 export const upsertCamera = internalMutation({
   args: {
     districtId: v.id("districts"),

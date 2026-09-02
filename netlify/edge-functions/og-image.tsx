@@ -224,61 +224,139 @@ function getAlertInfo(alertLevel: string, isOnline: boolean) {
     return ALERT_COLORS[alertLevel as keyof typeof ALERT_COLORS] || ALERT_COLORS.offline;
 }
 
-// Function to fetch only current water level (minimal API call)
-async function getCurrentWaterLevel(stationId: string) {
+/** Shape returned by the Convex `stations:getStationDetailById` query. */
+interface StationDetail {
+    station_name: string;
+    districts: { name: string };
+    current_levels: {
+        current_level: number;
+        updated_at?: string;
+        alert_level: string;
+    } | null;
+    cameras: {
+        img_url?: string;
+        jps_camera_id: string;
+        is_enabled: boolean;
+    } | null;
+    station_status: boolean;
+}
+
+/**
+ * Fetches the authoritative station record from Convex.
+ *
+ * SECURITY: every value rendered into this card must come from here, never from
+ * the query string. This endpoint previously read `name`, `district`, `level`,
+ * `alert`, `updated`, `online` and `camera` straight off the URL, so anyone
+ * could mint an authentic-looking red "DANGER 99.90m" card on our own domain for
+ * a real station (or a reassuring "NORMAL" one during an actual flood) and share
+ * it. For a public flood-warning app that is a misinformation vector, so the
+ * spoofable parameters are gone entirely.
+ *
+ * The previous implementation also queried a function that does not exist
+ * (`waterLevelData:getCurrentLevelByStationId`) and did not unwrap Convex's
+ * `{ status, value }` response envelope, so the live-data path never worked and
+ * every request silently fell through to the spoofable parameters.
+ */
+async function getStationDetail(
+    stationId: string
+): Promise<StationDetail | null> {
+    const convexUrl =
+        Deno.env.get("CONVEX_URL") ?? Deno.env.get("VITE_CONVEX_URL");
+
+    if (!convexUrl) {
+        console.error("CONVEX_URL / VITE_CONVEX_URL is not configured");
+        return null;
+    }
+
     try {
-        // Only fetch current level - much smaller payload
-        const convexUrl = "https://quick-warbler-518.convex.cloud";
         const response = await fetch(`${convexUrl}/api/query`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                path: "waterLevelData:getCurrentLevelByStationId", // Assuming you have this function
-                args: { stationId: stationId }
-            })
+                path: "stations:getStationDetailById",
+                args: { stationId },
+            }),
+            signal: AbortSignal.timeout(5000),
         });
 
         if (!response.ok) {
-            console.log(`Current level API failed: ${response.status}`);
+            console.error(`Convex query failed: HTTP ${response.status}`);
             return null;
         }
 
+        // Convex wraps results as { status: "success", value } or
+        // { status: "error", errorMessage }. An invalid/forged stationId lands
+        // in the error branch rather than throwing.
         const result = await response.json();
-        return result;
+        if (result?.status !== "success" || !result.value) {
+            return null;
+        }
+
+        return result.value as StationDetail;
     } catch (error) {
-        console.log("Failed to fetch current level, using URL fallback");
+        console.error("Failed to fetch station detail:", error);
         return null;
     }
 }
 
+/** JPS camera ids are bare integers — mirrors the check in the image proxy. */
+const CAMERA_ID_PATTERN = /^[0-9]{1,10}$/;
+
+/**
+ * Adds caching to a rendered card.
+ *
+ * Each request costs a Convex query, a camera-image fetch and a satori render,
+ * so an uncached endpoint is a cheap amplification target. 5 minutes matches the
+ * proxy-image cache and is well inside the 15-minute sync interval.
+ */
+function withCacheHeaders(response: Response): Response {
+    const headers = new Headers(response.headers);
+    headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
+    headers.set("X-Content-Type-Options", "nosniff");
+    return new Response(response.body, {
+        status: response.status,
+        headers,
+    });
+}
+
 export default async (request: Request, context: Context) => {
     const { stationId } = context.params;
-    const url = new URL(request.url);
 
     if (!stationId) {
         return new Response("Station ID is required", { status: 400 });
     }
 
-    // Extract station data from URL parameters (reliable fallback)
-    const stationName = url.searchParams.get('name') || "Unknown Station";
-    const district = url.searchParams.get('district') || "Unknown District";
-    const fallbackLevel = parseFloat(url.searchParams.get('level') || "0");
-    const fallbackAlert = url.searchParams.get('alert') || "0";
-    const fallbackUpdated = url.searchParams.get('updated') || new Date().toISOString();
-    const fallbackOnline = url.searchParams.get('online') === 'true';
-    const cameraUrl = url.searchParams.get('camera') || null;
+    // Single source of truth. No query parameter influences what is rendered.
+    const station = await getStationDetail(stationId);
 
-    // Try to get real-time water level (optional enhancement)
-    const currentData = await getCurrentWaterLevel(stationId);
+    if (!station) {
+        return new Response("Station not found", { status: 404 });
+    }
 
-    // Use real-time data if available, otherwise fallback to URL params
-    const currentLevel = currentData?.current_level ?? fallbackLevel;
-    const alertLevel = currentData?.alert_level ?? fallbackAlert;
-    const updatedAt = currentData?.updated_at ?? fallbackUpdated;
-    const isOnline = currentData ? (currentData.station_status ?? fallbackOnline) : fallbackOnline;
-    const hasCameraImage = cameraUrl && url.searchParams.get('cameraEnabled') === 'true';
+    const stationName = station.station_name;
+    const district = station.districts.name;
+    const currentLevel = station.current_levels?.current_level ?? 0;
+    const updatedAt = station.current_levels?.updated_at;
+    const isOnline = station.station_status;
+
+    // A station with no reading is shown as offline rather than as "NORMAL",
+    // so a missing reading can never render as an all-clear.
+    const alertLevel = station.current_levels?.alert_level ?? "offline";
+
+    // The camera image is rendered server-side by ImageResponse, so `src` is an
+    // outbound fetch from this edge function. It must never be caller-supplied:
+    // the previous `?camera=` parameter made this a straightforward SSRF sink
+    // (e.g. `?camera=http://169.254.169.254/latest/meta-data/`). We now build it
+    // from the database's own camera id and route it through our own hardened
+    // proxy, with the same numeric validation the proxy applies.
+    const jpsCameraId = station.cameras?.jps_camera_id;
+    const cameraUrl =
+        station.cameras?.is_enabled &&
+        jpsCameraId &&
+        CAMERA_ID_PATTERN.test(jpsCameraId)
+            ? `${new URL(request.url).origin}/api/proxy-image/${jpsCameraId}`
+            : null;
+    const hasCameraImage = cameraUrl !== null;
 
     const alertInfo = getAlertInfo(alertLevel, isOnline);
     const lastUpdated = formatDateTime(updatedAt);
@@ -286,7 +364,7 @@ export default async (request: Request, context: Context) => {
     // Choose layout based on camera availability
     if (hasCameraImage) {
         // Two-column layout with camera
-        return new ImageResponse(
+        return withCacheHeaders(new ImageResponse(
             (
                 <div style={STYLES.twoColumnWrapper}>
                     <div style={STYLES.leftColumn}>
@@ -306,15 +384,15 @@ export default async (request: Request, context: Context) => {
                         </div>
                     </div>
                     <div style={STYLES.rightColumn}>
-                        <img src={cameraUrl} alt="Live Camera" style={STYLES.cameraImage} />
+                        <img src={cameraUrl!} alt="Live Camera" style={STYLES.cameraImage} />
                     </div>
                 </div>
             ),
             { width: 1200, height: 630 }
-        );
+        ));
     } else {
         // Centered layout without camera
-        return new ImageResponse(
+        return withCacheHeaders(new ImageResponse(
             (
                 <div style={STYLES.centeredWrapper}>
                     <div style={STYLES.stationName}>
@@ -334,7 +412,7 @@ export default async (request: Request, context: Context) => {
                 </div>
             ),
             { width: 1200, height: 630 }
-        );
+        ));
     }
 };
 
