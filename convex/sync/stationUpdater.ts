@@ -1,8 +1,15 @@
-import { action, internalMutation, mutation } from "../_generated/server";
+import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
-export const updateStations = action({
+// NOTE: Everything in this module is internal by design. `upsertStation` is an
+// insert-OR-patch keyed on a caller-supplied `jpsSelId`, so exposing it (or any
+// wrapper around it) publicly hands anonymous callers the ability to overwrite
+// arbitrary station records — including the water level thresholds that
+// `computeAlertLevel` uses to decide whether to fire a danger notification.
+// Trigger a sync manually with:
+//   npx convex run sync.stationUpdater.updateStations
+export const updateStations = internalAction({
   handler: async (ctx) => {
     const stationURL =
       "https://infobanjirjps.selangor.gov.my/JPSAPI/api/StationRiverLevels/GetWLAllStationData/";
@@ -82,16 +89,10 @@ export const getDistricts = internalMutation({
   },
 });
 
-export const insertDistrict = internalMutation({
-  args: { name: v.string(), jpsDistrictsId: v.number() },
-  handler: async (ctx, { name, jpsDistrictsId }) => {
-    return await ctx.db.insert("districts", { name, jpsDistrictsId });
-  },
-});
-
-// Public mutation for seeding/manual district insertion
-
-export const createDistrict = mutation({
+// Manual/seed district insertion. Internal only — run via:
+//   npx convex run sync.stationUpdater.createDistrict '{"name":"...","jpsDistrictsId":1}'
+// (`insertDistrict` was an unused duplicate of this and has been removed.)
+export const createDistrict = internalMutation({
   args: { name: v.string(), jpsDistrictsId: v.number() },
   handler: async (ctx, { name, jpsDistrictsId }) => {
     // Check if district already exists
@@ -108,44 +109,10 @@ export const createDistrict = mutation({
   },
 });
 
-export const getAllDistricts = mutation({
-  handler: async (ctx) => {
-    return await ctx.db.query("districts").collect();
-  },
-});
-
-export const createStation = mutation({
-  args: {
-    districtId: v.id("districts"),
-    stationData: v.object({
-      jpsSelId: v.any(),
-      publicInfoId: v.optional(v.string()),
-      stationName: v.string(),
-      stationCode: v.optional(v.string()),
-      refName: v.optional(v.string()),
-      latitude: v.optional(v.number()),
-      longitude: v.optional(v.number()),
-      gsmNumber: v.optional(v.string()),
-      normalWaterLevel: v.optional(v.number()),
-      alertWaterLevel: v.optional(v.number()),
-      warningWaterLevel: v.optional(v.number()),
-      dangerWaterLevel: v.optional(v.number()),
-      stationStatus: v.boolean(),
-      mode: v.optional(v.union(v.string(), v.boolean())),
-      z1: v.optional(v.union(v.number(), v.boolean())),
-      z2: v.optional(v.union(v.number(), v.boolean())),
-      z3: v.optional(v.union(v.number(), v.boolean())),
-      batteryLevel: v.optional(v.union(v.number(), v.null())),
-    }),
-  },
-  handler: async (ctx, { districtId, stationData }): Promise<void> => {
-    await ctx.runMutation(internal.sync.stationUpdater.upsertStation, {
-      districtId,
-      stationData,
-    });
-  },
-});
-
+// `getAllDistricts` (a read declared as a public mutation) and `createStation`
+// (a public passthrough to `upsertStation`) were removed. Use the internal
+// `getDistricts` above, and `upsertStation` below, for the same work:
+//   npx convex run sync.stationUpdater.upsertStation '{"districtId":"...","stationData":{...}}'
 export const upsertStation = internalMutation({
   args: {
     districtId: v.id("districts"),

@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
@@ -15,25 +15,32 @@ const crons = cronJobs();
 // To manually trigger any function:
 //   npx convex run sync.waterLevelUpdater.updateWaterLevels
 
+// All sync entry points are registered via `internal.*`, never `api.*`.
+// Referencing them through `api.*` would require declaring them as public
+// `action`s, which in Convex makes them callable by anyone on the internet
+// (the deployment URL ships to browsers in VITE_CONVEX_URL and is not a
+// secret). Crons can invoke internal functions directly, so there is no
+// reason for any of these to be public.
+
 // Update water levels every 15 minutes
 crons.interval(
     "update water levels",
     { minutes: 15 },
-    api.sync.waterLevelUpdater.updateWaterLevels
+    internal.sync.waterLevelUpdater.updateWaterLevels
 );
 
 // Update station metadata every week (Sundays at 2 AM UTC)
 crons.weekly(
     "sync station details",
     { dayOfWeek: "sunday", hourUTC: 2, minuteUTC: 0 },
-    api.sync.stationUpdater.updateStations
+    internal.sync.stationUpdater.updateStations
 );
 
 // Update camera data every week (Sundays at 3 AM UTC)
 crons.weekly(
     "update cameras",
     { dayOfWeek: "sunday", hourUTC: 3, minuteUTC: 0 },
-    api.sync.cameraUpdater.updateCameras
+    internal.sync.cameraUpdater.updateCameras
 );
 
 // Cleanup old water level history data every 4 hours

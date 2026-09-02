@@ -1,4 +1,4 @@
-import { action, internalMutation } from "../_generated/server";
+import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
@@ -81,7 +81,13 @@ function convertJpsDateToIso(jpsDate: string): string {
     }
 }
 
-export const updateWaterLevels = action({
+// Internal by design. As a public action this was an unauthenticated trigger for
+// the whole sync pipeline: each call fanned out 1+N fetches to the JPS API,
+// upserted every district, inserted a waterLevelHistory row per station, and
+// could schedule real danger push notifications to subscribers' devices.
+// Trigger a sync manually with:
+//   npx convex run sync.waterLevelUpdater.updateWaterLevels
+export const updateWaterLevels = internalAction({
     handler: async (
         ctx
     ): Promise<{

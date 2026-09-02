@@ -1,4 +1,4 @@
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
@@ -124,12 +124,18 @@ export const patchStationCoordinates = internalMutation({
 /**
  * One-time mutation to seed station coordinates from hardcoded JPS data.
  *
- * HOW TO RUN:
- * Go to Convex Dashboard → Functions → seedCoordinates → seedCoordinatesFromHardcoded → Run
+ * HOW TO RUN (internal — not callable from the public API):
+ *   npx convex run seedCoordinates:seedCoordinatesFromHardcoded
+ * or via Convex Dashboard → Functions → seedCoordinates → ... → Run
+ *
+ * Must stay internal: JPS removed lat/lng from their API, so stored coordinates
+ * are now the source of truth (see the comment in convex/waterLevelData.ts).
+ * A public version of this would let anyone revert all 81 stations to these
+ * Aug-2025 values, mislocating flood stations on the map.
  *
  * Safe to run multiple times — idempotent (just re-patches same values).
  */
-export const seedCoordinatesFromHardcoded = mutation({
+export const seedCoordinatesFromHardcoded = internalMutation({
     handler: async (ctx): Promise<{ total: number; updated: number; notFound: number }> => {
         const result = await ctx.runMutation(
             internal.seedCoordinates.patchStationCoordinates,

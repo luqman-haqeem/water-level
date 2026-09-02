@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getStationsWithDetails = query({
@@ -224,15 +224,18 @@ export const getCameras = query({
 /**
  * One-time migration: ensures all jpsSelId values are strings.
  *
- * HOW TO RUN:
- * Go to Convex Dashboard → Functions → stations → migrateJpsSelIdToString → Run
+ * HOW TO RUN (internal — not callable from the public API):
+ *   npx convex run stations:migrateJpsSelIdToString
+ * or via Convex Dashboard → Functions → stations → migrateJpsSelIdToString → Run
  *
- * After confirming all records are migrated, change schema jpsSelId to v.string()
- * and remove this function.
+ * Kept (rather than deleted) because the `jpsSelId` argument validators in
+ * convex/sync/stationUpdater.ts are still `v.any()`. Tightening those to
+ * `v.string()` is only safe once every stored record is a string, so this
+ * migration must remain runnable until that cleanup happens.
  *
  * Safe to run multiple times — skips records that are already strings.
  */
-export const migrateJpsSelIdToString = mutation({
+export const migrateJpsSelIdToString = internalMutation({
     handler: async (ctx) => {
         const stations = await ctx.db.query("stations").collect();
         let migrated = 0;
