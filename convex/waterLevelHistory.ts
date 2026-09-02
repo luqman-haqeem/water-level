@@ -17,26 +17,9 @@ export const getStationTrend = query({
   }
 });
 
-// Get all trend data for multiple stations (for efficient batch loading)
-export const getMultipleStationsTrend = query({
-  args: { stationIds: v.array(v.id("stations")) },
-  handler: async (ctx, { stationIds }) => {
-    const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
-    
-    const trendsMap: Record<string, any[]> = {};
-    
-    for (const stationId of stationIds) {
-      const trend = await ctx.db
-        .query("waterLevelHistory")
-        .withIndex("by_station_time", (q) => 
-          q.eq("stationId", stationId).gte("timestamp", threeHoursAgo)
-        )
-        .order("asc")
-        .collect();
-      
-      trendsMap[stationId] = trend;
-    }
-    
-    return trendsMap;
-  }
-});
+// REMOVED: getMultipleStationsTrend (unreferenced anywhere).
+// It took an unbounded `v.array(v.id("stations"))` and ran one full `.collect()`
+// per element in a sequential loop, with no length cap and no de-duplication —
+// so a single anonymous request repeating one valid id 10,000 times multiplied
+// document reads by 10,000. If a batch variant is needed later, cap the array
+// length, de-duplicate it, and `.take(n)` each per-station read.

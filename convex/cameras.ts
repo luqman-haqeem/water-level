@@ -1,5 +1,4 @@
 import { query } from "./_generated/server";
-import { v } from "convex/values";
 
 export const getCamerasWithDetails = query({
   handler: async (ctx) => {
@@ -35,31 +34,8 @@ export const getCamerasWithDetails = query({
   },
 });
 
-export const getCamerasByDistrict = query({
-  args: { districtId: v.id("districts") },
-  handler: async (ctx, { districtId }) => {
-    return await ctx.db
-      .query("cameras")
-      .withIndex("by_district", (q) => q.eq("districtId", districtId))
-      .filter((q) => q.eq(q.field("isEnabled"), true))
-      .collect();
-  },
-});
-
-export const getCameraById = query({
-  args: { cameraId: v.id("cameras") },
-  handler: async (ctx, { cameraId }) => {
-    return await ctx.db.get(cameraId);
-  },
-});
-
-export const getCamerasByStation = query({
-  args: { stationId: v.id("stations") },
-  handler: async (ctx, { stationId }) => {
-    return await ctx.db
-      .query("cameras")
-      .withIndex("by_station", (q) => q.eq("stationId", stationId))
-      .filter((q) => q.eq(q.field("isEnabled"), true))
-      .collect();
-  },
-});
+// REMOVED (unreferenced anywhere in src/, netlify/, scripts/ or convex/):
+//   getCamerasByDistrict, getCameraById, getCamerasByStation
+// All three returned raw camera documents via `ctx.db.get`/`.collect()` with no
+// field projection. `getCamerasWithDetails` above hand-picks the fields the UI
+// needs, which is the pattern every public query should follow.

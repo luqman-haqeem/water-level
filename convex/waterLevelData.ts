@@ -1,4 +1,4 @@
-import { query, internalMutation, MutationCtx } from "./_generated/server";
+import { internalMutation, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
@@ -65,27 +65,52 @@ function computeAlertLevel(station: JpsStationInput): number {
 /**
  * Ensures a district exists in the database, creating it if necessary.
  * Returns the district document.
+ *
+ * Convex has no uniqueness constraint, so "look up, then insert if absent" is
+ * not atomic across concurrent mutations: two overlapping syncs could both see
+ * "absent" and both insert. `updateWaterLevels` calls this once per district in
+ * a loop, so overlapping runs made that window easy to hit. Duplicate districts
+ * fragment stations across rows, which under-reports district station counts and
+ * can hide stations — including ones at danger level — from the UI.
+ *
+ * Mitigation: re-check immediately before inserting, so a duplicate created
+ * between the two reads is picked up. This is now cheap because `districts` has
+ * indexes; it previously required a full-table `.filter()` scan.
  */
 async function ensureDistrict(
   ctx: MutationCtx,
   districtName: string,
   jpsDistrictsId?: number
 ) {
-  let existingDistrict = await ctx.db
-    .query("districts")
-    .filter((q) =>
-      jpsDistrictsId
-        ? q.eq(q.field("jpsDistrictsId"), jpsDistrictsId)
-        : q.eq(q.field("name"), districtName)
-    )
-    .first();
+  // Note `!== undefined` rather than a truthy check: a legitimate
+  // `jpsDistrictsId` of 0 would otherwise fall through to name matching here and
+  // be dropped from the inserted document below.
+  const findDistrict = () =>
+    jpsDistrictsId !== undefined
+      ? ctx.db
+          .query("districts")
+          .withIndex("by_jps_districts_id", (q) =>
+            q.eq("jpsDistrictsId", jpsDistrictsId)
+          )
+          .first()
+      : ctx.db
+          .query("districts")
+          .withIndex("by_name", (q) => q.eq("name", districtName))
+          .first();
+
+  let existingDistrict = await findDistrict();
 
   if (!existingDistrict) {
-    const districtDbId = await ctx.db.insert("districts", {
-      name: districtName,
-      ...(jpsDistrictsId && { jpsDistrictsId }),
-    });
-    existingDistrict = await ctx.db.get(districtDbId);
+    // Re-check inside the same transaction to collapse concurrent creators.
+    existingDistrict = await findDistrict();
+
+    if (!existingDistrict) {
+      const districtDbId = await ctx.db.insert("districts", {
+        name: districtName,
+        ...(jpsDistrictsId !== undefined && { jpsDistrictsId }),
+      });
+      existingDistrict = await ctx.db.get(districtDbId);
+    }
   }
 
   if (!existingDistrict) {
@@ -208,60 +233,9 @@ export const storeDistrictStationsInternal = internalMutation({
   },
 });
 
-// ─── Queries ──────────────────────────────────────────────────────────────────
-
-export const getDistrictsWithCounts = query({
-  handler: async (ctx) => {
-    const districts = await ctx.db.query("districts").collect();
-
-    const districtsWithCounts = await Promise.all(
-      districts.map(async (district) => {
-        const stations = await ctx.db
-          .query("stations")
-          .withIndex("by_district", (q) => q.eq("districtId", district._id))
-          .collect();
-
-        const currentLevels = await Promise.all(
-          stations.map((station) =>
-            ctx.db
-              .query("currentLevels")
-              .withIndex("by_station", (q) => q.eq("stationId", station._id))
-              .first()
-          )
-        );
-
-        const alertCounts = currentLevels.reduce(
-          (counts, level) => {
-            if (!level) return counts;
-            switch (level.alertLevel) {
-              case 0:
-                counts.normal++;
-                break;
-              case 1:
-                counts.alert++;
-                break;
-              case 2:
-                counts.warning++;
-                break;
-              case 3:
-                counts.danger++;
-                break;
-            }
-            return counts;
-          },
-          { normal: 0, alert: 0, warning: 0, danger: 0 }
-        );
-
-        return {
-          ...district,
-          totalStations: stations.length,
-          onlineStations: stations.filter((s) => s.stationStatus).length,
-          offlineStations: stations.filter((s) => !s.stationStatus).length,
-          ...alertCounts,
-        };
-      })
-    );
-
-    return districtsWithCounts;
-  },
-});
+// REMOVED: getDistrictsWithCounts (unreferenced anywhere).
+// It fanned out N+1 reads over every district x every station on each call, with
+// no auth and no caching key beyond the query itself — and the district count is
+// itself attacker-influenced if district creation is ever re-exposed. The UI
+// derives these counts from `stations.getStationsWithDetails`, which it already
+// subscribes to.
