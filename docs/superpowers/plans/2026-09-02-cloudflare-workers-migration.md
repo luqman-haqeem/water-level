@@ -142,9 +142,11 @@ payloads (same V8):
 | max | 6.41 |
 | **limit** | **10.00** |
 
-Roughly 2x headroom at p95. **To close:** `wrangler login`, deploy the spike to a
-real free-plan account, and read CPU from `wrangler tail`. The spike lives at
-`workers/phase0-spike/` (untracked, throwaway).
+Roughly 2x headroom at p95. **To close:** on a real free-plan account, deploy a
+Worker whose `scheduled()` handler performs one full build over live district
+payloads, then read CPU time from `wrangler tail`. A preview account will not do —
+it does not enforce the cap. The Phase 0 spike itself was deleted, as spike code
+should be; recreating it is a ~30-line handler around `buildDataFiles`.
 
 **New finding — JPS's TCP connect is flaky, and it is not Cloudflare-specific.**
 About 40% of connections stall ~20 s at `time_connect`, the signature of SYN
