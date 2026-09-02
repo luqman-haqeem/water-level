@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getStationsWithDetails = query({
@@ -224,34 +224,7 @@ export const getCameras = query({
 
 
 
-/**
- * One-time migration: ensures all jpsSelId values are strings.
- *
- * HOW TO RUN:
- * Go to Convex Dashboard → Functions → stations → migrateJpsSelIdToString → Run
- *
- * After confirming all records are migrated, change schema jpsSelId to v.string()
- * and remove this function.
- *
- * Safe to run multiple times — skips records that are already strings.
- */
-export const migrateJpsSelIdToString = mutation({
-    handler: async (ctx) => {
-        const stations = await ctx.db.query("stations").collect();
-        let migrated = 0;
-
-        for (const station of stations) {
-            if (typeof station.jpsSelId !== "string") {
-                await ctx.db.patch(station._id, {
-                    jpsSelId: String(station.jpsSelId),
-                });
-                migrated++;
-            }
-        }
-
-        console.log(
-            `✅ Migration complete: ${migrated}/${stations.length} stations updated`
-        );
-        return { total: stations.length, migrated };
-    },
-});
+// REMOVED, matching main (#68): migrateJpsSelIdToString.
+// It was a public mutation that scanned and patched every station row. The
+// schema has been v.string() since #34, so the migration is complete; recover
+// it from git history if a similar backfill is ever needed.

@@ -8,7 +8,31 @@ export const SNAPSHOT_KEYS = {
 export const JSON_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
 export const IMAGE_CACHE_CONTROL = "public, max-age=300";
 
+/** JPS camera ids are bare integers. Anything else is not a camera id. */
+const CAMERA_ID_PATTERN = /^[0-9]{1,10}$/;
+
+/**
+ * Builds the R2 object key for a mirrored camera frame.
+ *
+ * SECURITY: the returned key is interpolated into the R2 request URL, and URL
+ * parsing collapses `..` segments — so an id containing a traversal sequence
+ * escapes the `cam/` prefix and can overwrite the snapshot files the whole app
+ * reads:
+ *
+ *   cameraImageKey("../stations.json")
+ *     -> key  "cam/../stations.json.jpg"
+ *     -> PUT  /<bucket>/stations.json.jpg     <-- clobbers the public snapshot
+ *
+ * `jpsCameraId` originates from the JPS upstream response, so this is not
+ * directly attacker-reachable today; it is a guard against a hostile or
+ * malformed upstream being able to corrupt our published data. Throwing here is
+ * safe: `syncCameraImages` runs each camera inside a try/catch, so one bad id is
+ * logged and skipped rather than failing the whole run.
+ */
 export function cameraImageKey(jpsCameraId: string): string {
+    if (!CAMERA_ID_PATTERN.test(jpsCameraId)) {
+        throw new Error(`Refusing unsafe camera id for R2 key: ${JSON.stringify(jpsCameraId)}`);
+    }
     return `cam/${jpsCameraId}.jpg`;
 }
 

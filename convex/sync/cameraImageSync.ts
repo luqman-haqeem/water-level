@@ -9,7 +9,11 @@ import { runWithConcurrency } from "../lib/concurrency";
 import { WATER_LEVELS_KEY } from "../lib/syncKeys";
 import { cameraImageKey, IMAGE_CACHE_CONTROL } from "./snapshotBuilder";
 
-export const CCTV_BASE_URL = "http://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image";
+// HTTPS: the upstream serves this path over TLS with a valid certificate
+// (verified — identical bytes to the http:// response). Fetching over cleartext
+// would let a network attacker substitute the camera frames we then mirror to R2
+// and serve to every user from our own domain.
+export const CCTV_BASE_URL = "https://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image";
 
 /**
  * Mirrors JPS CCTV frames to R2 as cam/{jpsCameraId}.jpg so the camera pages

@@ -1,4 +1,4 @@
-import { action, internalMutation, ActionCtx } from "../_generated/server";
+import { internalAction, internalMutation, ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { convertJpsDateToIso } from "./jpsDate";
@@ -81,7 +81,7 @@ async function publishQuietly(ctx: ActionCtx, includeData: boolean): Promise<voi
     }
 }
 
-export const updateWaterLevels = action({
+export const updateWaterLevels = internalAction({
     handler: async (ctx): Promise<UpdateResult> => {
         const attemptedAt = new Date().toISOString();
         console.debug("🌊 Starting water level sync…");

@@ -86,4 +86,19 @@ describe("cameraImageKey", () => {
     it("builds cam/{id}.jpg", () => {
         expect(cameraImageKey("42")).toBe("cam/42.jpg");
     });
+
+    // The key is interpolated into the R2 request URL, and URL parsing collapses
+    // `..` — so without this guard `cam/../stations.json.jpg` resolves to
+    // `stations.json.jpg` and clobbers the public snapshot the app reads.
+    it("rejects ids that would escape the cam/ prefix", () => {
+        for (const unsafe of ["../stations.json", "../meta.json", "..", "a/b", "42/../../x"]) {
+            expect(() => cameraImageKey(unsafe)).toThrow(/unsafe camera id/i);
+        }
+    });
+
+    it("rejects ids that are not bare integers", () => {
+        for (const unsafe of ["", "abc", "-1", "1e3", "42 ", "12345678901"]) {
+            expect(() => cameraImageKey(unsafe)).toThrow(/unsafe camera id/i);
+        }
+    });
 });

@@ -1,7 +1,12 @@
 import { cronJobs } from "convex/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 const crons = cronJobs();
+
+// NOTE: every cron target is referenced via `internal.*`, never `api.*`.
+// Referencing a target through `api.*` forces it to be declared as a public
+// `action`, which in Convex means anyone on the internet can invoke it — the
+// deployment URL is not a secret. Crons can call internal functions directly.
 
 // Crons only register when the deployment sets CRONS_ENABLED=true (Convex
 // dashboard → Settings → Environment Variables). Set it on production only:
@@ -22,7 +27,7 @@ if (cronsEnabled) {
     crons.interval(
         "update water levels",
         { minutes: 5 },
-        api.sync.waterLevelUpdater.updateWaterLevels
+        internal.sync.waterLevelUpdater.updateWaterLevels
     );
 
     // Mirror CCTV frames to R2. All cameras every 15 min keeps R2 writes ≈ 262k/month
@@ -45,14 +50,14 @@ if (cronsEnabled) {
     crons.weekly(
         "sync station details",
         { dayOfWeek: "sunday", hourUTC: 2, minuteUTC: 0 },
-        api.sync.stationUpdater.updateStations
+        internal.sync.stationUpdater.updateStations
     );
 
     // Update camera data every week (Sundays at 3 AM UTC)
     crons.weekly(
         "update cameras",
         { dayOfWeek: "sunday", hourUTC: 3, minuteUTC: 0 },
-        api.sync.cameraUpdater.updateCameras
+        internal.sync.cameraUpdater.updateCameras
     );
 
     // Cleanup old water level history data every 4 hours
