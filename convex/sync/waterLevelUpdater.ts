@@ -1,4 +1,4 @@
-import { action, internalMutation } from "../_generated/server";
+import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
@@ -81,7 +81,7 @@ function convertJpsDateToIso(jpsDate: string): string {
     }
 }
 
-export const updateWaterLevels = action({
+export const updateWaterLevels = internalAction({
     handler: async (
         ctx
     ): Promise<{
