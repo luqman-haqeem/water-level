@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
+import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "@/components/theme-provider";
@@ -16,14 +17,30 @@ import { Toaster } from "@/components/ui/toaster";
 import BottomNavigation from "@/components/BottomNavigation";
 import { HighContrastToggle } from "@/components/HighContrastToggle";
 import { FilterProvider } from "@/lib/FilterContext";
+import FirstRunPrompt from "@/components/FirstRunPrompt";
+import HowItWorksDialog from "@/components/HowItWorksDialog";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { useLocation as useGeoLocation } from "@/hooks/useLocation";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [activeTab, setActiveTab] = useState("stations");
     const [isMobile, setIsMobile] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
+    const [howItWorksOpen, setHowItWorksOpen] = useState(false);
     const { theme, setTheme, resolvedTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
+    const { showFirstRun, completeOnboarding } = useOnboarding();
+    const { requestLocation } = useGeoLocation();
+
+    const handleAllowLocation = async () => {
+        await requestLocation();
+        completeOnboarding();
+    };
+
+    const handleSkipOnboarding = () => {
+        completeOnboarding();
+    };
 
     useEffect(() => {
         const checkMobile = () => {
@@ -114,6 +131,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             <BellIcon size="md" />
                             <span className="sr-only">Notification settings</span>
                         </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setHowItWorksOpen(true)}
+                            className="min-w-touch min-h-touch"
+                        >
+                            <HelpCircle className="w-5 h-5" />
+                            <span className="sr-only">How it works</span>
+                        </Button>
                         <HighContrastToggle />
                         <Button
                             variant="ghost"
@@ -170,7 +196,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     open={notificationOpen}
                     onOpenChange={setNotificationOpen}
                 />
+                <HowItWorksDialog
+                    open={howItWorksOpen}
+                    onOpenChange={setHowItWorksOpen}
+                />
             </div>
+            {showFirstRun && (
+                <FirstRunPrompt
+                    onAllowLocation={handleAllowLocation}
+                    onSkip={handleSkipOnboarding}
+                />
+            )}
         </OneSignalProvider>
     );
 }
