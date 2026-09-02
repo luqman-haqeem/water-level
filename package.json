@@ -14,6 +14,9 @@
         "scrape:water-level:file": "node scripts/scrapeWaterLevel.js file",
         "scrape:summary": "node scripts/scrapeWaterLevel.js summary"
     },
+    "overrides": {
+        "brace-expansion@1": "^1.1.18"
+    },
     "dependencies": {
         "@radix-ui/react-dialog": "^1.1.1",
         "@radix-ui/react-dropdown-menu": "^2.1.2",
