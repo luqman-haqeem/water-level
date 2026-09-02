@@ -1,6 +1,6 @@
 # Migrate the sync pipeline from Convex to Cloudflare Workers
 
-**Status:** proposed
+**Status:** Phase 0 run 2026-09-02 — two of three risks cleared, CPU check outstanding
 **Date:** 2026-09-02
 **Supersedes the backend half of:** `docs/superpowers/specs/2026-08-29-resilient-read-path-design.md`
 
@@ -98,30 +98,70 @@ limit is not exposed to user traffic.
 
 ## Phases
 
-### Phase 0 — Feasibility spike (BLOCKING, do this first)
+### Phase 0 — Feasibility spike — RUN 2026-09-02
 
-A throwaway deployed Worker that answers only the questions local tooling cannot.
-`wrangler dev` runs on the developer's machine with the developer's IP, so a local
-pass proves nothing about any of these.
+Executed against a throwaway Worker deployed to the real edge via
+`wrangler deploy --temporary` (a preview account, no login required), then deleted.
+`wrangler dev` would have proved nothing here: it runs on the developer's machine
+with the developer's IP.
 
-1. **Does JPS accept Cloudflare IPs?** Fetch the summary endpoint from a deployed
-   Worker. Prior art is discouraging: commit `8c7fded` on `main` notes "Convex
-   cannot reach JPS API" for the coordinates endpoint, so upstream is fussy about
-   callers.
-2. **Does `fetch()` to plain `http://` work from the edge?** The CCTV base URL is
-   not HTTPS. Confirm a frame downloads with an `image/*` content-type.
-3. **Does the build fit in 10 ms CPU?** Parse 10 JPS responses, build ~200 stations,
-   stringify ~212 KB. Measure with `wrangler tail` / the dashboard CPU-time metric.
-   Miniflare does not enforce CPU limits, so this cannot be checked locally.
+| # | Question | Result |
+|---|---|---|
+| 1 | Does JPS accept Cloudflare IPs? | **PASS** |
+| 2 | Does `fetch()` to plain `http://` work from the edge? | **PASS** |
+| 3 | Does the build fit in 10 ms CPU? | **NOT CLOSED** — evidence says yes |
 
-**Exit criteria:** all three pass, or we take the fallback below. Nothing else in
-this plan starts until Phase 0 reports.
+**1. JPS accepts Cloudflare IPs.** From the deployed Worker the summary endpoint
+returned 200 with all 9 districts, and 8/9 district endpoints returned 200. A
+12-sample sequential run scored 11/12 from Cloudflare against 12/12 from a home IP,
+with near-identical latency distributions.
 
-**Fallback if any spike fails:** a scheduled GitHub Action (free and unlimited on
-public repos, full Node, no CPU cap) running the sync with the existing aws4fetch R2
-client almost verbatim. Not preferred — GitHub Actions cron is frequently delayed
-5-15 minutes, which is poor for a flood-alert app — but it is a proven escape hatch,
-and reaching it costs a day rather than a week.
+The prior art that made this the headline risk was a misdiagnosis. Commit `8c7fded`
+records "Convex cannot reach JPS API" for `/JPSAPI/api/StationRiverLevels`; that
+endpoint returns 200 with 22,233 bytes today. It simply takes 16-22 s. Convex timed
+out — JPS never blocked anything.
+
+**2. Plain `http://` works from the edge.** `http://.../CCTV_Image/25.jpg` returned
+200, `image/jpeg`, 147,826 bytes in 971 ms. The risk was doubly overstated: the CCTV
+host also serves **HTTPS**, verified byte-identical (154,799 bytes) from a home IP.
+Prefer HTTPS with an `http://` fallback.
+
+**3. CPU is unresolved, but the numbers are reassuring.** The full production-size
+build ran correctly on workerd — 176 stations, 92 cameras, 255 trend series,
+178,270 bytes out, 10/10 runs at 200. That does **not** certify the limit: the
+temporary preview account does not enforce the free plan's 10 ms cap. 2,048
+consecutive full builds in a single invocation (~4 s of CPU) still returned 200.
+
+The usable evidence is a local measurement of the identical pipeline on real
+payloads (same V8):
+
+| | CPU ms per full build |
+|---|---|
+| p50 | 1.97 |
+| p95 | 4.79 |
+| max | 6.41 |
+| **limit** | **10.00** |
+
+Roughly 2x headroom at p95. **To close:** `wrangler login`, deploy the spike to a
+real free-plan account, and read CPU from `wrangler tail`. The spike lives at
+`workers/phase0-spike/` (untracked, throwaway).
+
+**New finding — JPS's TCP connect is flaky, and it is not Cloudflare-specific.**
+About 40% of connections stall ~20 s at `time_connect`, the signature of SYN
+retransmission, from both vantage points:
+
+| Vantage point | fast (<1 s) | stalled (~20-23 s) | failed |
+|---|---|---|---|
+| Cloudflare edge | 6/12 | 4/12 (+2 at ~39 s) | 1 (522) |
+| Home IP | 7/12 | 5/12 | 0 |
+
+One sequential pass over 9 districts took 162 s. The 15-minute cron wall clock
+absorbs that, but only with **parallel district fetches and an explicit retry
+budget** — see Phase 2. Sequential-with-retries would run uncomfortably close on a
+bad day.
+
+**Verdict:** proceed. The GitHub Actions fallback is not needed, and would not have
+helped anyway — the flakiness is upstream of any host.
 
 ### Phase 1 — Scaffold and port shared logic
 
@@ -146,6 +186,12 @@ resilience behaviour:
 - the fingerprint is withheld when any district failed, so the next run retries
 - `syncState` is read before the data and `meta.json` written last, so meta never
   describes data that was not published
+
+Phase 0 adds one requirement the Convex version did not have: **fetch the districts
+in parallel**. Sequentially they took 162 s in a measured run, because ~40% of JPS
+connections stall ~20 s. Parallel fetches bring a bad run to roughly the slowest
+single district (~40 s) and keep the retry budget comfortably inside the 15-minute
+cron wall clock. Nine parallel fetches also stay far under the 50-subrequest cap.
 
 **Verify:** golden-file equivalence test (below) plus Worker integration tests.
 
@@ -215,10 +261,12 @@ Layers 1-3 run in CI on every commit.
 
 ### What tests cannot cover
 
-- JPS accepting Cloudflare IPs — needs a real deploy (Phase 0).
-- `http://` CCTV fetch from the edge — needs a real deploy (Phase 0).
-- The 10 ms CPU limit — Miniflare does not enforce it; needs `wrangler tail` on a
-  real deployment (Phase 0).
+- ~~JPS accepting Cloudflare IPs~~ — settled in Phase 0 (pass).
+- ~~`http://` CCTV fetch from the edge~~ — settled in Phase 0 (pass).
+- The 10 ms CPU limit — Miniflare does not enforce it, and neither does a temporary
+  preview account. Needs `wrangler tail` on a real free-plan deployment.
+- JPS's ~20 s connect stalls — reproducible but not deterministic; the retry budget
+  has to be validated against the live endpoint, not fixtures.
 
 ## Rollback
 
@@ -230,8 +278,9 @@ but dormant until Phase 7, so rollback is a config change, not a redeploy.
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| JPS blocks or rate-limits Cloudflare IPs | Medium — prior art shows Convex was blocked on one endpoint | Phase 0 spike; GitHub Actions fallback |
-| `http://` fetch unavailable from Workers | Medium | Phase 0 spike; try HTTPS on the CCTV host; fallback |
-| Build exceeds 10 ms CPU | Medium | Only build on fingerprint change (~1/3 of runs); no gzip; if still over, split raw-dump and build across two chained Workers |
+| ~~JPS blocks or rate-limits Cloudflare IPs~~ | **Resolved** — Phase 0: 11/12 from the edge vs 12/12 local; the `8c7fded` note was a timeout, not a block | none needed |
+| ~~`http://` fetch unavailable from Workers~~ | **Resolved** — Phase 0: 200 `image/jpeg` from the edge; the host also serves HTTPS | use HTTPS, fall back to `http://` |
+| Build exceeds 10 ms CPU | Low — measured p95 4.79 ms of a 10 ms budget | Confirm with `wrangler tail` on a real account; build only on fingerprint change (~1/3 of runs); no gzip; if it ever tightens, split raw-dump and build across two chained Workers |
+| JPS connect stalls ~20 s on ~40% of attempts | **High — observed** | Fetch districts in parallel, not sequentially; explicit retry budget well inside the 15-minute cron wall clock; withhold the fingerprint when any district failed so the next run retries |
 | KV write cap (1,000/day) | Low | 288/day projected; move `syncState` to an R2 key if it ever tightens |
 | Cron drift or missed runs | Low | `meta.json` already surfaces staleness in the UI banner |
