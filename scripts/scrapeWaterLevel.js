@@ -1,7 +1,10 @@
 const { ConvexHttpClient } = require("convex/browser");
 require('dotenv').config({ path: '.env.local' });
 
-// ⚠️ DEPRECATED: This script uses public Convex mutations that have been removed for security.
+// ⚠️ DEPRECATED: this script used to write through public Convex mutations.
+// Those mutations (sync.stationUpdater.createStation / createDistrict /
+// getAllDistricts and sync.cameraUpdater.createCamera) were removed in #68 —
+// they allowed unauthenticated overwrites of station and camera records.
 // Data syncing is now handled by the Convex cron job (sync.waterLevelUpdater.updateWaterLevels)
 // which runs every 15 minutes in production using internal (protected) mutations.
 //

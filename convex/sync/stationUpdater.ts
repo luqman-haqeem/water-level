@@ -73,8 +73,12 @@ export const updateStations = internalAction({
         for (const stationJps of stationsJps.stations) {
           await ctx.runMutation(internal.sync.stationUpdater.upsertStation, {
             districtId: district._id,
+            // JPS returns `id` as a number but the schema (and the
+            // `by_jps_sel_id` index) store it as a string, so it must be
+            // normalised here. Passing the raw number meant the index lookup in
+            // `upsertStation` could never match an existing row.
             stationData: {
-              jpsSelId: stationJps.id,
+              jpsSelId: String(stationJps.id),
               publicInfoId: stationJps.stationId || "",
               stationName: stationJps.stationName || "",
               stationCode: stationJps.stationCode,
@@ -128,7 +132,10 @@ export const upsertStation = internalMutation({
   args: {
     districtId: v.id("districts"),
     stationData: v.object({
-      jpsSelId: v.any(),
+      // Must be `v.string()`, matching the schema and the `by_jps_sel_id` index.
+      // This was `v.any()`, which disabled validation on the field used as the
+      // upsert lookup key and allowed a non-string value to reach the index.
+      jpsSelId: v.string(),
       publicInfoId: v.optional(v.string()),
       stationName: v.string(),
       stationCode: v.optional(v.string()),
