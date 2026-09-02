@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LocationIcon } from "@/components/icons/IconLibrary";
+import { LocationIcon, BellIcon } from "@/components/icons/IconLibrary";
 import StationCard from "@/components/StationCard";
 import { StationSkeleton } from "@/components/SkeletonCard";
 import { haptics } from "@/utils/haptics";
@@ -416,6 +416,14 @@ export function StationsRoute() {
                                     Showing alphabetical order as fallback.
                                 </p>
                             )}
+                        </div>
+                    )}
+
+                    {/* Empty My Stations hint */}
+                    {subscribedIds.length === 0 && !isLoadingStations && (
+                        <div className="mb-4 px-1 text-sm text-muted-foreground flex items-center gap-2">
+                            <BellIcon size="sm" />
+                            <span>Tap the bell on any station to watch it and get Danger alerts</span>
                         </div>
                     )}
 
