@@ -19,6 +19,7 @@ import type * as lib_alertLevel from "../lib/alertLevel.js";
 import type * as lib_concurrency from "../lib/concurrency.js";
 import type * as lib_fetchWithRetry from "../lib/fetchWithRetry.js";
 import type * as lib_r2 from "../lib/r2.js";
+import type * as lib_retention from "../lib/retention.js";
 import type * as lib_syncKeys from "../lib/syncKeys.js";
 import type * as notifications from "../notifications.js";
 import type * as seedCoordinates from "../seedCoordinates.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   "lib/concurrency": typeof lib_concurrency;
   "lib/fetchWithRetry": typeof lib_fetchWithRetry;
   "lib/r2": typeof lib_r2;
+  "lib/retention": typeof lib_retention;
   "lib/syncKeys": typeof lib_syncKeys;
   notifications: typeof notifications;
   seedCoordinates: typeof seedCoordinates;

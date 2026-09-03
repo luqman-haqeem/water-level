@@ -1,16 +1,22 @@
 import { query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { TRENDS_WINDOW_MS } from "./lib/retention";
 
-// Get past 3 hours trend data for a station
+// Trend data for a station over the published window.
+//
+// NOTE: rows now outlive this window (retention is HISTORY_RETENTION_MS, see
+// lib/retention.ts), so this bound is what makes the query cheap rather than an
+// artefact of everything older having been deleted. Any future caller wanting a
+// longer window should take it as an argument (#80) rather than widening this.
 export const getStationTrend = query({
   args: { stationId: v.id("stations") },
   handler: async (ctx, { stationId }) => {
-    const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000); // 3 hours in ms
-    
+    const since = Date.now() - TRENDS_WINDOW_MS;
+
     return await ctx.db
       .query("waterLevelHistory")
-      .withIndex("by_station_time", (q) => 
-        q.eq("stationId", stationId).gte("timestamp", threeHoursAgo)
+      .withIndex("by_station_time", (q) =>
+        q.eq("stationId", stationId).gte("timestamp", since)
       )
       .order("asc")
       .collect();
@@ -24,15 +30,17 @@ export interface TrendPoint {
     recordedAt: string;
 }
 
-const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-
 /**
- * All stations' last-3h history in one indexed pass, grouped by station id.
- * Used by the snapshot publisher to build trends.json.
+ * All stations' history over the published window, in one indexed pass, grouped
+ * by station id. Used by the snapshot publisher to build trends.json.
+ *
+ * This is an indexed range scan on by_timestamp, so its cost is proportional to
+ * the window, not to the size of the table. Retaining history for longer (#80)
+ * therefore does not make publishing more expensive.
  */
 export const getAllTrends = internalQuery({
     handler: async (ctx): Promise<Record<string, TrendPoint[]>> => {
-        const since = Date.now() - THREE_HOURS_MS;
+        const since = Date.now() - TRENDS_WINDOW_MS;
         const rows = await ctx.db
             .query("waterLevelHistory")
             .withIndex("by_timestamp", (q) => q.gte("timestamp", since))

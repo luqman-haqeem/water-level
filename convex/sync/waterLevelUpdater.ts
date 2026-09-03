@@ -6,6 +6,11 @@ import { computeJpsFingerprint, fingerprintToRecord, latestJpsUpdate } from "./c
 import { fetchWithRetry } from "../lib/fetchWithRetry";
 import { WATER_LEVELS_KEY } from "../lib/syncKeys";
 import { parseThreshold } from "../lib/alertLevel";
+import {
+    CLEANUP_BATCH_SIZE,
+    CLEANUP_MAX_BATCHES_PER_RUN,
+    HISTORY_RETENTION_MS,
+} from "../lib/retention";
 
 const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
@@ -363,24 +368,28 @@ export const upsertCurrentLevel = internalMutation({
     },
 });
 
-// Daily cleanup function for old waterLevelHistory records
-// Uses pagination to avoid hitting the 32,000 document read limit
+// Cleanup for waterLevelHistory rows past the retention horizon.
+// Uses pagination to avoid hitting the 32,000 document read limit.
+//
+// The cutoff is HISTORY_RETENTION_MS, no longer the 3 hours the trend charts
+// display. Those were the same value, so history was deleted as soon as it left
+// the chart and nothing ever accumulated (#80).
 export const cleanupOldHistoryData = internalMutation({
     handler: async (ctx) => {
-        const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
-        const BATCH_SIZE = 250;
-        const MAX_BATCHES_PER_RUN = 8;
+        const cutoff = Date.now() - HISTORY_RETENTION_MS;
+        const BATCH_SIZE = CLEANUP_BATCH_SIZE;
+        const MAX_BATCHES_PER_RUN = CLEANUP_MAX_BATCHES_PER_RUN;
         let totalDeleted = 0;
         let batchesProcessed = 0;
 
-        console.log("🧹 Starting daily waterLevelHistory cleanup...");
+        console.log("🧹 Starting waterLevelHistory cleanup...");
 
         try {
             while (batchesProcessed < MAX_BATCHES_PER_RUN) {
                 // Query a limited batch of old records
                 const oldRecords = await ctx.db
                     .query("waterLevelHistory")
-                    .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
+                    .withIndex("by_timestamp", (q) => q.lt("timestamp", cutoff))
                     .take(BATCH_SIZE);
 
                 if (oldRecords.length === 0) {
@@ -406,7 +415,7 @@ export const cleanupOldHistoryData = internalMutation({
             const hasMore = (
                 await ctx.db
                     .query("waterLevelHistory")
-                    .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
+                    .withIndex("by_timestamp", (q) => q.lt("timestamp", cutoff))
                     .take(1)
             ).length > 0;
 
