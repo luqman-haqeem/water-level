@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as cameras from "../cameras.js";
 import type * as crons from "../crons.js";
+import type * as lib_alertLevel from "../lib/alertLevel.js";
 import type * as lib_concurrency from "../lib/concurrency.js";
 import type * as lib_fetchWithRetry from "../lib/fetchWithRetry.js";
 import type * as lib_r2 from "../lib/r2.js";
@@ -45,6 +46,7 @@ import type * as waterLevelHistory from "../waterLevelHistory.js";
 declare const fullApi: ApiFromModules<{
   cameras: typeof cameras;
   crons: typeof crons;
+  "lib/alertLevel": typeof lib_alertLevel;
   "lib/concurrency": typeof lib_concurrency;
   "lib/fetchWithRetry": typeof lib_fetchWithRetry;
   "lib/r2": typeof lib_r2;

@@ -72,10 +72,14 @@ export const getStationsWithDetails = query({
                     is_enabled: stationCamera.isEnabled,
                     captured_at: stationCamera.lastImageAt ?? null
                 } : null,
-                normal_water_level: station.normalWaterLevel || 0,
-                alert_water_level: station.alertWaterLevel || 0,
-                warning_water_level: station.warningWaterLevel || 0,
-                danger_water_level: station.dangerWaterLevel || 0,
+                // `?? null`, not `|| 0`: a station JPS publishes no threshold
+                // for must stay distinguishable from one whose threshold is 0,
+                // or every consumer of this snapshot re-derives the #73 bug —
+                // `level >= danger` is true for any reading when danger is 0.
+                normal_water_level: station.normalWaterLevel ?? null,
+                alert_water_level: station.alertWaterLevel ?? null,
+                warning_water_level: station.warningWaterLevel ?? null,
+                danger_water_level: station.dangerWaterLevel ?? null,
                 station_status: station.stationStatus
             };
         });
@@ -145,10 +149,11 @@ export const getStationDetailById = query({
                 is_enabled: stationCamera.isEnabled,
                 captured_at: stationCamera.lastImageAt ?? null
             } : null,
-            normal_water_level: station.normalWaterLevel || 0,
-            alert_water_level: station.alertWaterLevel || 0,
-            warning_water_level: station.warningWaterLevel || 0,
-            danger_water_level: station.dangerWaterLevel || 0,
+            // Same nullable-threshold contract as getStationsWithDetails (#73).
+            normal_water_level: station.normalWaterLevel ?? null,
+            alert_water_level: station.alertWaterLevel ?? null,
+            warning_water_level: station.warningWaterLevel ?? null,
+            danger_water_level: station.dangerWaterLevel ?? null,
             station_status: station.stationStatus
         };
     },

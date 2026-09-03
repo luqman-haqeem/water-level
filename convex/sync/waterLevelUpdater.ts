@@ -5,6 +5,7 @@ import { convertJpsDateToIso } from "./jpsDate";
 import { computeJpsFingerprint, fingerprintToRecord, latestJpsUpdate } from "./changeDetection";
 import { fetchWithRetry } from "../lib/fetchWithRetry";
 import { WATER_LEVELS_KEY } from "../lib/syncKeys";
+import { parseThreshold } from "../lib/alertLevel";
 
 const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
@@ -31,11 +32,14 @@ interface JpsStationData {
     referenceName: string;
     districtName: string;
     waterLevel: number | null;
-    wlth_normal: number;
-    wlth_alert: number;
-    wlth_warning: number;
-    wlth_danger: number;
-    waterlevelStatus: number;
+    // Nullable in practice: JPS omits or nulls thresholds for stations it has
+    // not configured, and sends `waterlevelStatus: null` for some of them.
+    // Declaring them non-null hid that from the type checker.
+    wlth_normal: number | null;
+    wlth_alert: number | null;
+    wlth_warning: number | null;
+    wlth_danger: number | null;
+    waterlevelStatus: number | null;
     stationStatus: number;
     lastUpdate: string;
     latitude: string | number;
@@ -170,11 +174,19 @@ export const updateWaterLevels = internalAction({
                             (station.waterLevel === null || station.waterLevel === -9999)
                                 ? null
                                 : station.waterLevel,
-                        normalLevel: station.wlth_normal || 0,
-                        alertLevel: station.wlth_alert || 0,
-                        warningLevel: station.wlth_warning || 0,
-                        dangerLevel: station.wlth_danger || 0,
-                        waterlevelStatus: station.waterlevelStatus || -1,
+                        // `parseThreshold`, not `|| 0`: collapsing an absent
+                        // threshold to 0 made `level >= dangerLevel` true for
+                        // every reading, so a station JPS publishes no
+                        // thresholds for classified as DANGER (#73). Absent now
+                        // stays absent all the way to the snapshot.
+                        normalLevel: parseThreshold(station.wlth_normal),
+                        alertLevel: parseThreshold(station.wlth_alert),
+                        warningLevel: parseThreshold(station.wlth_warning),
+                        dangerLevel: parseThreshold(station.wlth_danger),
+                        // `??`, not `||`: JPS sends 0 for "normal", and `0 || -1`
+                        // rewrote it to -1, pushing a reading JPS had already
+                        // classified as safe down the threshold-guessing path.
+                        waterlevelStatus: station.waterlevelStatus ?? -1,
                         stationStatus: station.stationStatus || 0,
                         lastUpdate: convertJpsDateToIso(station.lastUpdate),
                         latitude: typeof station.latitude === 'string' ? parseFloat(station.latitude) || undefined : station.latitude || undefined,
