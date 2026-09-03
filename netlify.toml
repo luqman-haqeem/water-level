@@ -12,6 +12,55 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# Security headers.
+#
+# NOTE ON CSP: shipped as Report-Only deliberately. It must be validated against
+# a real session before being enforced — load the app, open the browser console,
+# exercise the notification opt-in and a camera image, and confirm there are no
+# violation reports. Only then rename the header to `Content-Security-Policy`.
+# Enforcing an untested CSP on a flood-warning app risks a blank page during an
+# actual flood, which is worse than the XSS defence-in-depth it buys.
+#
+# Origins, and why each is needed:
+#   cdn.onesignal.com   - the OneSignal SDK is injected at runtime by
+#                         react-onesignal, and public/OneSignalSDKWorker.js
+#                         importScripts() the service-worker build from here.
+#   *.onesignal.com     - SDK API calls and notification icons.
+#   *.r2.dev            - the snapshot read path. ALL public data now comes from
+#                         here: stations/cameras/trends/meta JSON via fetch
+#                         (connect-src) and mirrored CCTV frames via <img>
+#                         (img-src). This must track VITE_SNAPSHOT_BASE_URL —
+#                         when a custom domain is attached to the bucket, add it
+#                         here in the same commit or the app loses all data.
+#   *.i.posthog.com     - analytics ingest; posthog-js also lazy-loads some
+#                         bundles (e.g. the session recorder) from its host.
+#   'unsafe-inline' in style-src - required by Tailwind/Radix inline styles.
+# *.convex.cloud is deliberately absent: the browser no longer opens a Convex
+# connection at all (src/lib/convexClient.ts and ConvexProvider were removed
+# with the snapshot read path). Convex is now reachable only from the sync
+# pipeline, server-side.
+# Google Fonts is deliberately absent: nothing in the app loads it (the stale
+# runtimeCaching rule for it in vite.config.ts is vestigial).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://cdn.onesignal.com https://*.i.posthog.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.onesignal.com https://*.r2.dev; connect-src 'self' https://*.r2.dev https://*.onesignal.com https://*.i.posthog.com; worker-src 'self'; manifest-src 'self'; frame-src https://*.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+    # Enforced now (no compatibility risk):
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    # Clickjacking protection. Enforced via XFO because `frame-ancestors` is
+    # ignored while the CSP above is Report-Only.
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Cross-Origin-Opener-Policy = "same-origin"
+    # geolocation must stay enabled: src/hooks/useLocation.ts uses it to sort
+    # stations by distance.
+    Permissions-Policy = "geolocation=(self), camera=(), microphone=(), payment=(), usb=()"
+
+# The /api/proxy-image/* redirect and its Netlify function were removed with the
+# snapshot read path: camera frames are mirrored to R2 and served directly from
+# the snapshot host, so nothing needs to proxy JPS at request time.
+
 # SPA fallback - must be last
 [[redirects]]
   from = "/*"

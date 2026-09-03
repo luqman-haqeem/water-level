@@ -99,7 +99,6 @@ export const getDistricts = internalMutation({
 // anonymous overwrite of any camera record, including flipping `isEnabled` to
 // hide a camera from every client. `getCameras` was an unused debug read.
 
-
 export const upsertCamera = internalMutation({
   args: {
     districtId: v.id("districts"),

@@ -127,6 +127,8 @@ export const patchStationCoordinates = internalMutation({
  * HOW TO RUN (internal — not callable from the public API):
  *   npx convex run seedCoordinates:seedCoordinatesFromHardcoded
  * or Convex Dashboard → Functions → seedCoordinates → seedCoordinatesFromHardcoded → Run
+ * (both the CLI and the Dashboard authenticate with an admin key, so they can
+ * run internal functions; a client cannot)
  *
  * Safe to run multiple times — idempotent (just re-patches same values).
  */

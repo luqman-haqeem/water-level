@@ -2,6 +2,45 @@ import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
+/**
+ * Drops keys whose value is `undefined`.
+ *
+ * A Convex `db.patch` treats an explicit `undefined` as "delete this field", so
+ * spreading a payload built from an upstream response that omitted a field will
+ * DESTROY the stored value rather than leave it alone. JPS omits fields
+ * routinely — lat/lng were removed from their API entirely — so a blind patch
+ * here silently wipes last-known-good station metadata.
+ *
+ * `waterLevelData.upsertStation` already guards its coordinate writes for this
+ * reason; this generalises the same rule for the weekly metadata sync.
+ */
+export function omitUndefined<T extends Record<string, unknown>>(
+  fields: T
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+}
+
+/**
+ * Normalises a JPS coordinate to a usable number, or `undefined` if absent.
+ *
+ * Treats `0` as absent: JPS uses it as a null sentinel, and 0,0 is in the Gulf
+ * of Guinea, not Selangor. Note the string case matters — `"0"` is truthy, so a
+ * bare `raw ? parseFloat(raw) : undefined` lets a sentinel `"0"` through as a
+ * real coordinate and overwrite a good value.
+ */
+export function parseCoordinate(raw: unknown): number | undefined {
+  const parsed =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string"
+        ? parseFloat(raw)
+        : NaN;
+
+  return Number.isFinite(parsed) && parsed !== 0 ? parsed : undefined;
+}
+
 export const updateStations = internalAction({
   handler: async (ctx) => {
     const stationURL =
@@ -34,18 +73,18 @@ export const updateStations = internalAction({
         for (const stationJps of stationsJps.stations) {
           await ctx.runMutation(internal.sync.stationUpdater.upsertStation, {
             districtId: district._id,
+            // JPS returns `id` as a number but the schema (and the
+            // `by_jps_sel_id` index) store it as a string, so it must be
+            // normalised here. Passing the raw number meant the index lookup in
+            // `upsertStation` could never match an existing row.
             stationData: {
-              jpsSelId: stationJps.id,
+              jpsSelId: String(stationJps.id),
               publicInfoId: stationJps.stationId || "",
               stationName: stationJps.stationName || "",
               stationCode: stationJps.stationCode,
               refName: stationJps.referenceName,
-              latitude: stationJps.latitude
-                ? parseFloat(stationJps.latitude)
-                : undefined,
-              longitude: stationJps.longitude
-                ? parseFloat(stationJps.longitude)
-                : undefined,
+              latitude: parseCoordinate(stationJps.latitude),
+              longitude: parseCoordinate(stationJps.longitude),
               gsmNumber:
                 stationJps.gsmNumber === null
                   ? undefined
@@ -97,12 +136,14 @@ export const insertDistrict = internalMutation({
 // used to decide whether a danger notification fires. Use `npx convex run` on
 // the internal functions for manual seeding.
 
-
 export const upsertStation = internalMutation({
   args: {
     districtId: v.id("districts"),
     stationData: v.object({
-      jpsSelId: v.any(),
+      // Must be `v.string()`, matching the schema and the `by_jps_sel_id` index.
+      // This was `v.any()`, which disabled validation on the field used as the
+      // upsert lookup key and allowed a non-string value to reach the index.
+      jpsSelId: v.string(),
       publicInfoId: v.optional(v.string()),
       stationName: v.string(),
       stationCode: v.optional(v.string()),
@@ -130,9 +171,12 @@ export const upsertStation = internalMutation({
       .first();
 
     if (existing) {
-      // Update existing station
+      // Update existing station.
+      // `omitUndefined` is load-bearing: patching with an explicit `undefined`
+      // deletes the field, so without it every field JPS omitted would be
+      // destroyed on the stored record.
       await ctx.db.patch(existing._id, {
-        ...stationData,
+        ...omitUndefined(stationData),
         districtId,
       });
     } else {

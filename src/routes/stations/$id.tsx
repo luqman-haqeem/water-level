@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Expand, BellOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, BellOff, X } from "lucide-react";
 import { BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
 import useSwipeGestures from "@/hooks/useSwipeGestures";
 import AlertLevelBadge from "@/components/AlertLevelBadge";
@@ -67,6 +67,14 @@ export function StationDetailRoute() {
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("");
     const [showPermDialog, setShowPermDialog] = useState(false);
+    const [showDetailHint, setShowDetailHint] = useState(
+        () => localStorage.getItem("hint-detail-dismissed") !== "true"
+    );
+
+    const dismissDetailHint = () => {
+        localStorage.setItem("hint-detail-dismissed", "true");
+        setShowDetailHint(false);
+    };
 
     // Find current station's position in the list for navigation
     const currentIndex = stationsData.findIndex(
@@ -287,6 +295,18 @@ export function StationDetailRoute() {
                     ref={swipeRef}
                     className="flex-1 p-4 sm:p-6 overflow-auto pb-20"
                 >
+                    {/* First-visit detail hint */}
+                    {showDetailHint && (
+                        <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-start justify-between gap-2">
+                            <p className="text-sm text-muted-foreground">
+                                This shows how close the river is to flooding. Tap &quot;Get Alerts&quot; to be notified when it reaches Danger level.
+                            </p>
+                            <button onClick={dismissDetailHint} aria-label="Dismiss" className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+
                     {/* Station Status Badge */}
                     {!currentStation.station_status && (
                         <div className="mb-4">

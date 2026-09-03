@@ -52,3 +52,10 @@ export const getAllTrends = internalQuery({
         return trends;
     },
 });
+
+// REMOVED by #72: getMultipleStationsTrend (unreferenced anywhere).
+// It took an unbounded `v.array(v.id("stations"))` and ran one full `.collect()`
+// per element in a sequential loop, with no length cap and no de-duplication —
+// so a single anonymous request repeating one valid id 10,000 times multiplied
+// document reads by 10,000. If a batch variant is needed later, cap the array
+// length, de-duplicate it, and `.take(n)` each per-station read.

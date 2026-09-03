@@ -235,11 +235,32 @@ interface SnapshotStationForOg {
 
 const SNAPSHOT_BASE_URL = (Netlify.env.get("VITE_SNAPSHOT_BASE_URL") ?? "").replace(/\/+$/, "");
 
-// One CDN-cached fetch; no Convex, no JPS. Returns null if the snapshot is unreachable.
+/**
+ * Fetches the authoritative station record from the published R2 snapshot.
+ *
+ * SECURITY: every value rendered into this card must come from here, never from
+ * the query string. This endpoint previously read `name`, `district`, `level`,
+ * `alert`, `updated`, `online` and `camera` straight off the URL, so anyone
+ * could mint an authentic-looking red "DANGER 99.90m" card on our own domain for
+ * a real station (or a reassuring "NORMAL" one during an actual flood) and share
+ * it. For a public flood-warning app that is a misinformation vector, so the
+ * spoofable parameters are gone entirely. That property is preserved here — only
+ * `stationId` comes from the request, and it is used solely as a lookup key.
+ *
+ * The read path is now one CDN-cached fetch of stations.json: no Convex, no JPS.
+ * The previous implementation queried `stations:getStationDetailById` over the
+ * Convex HTTP API, which is why this endpoint returned 502 in production.
+ * Returns null if the snapshot is unreachable or the id is unknown.
+ */
 async function getStationFromSnapshot(stationId: string): Promise<SnapshotStationForOg | null> {
-    if (!SNAPSHOT_BASE_URL) return null;
+    if (!SNAPSHOT_BASE_URL) {
+        console.error("VITE_SNAPSHOT_BASE_URL is not configured");
+        return null;
+    }
     try {
-        const response = await fetch(`${SNAPSHOT_BASE_URL}/stations.json`);
+        const response = await fetch(`${SNAPSHOT_BASE_URL}/stations.json`, {
+            signal: AbortSignal.timeout(5000),
+        });
         if (!response.ok) {
             console.warn(`og-image: stations.json HTTP ${response.status}`);
             return null;
@@ -252,6 +273,26 @@ async function getStationFromSnapshot(stationId: string): Promise<SnapshotStatio
     }
 }
 
+/** JPS camera ids are bare integers — mirrors `cameraImageKey` in the publisher. */
+const CAMERA_ID_PATTERN = /^[0-9]{1,10}$/;
+
+/**
+ * Adds caching to a rendered card.
+ *
+ * Each request costs a snapshot fetch, a camera-image fetch and a satori render,
+ * so an uncached endpoint is a cheap amplification target. 5 minutes matches the
+ * mirrored frames' Cache-Control and is well inside the 15-minute mirror interval.
+ */
+function withCacheHeaders(response: Response): Response {
+    const headers = new Headers(response.headers);
+    headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
+    headers.set("X-Content-Type-Options", "nosniff");
+    return new Response(response.body, {
+        status: response.status,
+        headers,
+    });
+}
+
 export default async (request: Request, context: Context) => {
     const { stationId } = context.params;
 
@@ -259,17 +300,37 @@ export default async (request: Request, context: Context) => {
         return new Response("Station ID is required", { status: 400 });
     }
 
+    // Single source of truth. No query parameter influences what is rendered.
     const station = await getStationFromSnapshot(stationId);
 
-    const stationName = station?.station_name ?? "Unknown Station";
-    const district = station?.districts?.name ?? "Unknown District";
-    const currentLevel = station?.current_levels?.current_level ?? 0;
-    const alertLevel = station?.current_levels?.alert_level ?? "0";
-    const updatedAt = station?.current_levels?.updated_at ?? null;
-    const isOnline = station?.station_status ?? false;
+    if (!station) {
+        return new Response("Station not found", { status: 404 });
+    }
+
+    const stationName = station.station_name;
+    const district = station.districts.name;
+    const currentLevel = station.current_levels?.current_level ?? 0;
+    const updatedAt = station.current_levels?.updated_at;
+    const isOnline = station.station_status;
+
+    // A station with no reading is shown as offline rather than as "NORMAL",
+    // so a missing reading can never render as an all-clear.
+    const alertLevel = station.current_levels?.alert_level ?? "offline";
+
+    // The camera image is rendered server-side by ImageResponse, so `src` is an
+    // outbound fetch from this edge function. It must never be caller-supplied:
+    // the previous `?camera=` parameter made this a straightforward SSRF sink
+    // (e.g. `?camera=http://169.254.169.254/latest/meta-data/`). The id now comes
+    // from the snapshot and addresses a mirrored frame on our own bucket, but the
+    // numeric check is kept: the id is interpolated into a URL, and URL parsing
+    // collapses `..`, so a hostile or malformed upstream id could otherwise walk
+    // out of the `cam/` prefix. Same guard as `cameraImageKey` applies server-side.
+    const jpsCameraId = station.cameras?.jps_camera_id;
     const cameraUrl =
-        station?.cameras?.is_enabled && station.cameras.jps_camera_id
-            ? `${SNAPSHOT_BASE_URL}/cam/${station.cameras.jps_camera_id}.jpg`
+        station.cameras?.is_enabled &&
+        jpsCameraId &&
+        CAMERA_ID_PATTERN.test(jpsCameraId)
+            ? `${SNAPSHOT_BASE_URL}/cam/${jpsCameraId}.jpg`
             : null;
     const hasCameraImage = cameraUrl !== null;
 
@@ -279,7 +340,7 @@ export default async (request: Request, context: Context) => {
     // Choose layout based on camera availability
     if (hasCameraImage) {
         // Two-column layout with camera
-        return new ImageResponse(
+        return withCacheHeaders(new ImageResponse(
             (
                 <div style={STYLES.twoColumnWrapper}>
                     <div style={STYLES.leftColumn}>
@@ -299,15 +360,15 @@ export default async (request: Request, context: Context) => {
                         </div>
                     </div>
                     <div style={STYLES.rightColumn}>
-                        <img src={cameraUrl} alt="Live Camera" style={STYLES.cameraImage} />
+                        <img src={cameraUrl!} alt="Live Camera" style={STYLES.cameraImage} />
                     </div>
                 </div>
             ),
-            { width: 1200, height: 630, headers: { "cache-control": "public, s-maxage=300, max-age=300" } }
-        );
+            { width: 1200, height: 630 }
+        ));
     } else {
         // Centered layout without camera
-        return new ImageResponse(
+        return withCacheHeaders(new ImageResponse(
             (
                 <div style={STYLES.centeredWrapper}>
                     <div style={STYLES.stationName}>
@@ -326,8 +387,8 @@ export default async (request: Request, context: Context) => {
                     </div>
                 </div>
             ),
-            { width: 1200, height: 630, headers: { "cache-control": "public, s-maxage=300, max-age=300" } }
-        );
+            { width: 1200, height: 630 }
+        ));
     }
 };
 

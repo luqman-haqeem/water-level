@@ -5,7 +5,13 @@ export default defineSchema({
   districts: defineTable({
     jpsDistrictsId: v.optional(v.number()),
     name: v.string(),
-  }),
+  })
+    // Without these, `ensureDistrict` had to use `.filter()`, i.e. a full table
+    // scan on every station sync. Convex has no uniqueness constraint, so these
+    // are also what make the duplicate check cheap enough to repeat inside the
+    // transaction (see the race note in waterLevelData.ensureDistrict).
+    .index("by_jps_districts_id", ["jpsDistrictsId"])
+    .index("by_name", ["name"]),
 
   stations: defineTable({
     jpsSelId: v.string(),

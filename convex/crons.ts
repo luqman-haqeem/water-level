@@ -16,6 +16,10 @@ const crons = cronJobs();
 // crons.ts is re-evaluated on every push, so toggling the env var takes effect
 // on the next `npx convex dev` / `npx convex deploy`.
 //
+// Internal functions are still runnable from the CLI and the Dashboard (both
+// authenticate with an admin key, not as a client), so keeping them internal
+// costs nothing operationally.
+//
 // To manually trigger any function in dev:
 //   npx convex run sync/waterLevelUpdater:updateWaterLevels
 const cronsEnabled = process.env.CRONS_ENABLED === "true";
