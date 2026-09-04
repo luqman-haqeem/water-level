@@ -61,7 +61,8 @@ Convex is deleted. No database replaces it:
 | Convex today | New home |
 |---|---|
 | `stations` / `currentLevels` / `districts` | Nothing. The district endpoint already returns names, codes, lat/lng and thresholds, so `stations.json` is built straight from the fetch. |
-| `waterLevelHistory` (3 h trends) | `trends.json` in R2; read-append-prune-write on changed runs only |
+| `waterLevelHistory` — 3 h trends | `trends.json` in R2; read-append-prune-write on changed runs only |
+| `waterLevelHistory` — 14 d retention (`3941656`) | **Not yet designed.** See *History retention* below — migrating as originally written would discard it. |
 | `syncState` | One KV key (~288 writes/day, under the 1,000/day free cap) |
 | `notificationLog` | KV key per station with a 1 h TTL — the cooldown expires itself |
 | `notifyDangerForStation` | One POST to OneSignal, unchanged (subscriber state already lives in OneSignal tags) |
@@ -70,7 +71,8 @@ Convex is deleted. No database replaces it:
 
 - Summary: `https://infobanjirjps.selangor.gov.my/JPSAPI/api/StationRiverLevels/GetWLStationSummary`
 - Per district: `.../GetWLAllStationData/{districtId}`
-- CCTV frames: `http://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/{id}.jpg` (**plain http**)
+- CCTV frames: `https://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/{id}.jpg`
+  (**HTTPS since `23165d2`** — was plain http when this plan was written)
 
 ### Public R2 keys (unchanged)
 
@@ -124,7 +126,14 @@ out — JPS never blocked anything.
 **2. Plain `http://` works from the edge.** `http://.../CCTV_Image/25.jpg` returned
 200, `image/jpeg`, 147,826 bytes in 971 ms. The risk was doubly overstated: the CCTV
 host also serves **HTTPS**, verified byte-identical (154,799 bytes) from a home IP.
-Prefer HTTPS with an `http://` fallback.
+
+**Correction (2026-09-04):** this section originally concluded "prefer HTTPS with an
+`http://` fallback". That was wrong and is withdrawn. `23165d2` switched the upstream
+to HTTPS on the grounds that over cleartext a network attacker can substitute frames
+that we mirror to R2 and then serve to every user from our own domain — and an
+automatic downgrade on HTTPS failure re-opens exactly that hole. The Phase 0 data
+does not support a fallback either: the 522s hit **both** schemes, so they were JPS
+flakiness rather than anything TLS-specific. **Retry HTTPS; never downgrade.**
 
 **3. CPU is unresolved, but the numbers are reassuring.** The full production-size
 build ran correctly on workerd — 176 stations, 92 cameras, 255 trend series,
@@ -168,14 +177,23 @@ helped anyway — the flakiness is upstream of any host.
 ### Phase 1 — Scaffold and port shared logic
 
 - Add `wrangler.toml`, `@cloudflare/vitest-plugin`, R2 + KV bindings; a `workers/` dir.
-- Move the Convex-free pure modules across unchanged: `changeDetection.ts`,
-  `jpsDate.ts`, `snapshotBuilder.ts`, `fetchWithRetry.ts`, and their tests.
+- Move the Convex-free pure modules across: `changeDetection.ts`, `jpsDate.ts`,
+  `snapshotBuilder.ts`, `fetchWithRetry.ts`, `lib/retention.ts`, and their tests.
+  `retention.ts` is new (`3941656`) and was written to port unchanged.
+- `snapshotBuilder.ts` no longer ports byte-for-byte: `23165d2` added a
+  `CAMERA_ID_PATTERN` guard to `cameraImageKey`. **Port the guard**, but note the
+  vector changes shape. It defends against `cam/../stations.json.jpg` collapsing to
+  `stations.json.jpg` and overwriting the snapshot the whole app reads — a collapse
+  that happens because aws4fetch interpolates the key into a URL that is then
+  *parsed*. The native R2 binding takes the key as an opaque string and does not
+  parse it, so the collapse does not occur there. Keep the guard anyway: it still
+  rejects malformed upstream ids, and defence in depth is free here.
 - Drop `concurrency.ts` (`runWithConcurrency`) and the aws4fetch `r2.ts` — the Worker
   uses the native R2 binding, so no request signing and no manual concurrency pool.
 - Drop gzip from the plan entirely: it existed to shrink Convex egress, and R2 egress
   is free.
 
-**Verify:** existing 134 tests still green.
+**Verify:** existing 168 tests still green.
 
 ### Phase 2 — `wl-sync` water level Worker
 
@@ -236,7 +254,9 @@ Only after a clean soak:
 
 ## Testing strategy
 
-Baseline today: **20 test files, 134 tests passing**. CI already runs `npm run test`
+Baseline today: **24 test files, 168 tests passing** (was 20/134 when this plan
+was written; the security and retention work since added coverage). CI already runs
+`npm run test`
 on every PR.
 
 1. **Existing unit tests** — the pure modules port unchanged, so their tests come
@@ -321,6 +341,54 @@ front of R2. Serving via a Worker + Cache API is the domain-less alternative, bu
 puts public traffic under the 100k requests/day cap (~130 sustained visitors at a
 2-minute poll), which is the wrong ceiling for the same event.
 
+## History retention
+
+`3941656` split the two windows that had been the same number by coincidence:
+`TRENDS_WINDOW_MS` stays 3 h (the public contract), `HISTORY_RETENTION_MS` becomes
+14 days. It landed mid-plan and deliberately, because the loss is irreversible and
+the Sep-Nov season is open now.
+
+**This plan as originally written would throw that away.** The Convex-to-new-home
+table mapped `waterLevelHistory` to `trends.json` and nothing else, so a Worker
+pipeline would keep 3 hours and drop the rest — regressing #80 and #82 within days
+of a change made specifically to stop that.
+
+### The migration should raise the ceiling, not lower it
+
+14 days is a Convex storage limit, not a preference. `3941656` reasoned it out:
+Convex Free caps total storage at 0.5 GB and counts each index as another copy of
+the table, and `waterLevelHistory` carries three indexes, so a row costs ~4x its own
+size. R2 has **10 GB free and no index multiplication**.
+
+Measured against live data (`trends.json`, 2026-09-04): **103 bytes per point**
+in the current verbose shape, 81 active series, ~4 points/hour/station.
+
+| Scenario | Per day | Per year |
+|---|---|---|
+| Observed rate (81 series x ~4/h x 103 B) | ~0.8 MB | **~0.3 GB** |
+| #80's estimate (~1,000 rows/h x 103 B) | ~2.5 MB | **~0.9 GB** |
+| Compacted (`{"t":…,"v":…}`, ~30 B) | ~0.7 MB | **~0.3 GB** |
+
+Against a 10 GB free bucket, **12 months is affordable at any of these rates** —
+including the full retention #80 ultimately asks for, which Convex Free structurally
+cannot hold. `recordedAt` is derivable from `timestamp` and `alertLevel` from the
+station thresholds, so compaction is available but not required.
+
+### Sketch (needs its own design pass before Phase 6)
+
+Append-only daily objects, `history/YYYY-MM-DD.json`, written by the same run that
+publishes the snapshot. One extra R2 write per changed run (~288/day worst case,
+against the ~280k/month Class A budget already in this plan — noise). Reads are
+analytical, not on the hot path, so no CDN concern and no `trends.json` change:
+the public contract and the golden-file equivalence test both stay exactly as they
+are.
+
+Open questions for that pass: whether to compact the row shape; whether the daily
+object is rewritten each run or appended as `history/YYYY-MM-DD/HH.json` to avoid
+read-modify-write growing through the day; and whether the existing 14 days in
+Convex should be exported at cutover or simply left to age out while the new store
+accumulates in parallel.
+
 ## Rollback
 
 Both backends write the same R2 keys, so cutover is reversible: set
@@ -332,10 +400,11 @@ but dormant until Phase 7, so rollback is a config change, not a redeploy.
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | ~~JPS blocks or rate-limits Cloudflare IPs~~ | **Resolved** — Phase 0: 11/12 from the edge vs 12/12 local; the `8c7fded` note was a timeout, not a block | none needed |
-| ~~`http://` fetch unavailable from Workers~~ | **Resolved** — Phase 0: 200 `image/jpeg` from the edge; the host also serves HTTPS | use HTTPS, fall back to `http://` |
+| ~~`http://` fetch unavailable from Workers~~ | **Resolved** — Phase 0: 200 `image/jpeg` from the edge; upstream is HTTPS since `23165d2` | Use HTTPS and retry; **never** downgrade to `http://` on failure |
 | Build exceeds 10 ms CPU | Low — measured p95 4.79 ms of a 10 ms budget | Confirm with `wrangler tail` on a real account; build only on fingerprint change (~1/3 of runs); no gzip; if it ever tightens, split raw-dump and build across two chained Workers |
 | JPS connect stalls ~20 s on ~40% of attempts | **High — observed** | Fetch districts in parallel, not sequentially; explicit retry budget well inside the 15-minute cron wall clock; withhold the fingerprint when any district failed so the next run retries |
 | KV write cap (1,000/day) | Low | 288/day projected; move `syncState` to an R2 key if it ever tightens |
+| Migration silently drops the 14 d history `3941656` preserved | **High** if unaddressed | Design the history store before Phase 6 — see *History retention* |
 | Cron drift or missed runs | Low | `meta.json` surfaces staleness in the UI banner, but that informs visitors, not the operator — needs the dead-man's switch above |
 | Silent staleness: writer dies and nobody is told | **High — observed** (2 days stale with `status:"ok"`) | Off-Cloudflare GitHub Actions watchdog on `syncedAt` age; never alert on `status` |
 | `r2.dev` rate-limits under flood-day traffic | Medium | **Accepted 2026-09-04** — no custom domain, traffic out of scope; revisit before flood season |
