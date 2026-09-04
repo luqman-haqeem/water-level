@@ -270,6 +270,57 @@ Layers 1-3 run in CI on every commit.
 - JPS's ~20 s connect stalls — reproducible but not deterministic; the retry budget
   has to be validated against the live endpoint, not fixtures.
 
+## Monitoring and availability
+
+After the frontend cutover the app depends **entirely** on five R2 objects
+(`stations.json`, `cameras.json`, `trends.json`, `meta.json`, `cam/{id}.jpg`). There
+is no second read path. That is mostly a good trade — if every writer dies, R2 keeps
+serving last-good data, which degrades far better than the app going dark — but it
+concentrates the failure modes below.
+
+### `status` is not a freshness signal
+
+Observed 2026-09-04, with dev crons gated off since 2026-09-02:
+
+```
+meta.json: {"syncedAt":"2026-09-02T03:32:15.748Z", ..., "status":"ok"}
+now:        2026-09-04T10:08Z          # 2 days 6.6 h stale
+```
+
+`status` records the outcome of the last sync *attempt*. With no attempts it stays
+`"ok"` indefinitely, so it reads healthy while the data rots. **Freshness must be
+derived from the age of `syncedAt`**; nothing should alert on `status` alone. The
+UI banner already does the right thing here — any new monitor must too.
+
+### Dead-man's switch (must not run on Cloudflare)
+
+The plan's only staleness story today is the UI banner, which informs a visitor who
+happens to load the page and tells the operator nothing. Once the migration lands,
+Cloudflare is the writer, the store *and* the delivery path, so a Cloudflare-side
+failure takes out all three with nothing outside to notice.
+
+Add a **GitHub Actions cron (~30 min)** that fetches `meta.json` and opens or updates
+an issue when `syncedAt` is older than ~30 minutes. Free and unlimited on public
+repos, and independent of the thing it watches. The 5-15 minute Actions cron delay
+that disqualified it as a *sync* fallback is irrelevant for a watchdog.
+
+**Do not enable it before a publisher is running** — with the pipeline currently
+stopped it would fire immediately and continuously.
+
+### Accepted limitation: `r2.dev` is uncached
+
+Verified 2026-09-04: responses carry `Cache-Control: public, max-age=60` but **no
+`cf-cache-status` header at all** — there is no CDN in front of the bucket, so every
+visitor request hits R2 origin, and `r2.dev` is rate-limited by design.
+
+**Accepted for now** (2026-09-04 decision): there is no custom domain available and
+traffic is explicitly out of scope. This is recorded rather than dropped because it
+bites hardest during a flood, which is the event the app exists for. Revisit before
+flood season: attaching a custom domain is free on Cloudflare and puts the CDN in
+front of R2. Serving via a Worker + Cache API is the domain-less alternative, but it
+puts public traffic under the 100k requests/day cap (~130 sustained visitors at a
+2-minute poll), which is the wrong ceiling for the same event.
+
 ## Rollback
 
 Both backends write the same R2 keys, so cutover is reversible: set
@@ -285,4 +336,6 @@ but dormant until Phase 7, so rollback is a config change, not a redeploy.
 | Build exceeds 10 ms CPU | Low — measured p95 4.79 ms of a 10 ms budget | Confirm with `wrangler tail` on a real account; build only on fingerprint change (~1/3 of runs); no gzip; if it ever tightens, split raw-dump and build across two chained Workers |
 | JPS connect stalls ~20 s on ~40% of attempts | **High — observed** | Fetch districts in parallel, not sequentially; explicit retry budget well inside the 15-minute cron wall clock; withhold the fingerprint when any district failed so the next run retries |
 | KV write cap (1,000/day) | Low | 288/day projected; move `syncState` to an R2 key if it ever tightens |
-| Cron drift or missed runs | Low | `meta.json` already surfaces staleness in the UI banner |
+| Cron drift or missed runs | Low | `meta.json` surfaces staleness in the UI banner, but that informs visitors, not the operator — needs the dead-man's switch above |
+| Silent staleness: writer dies and nobody is told | **High — observed** (2 days stale with `status:"ok"`) | Off-Cloudflare GitHub Actions watchdog on `syncedAt` age; never alert on `status` |
+| `r2.dev` rate-limits under flood-day traffic | Medium | **Accepted 2026-09-04** — no custom domain, traffic out of scope; revisit before flood season |
