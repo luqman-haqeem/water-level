@@ -1,6 +1,6 @@
 # Migrate the sync pipeline from Convex to Cloudflare Workers
 
-**Status:** Phase 0 run 2026-09-02 — two of three risks cleared, CPU check outstanding
+**Status:** Phase 0 closed 2026-09-05. Phase 1 in progress.
 **Date:** 2026-09-02
 **Supersedes the backend half of:** `docs/superpowers/specs/2026-08-29-resilient-read-path-design.md`
 
@@ -111,7 +111,7 @@ with the developer's IP.
 |---|---|---|
 | 1 | Does JPS accept Cloudflare IPs? | **PASS** |
 | 2 | Does `fetch()` to plain `http://` work from the edge? | **PASS** |
-| 3 | Does the build fit in 10 ms CPU? | **NOT CLOSED** — evidence says yes |
+| 3 | Does the build fit in 10 ms CPU? | **Deferred to Phase 5** — measured p95 4.79 ms locally |
 
 **1. JPS accepts Cloudflare IPs.** From the deployed Worker the summary endpoint
 returned 200 with all 9 districts, and 8/9 district endpoints returned 200. A
@@ -151,11 +151,21 @@ payloads (same V8):
 | max | 6.41 |
 | **limit** | **10.00** |
 
-Roughly 2x headroom at p95. **To close:** on a real free-plan account, deploy a
-Worker whose `scheduled()` handler performs one full build over live district
-payloads, then read CPU time from `wrangler tail`. A preview account will not do —
-it does not enforce the cap. The Phase 0 spike itself was deleted, as spike code
-should be; recreating it is a ~30-line handler around `buildDataFiles`.
+Roughly 2x headroom at p95.
+
+**Demoted from blocking to Phase 5 (2026-09-05).** A spike earns blocking status when
+failure would mean abandoning the approach — that was true of questions 1 and 2, where
+a "no" sent us to GitHub Actions. It is not true here. If the build overruns 10 ms the
+answer is "split the raw dump and the build across two chained Workers", which is a
+design tweak already in the mitigations below, not a reason to stop. Alongside that:
+the failure mode is benign (error 1102 aborts the run, `meta.json` does not advance,
+the snapshot goes stale — which the freshness banner and the dead-man's switch already
+cover, and nothing corrupts); only ~1/3 of runs rebuild at all, since the rest
+short-circuit on the fingerprint; and Phase 5's staging soak measures it on a real
+account, over 24 h, as part of work that has to happen anyway. Blocking Phase 1 on a
+synthetic one-off measurement bought nothing.
+
+The Phase 0 spike itself was deleted, as spike code should be.
 
 **New finding — JPS's TCP connect is flaky, and it is not Cloudflare-specific.**
 About 40% of connections stall ~20 s at `time_connect`, the signature of SYN
@@ -174,26 +184,48 @@ bad day.
 **Verdict:** proceed. The GitHub Actions fallback is not needed, and would not have
 helped anyway — the flakiness is upstream of any host.
 
-### Phase 1 — Scaffold and port shared logic
+### Phase 1 — Scaffold and port shared logic — DONE 2026-09-05
 
-- Add `wrangler.toml`, `@cloudflare/vitest-plugin`, R2 + KV bindings; a `workers/` dir.
-- Move the Convex-free pure modules across: `changeDetection.ts`, `jpsDate.ts`,
-  `snapshotBuilder.ts`, `fetchWithRetry.ts`, `lib/retention.ts`, and their tests.
-  `retention.ts` is new (`3941656`) and was written to port unchanged.
-- `snapshotBuilder.ts` no longer ports byte-for-byte: `23165d2` added a
-  `CAMERA_ID_PATTERN` guard to `cameraImageKey`. **Port the guard**, but note the
-  vector changes shape. It defends against `cam/../stations.json.jpg` collapsing to
-  `stations.json.jpg` and overwriting the snapshot the whole app reads — a collapse
-  that happens because aws4fetch interpolates the key into a URL that is then
-  *parsed*. The native R2 binding takes the key as an opaque string and does not
-  parse it, so the collapse does not occur there. Keep the guard anyway: it still
-  rejects malformed upstream ids, and defence in depth is free here.
-- Drop `concurrency.ts` (`runWithConcurrency`) and the aws4fetch `r2.ts` — the Worker
-  uses the native R2 binding, so no request signing and no manual concurrency pool.
-- Drop gzip from the plan entirely: it existed to shrink Convex egress, and R2 egress
-  is free.
+- `workers/` with `wrangler.toml` (`wl-sync`, R2 + KV bindings), `tsconfig.json`,
+  `vitest.config.ts`, and a `scheduled()` stub that throws until Phase 2.
+- **No cron trigger is declared yet.** An empty handler firing every 5 minutes would
+  publish nothing while looking healthy, which is worse than not running.
+- `src/shared.ts` is the single import point for the pure modules, which still live
+  under `convex/`. Both backends have to run simultaneously through Phase 6, so
+  duplicating them would let the copies drift and moving them now would churn
+  `convex/` while it is under active development. Phase 7 relocates the sources and
+  only that one file changes. The Convex-free property is self-enforcing: a Convex
+  import in any of them breaks the Worker bundle and the suite fails to build.
+- Ported: `jpsDate`, `changeDetection`, `snapshotBuilder` (with the
+  `CAMERA_ID_PATTERN` guard), `fetchWithRetry`, `retention`.
+- Root `vitest.config.ts` now defines two projects, `app` and `workers`, so
+  `npm run test` runs both and CI needed no change. The `app` project pins `include`
+  explicitly, because the default glob would otherwise sweep `workers/**` into jsdom.
+- Types come from `wrangler types` (`worker-configuration.d.ts`), which supersedes
+  `@cloudflare/workers-types` and derives `Env` from `wrangler.toml`, so the bindings
+  cannot drift from what is actually bound. Committed, matching the existing
+  `convex/_generated` convention.
+- Added `npm run typecheck:workers` and wired it into CI — `workers/` sits outside the
+  root tsconfig, so `npm run build` does not cover it.
 
-**Verify:** existing 168 tests still green.
+**Verified:** 185 tests across 26 files (168 app + 17 workers), `npm run build` clean,
+`tsc -p workers/tsconfig.json` clean, `wrangler deploy --dry-run` resolves all three
+bindings.
+
+**Note:** `npm run lint` fails on this branch with 48 pre-existing warnings against
+`--max-warnings 0`. CI invokes eslint without that flag, so CI is green. `workers/`
+itself lints clean and is now included in the lint script.
+
+Two findings worth carrying into Phase 2:
+
+1. `convertJpsDateToIso` treats both zone-less JPS formats as Asia/Kuala_Lumpur wall
+   clock and shifts them by -8 h. A first attempt at the port asserted the naive
+   reading and was wrong by exactly 8 hours — plausible enough to survive review, and
+   it would have mis-stamped every reading. Pinned by test.
+2. The R2 binding stores keys verbatim; it does not collapse `..` the way the
+   aws4fetch URL path did. The traversal that could overwrite `stations.json` is
+   therefore structurally absent, not merely guarded. The guard still ports, and a
+   test pins both halves of that.
 
 ### Phase 2 — `wl-sync` water level Worker
 
@@ -233,7 +265,12 @@ cron wall clock. Nine parallel fetches also stay far under the 50-subrequest cap
 
 - Point the Workers at a **staging bucket prefix**, never production.
 - Run a local frontend against it via `VITE_SNAPSHOT_BASE_URL` and click through.
-- Soak for 24 h; confirm cron actually fires every 5 min and CPU stays under 10 ms.
+- Soak for 24 h; confirm cron actually fires every 5 min.
+- **Measure CPU here** (carried over from Phase 0, question 3). `wrangler tail` on the
+  staging deployment, on a real free-plan account — a temporary preview account does
+  not enforce the 10 ms cap and cannot answer this. Local measurement predicts p95
+  ~4.8 ms; if the real figure is materially worse, split the raw dump and the build
+  across two chained Workers before cutover.
 
 ### Phase 6 — Cutover
 
@@ -401,7 +438,7 @@ but dormant until Phase 7, so rollback is a config change, not a redeploy.
 |---|---|---|
 | ~~JPS blocks or rate-limits Cloudflare IPs~~ | **Resolved** — Phase 0: 11/12 from the edge vs 12/12 local; the `8c7fded` note was a timeout, not a block | none needed |
 | ~~`http://` fetch unavailable from Workers~~ | **Resolved** — Phase 0: 200 `image/jpeg` from the edge; upstream is HTTPS since `23165d2` | Use HTTPS and retry; **never** downgrade to `http://` on failure |
-| Build exceeds 10 ms CPU | Low — measured p95 4.79 ms of a 10 ms budget | Confirm with `wrangler tail` on a real account; build only on fingerprint change (~1/3 of runs); no gzip; if it ever tightens, split raw-dump and build across two chained Workers |
+| Build exceeds 10 ms CPU | Low — measured p95 4.79 ms of a 10 ms budget | Confirmed at Phase 5 via `wrangler tail`, not before; build only on fingerprint change (~1/3 of runs); no gzip; if it ever tightens, split raw-dump and build across two chained Workers |
 | JPS connect stalls ~20 s on ~40% of attempts | **High — observed** | Fetch districts in parallel, not sequentially; explicit retry budget well inside the 15-minute cron wall clock; withhold the fingerprint when any district failed so the next run retries |
 | KV write cap (1,000/day) | Low | 288/day projected; move `syncState` to an R2 key if it ever tightens |
 | Migration silently drops the 14 d history `3941656` preserved | **High** if unaddressed | Design the history store before Phase 6 — see *History retention* |
