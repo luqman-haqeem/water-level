@@ -1,0 +1,26 @@
+# wl-cameras — CCTV mirror (issue #67, Phase 3).
+#
+# Deliberately a separate Worker and a separate config from wl-sync: this is the part
+# that moves real bytes (~11 MB per full cycle vs ~200 KB for the snapshot), so it is
+# the one most likely to need throttling or rolling back on its own.
+#
+# No cron trigger yet. Phase 5 schedules it as `*/5 * * * *`, mirroring a clock-derived
+# third of the camera list so every camera refreshes every 15 minutes.
+name = "wl-cameras"
+main = "src/cameras-index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "SNAPSHOT"
+bucket_name = "riverlevel-snapshot"
+preview_bucket_name = "riverlevel-snapshot-staging"
+
+# Read-only here: the mirror consults the water level sync's status to decide whether
+# JPS is worth calling at all.
+[[kv_namespaces]]
+binding = "SYNC_STATE"
+id = "placeholder-set-at-phase-5"
+
+[vars]
+JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
