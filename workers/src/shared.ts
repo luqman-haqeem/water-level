@@ -42,6 +42,14 @@ export {
 export { type FetchRetryOptions, fetchWithRetry } from "../../convex/lib/fetchWithRetry";
 
 export {
+    ALERT_LEVEL,
+    type StationThresholds,
+    parseThreshold,
+    classifyByThresholds,
+    computeAlertLevel,
+} from "../../convex/lib/alertLevel";
+
+export {
     TRENDS_WINDOW_MS,
     HISTORY_RETENTION_MS,
     CLEANUP_BATCH_SIZE,
