@@ -280,9 +280,9 @@ any other form. It reached further than the files: `/stations/$id` routes on it,
 outside our database.
 
 Decision (2026-09-05, owner): switch identity to the JPS id and clear the OneSignal
-tags, since no real subscribers exist. **Verify the subscriber count in the OneSignal
-dashboard before cutover** — if that assumption is wrong the failure is silent, and
-silent is the worst mode for a flood alert.
+tags. The owner has since confirmed the only subscriber is the owner's own device, so
+there is no user-facing subscription to preserve and no dashboard check outstanding.
+Tags can be cleared at cutover.
 
 This also resolves a data-quality problem rather than carrying it across. Production
 holds **270 station documents for 177 distinct JPS stations** — 93 duplicates, created
@@ -294,12 +294,49 @@ Expect the published station count to drop from **270 to ~81** (`stationStatus =
 which is the filter Convex already applied before storing). Most of the difference is
 duplicates and stations that have never reported — the substance of #85.
 
-### Phase 3 — `wl-cameras` mirror Worker
+### Phase 3 — `wl-cameras` mirror Worker — DONE 2026-09-05
 
-- Clock-derived 1/3 slice; assert the three slices partition all 92 cameras exactly.
-- Keep the existing guards: skip mirroring while `syncState` says JPS is unreachable,
-  and abort after 10 consecutive failures.
-- Re-publish `cameras.json` after a successful slice so `captured_at` stays current.
+A separate Worker and a separate `wrangler.cameras.toml`, on purpose: this is the part
+that moves real bytes (~11 MB per full cycle against the snapshot's ~200 KB), so it is
+the most likely to need throttling or rolling back without touching the water level sync.
+
+- **Clock-derived slice.** `floor(now / 5 min) % 3`, partitioned by position. Every
+  camera lands in exactly one slice, the three together cover the list with no gaps or
+  repeats at any length, and no cursor is stored — so a missed or retried run picks up
+  whichever third the wall clock points at instead of stalling the rotation.
+- **Guards preserved:** skipped entirely while the water level sync reports
+  `upstream_error` (mirroring into a known outage just spends subrequests collecting
+  failures); aborts after 10 consecutive failures; a camera that fails keeps its
+  previous frame, because a stale frame beats a broken image.
+- **Content-type and empty-body checks kept.** JPS answers 200 with an HTML error page
+  when a camera is down; mirroring that would replace a usable frame with a broken one.
+- **`captured_at` is refreshed only for cameras actually mirrored**, so the republish
+  cannot clobber whatever the metadata refresh last wrote for the other two thirds.
+
+**Verified:** 232 tests / 30 files (168 app + 64 workers) · build, tsc and eslint clean
+· `wrangler deploy --dry-run` resolves all bindings for both Workers.
+
+**Budget:** 92 cameras every 15 min ≈ 8,832 PUTs/day ≈ 265k/month, against R2's 1M
+Class A free allowance. This is the ~33 GB/month that was being billed as Convex
+egress; on Cloudflare it crosses a binding and costs nothing.
+
+#### Known regression, deferred to Phase 4
+
+Convex ran **two** camera tiers: all cameras every 15 min, plus cameras at
+alert-or-above stations every 5 min. The slice rotation gives every camera a uniform
+15 min, so **cameras at elevated stations refresh three times more slowly than they do
+today** — precisely when they matter most.
+
+It is deferred rather than dropped because the linkage is missing: `cameras.json` carries
+no station reference (`camera_name`, `captured_at`, `districts`, `id`, `img_url`,
+`jps_camera_id`), and Convex resolved the tier through `cameras.stationId`, a column the
+snapshot never published. Phase 4 owns camera metadata, so it should add a station
+reference to `cameras.json`; the mirror then runs its slice **plus** any camera at an
+elevated station, which stays well inside the 50-subrequest cap because elevated
+stations are few.
+
+**This must land before Phase 6.** Cutting over without it degrades exactly the case
+the product exists for.
 
 ### Phase 4 — Metadata and notifications
 
