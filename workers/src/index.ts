@@ -1,19 +1,22 @@
+import { runSync } from "./sync";
+
 /**
- * wl-sync — water level sync Worker.
+ * wl-sync — water level sync Worker (issue #67, Phase 2).
  *
- * Phase 1 scaffold. The scheduled() handler is implemented in Phase 2, where it
- * takes over `convex/sync/waterLevelUpdater.ts` while preserving its resilience
- * behaviour: summary failure aborts and records `upstream_error`, a matching
- * fingerprint short-circuits before the district fetches, per-district failures warn
- * and continue, and the fingerprint is withheld when any district failed so the next
- * run retries.
- *
- * It deliberately does nothing yet. wrangler.toml declares no cron trigger, so this
- * cannot be scheduled by accident, and publishing nothing on a timer would look
- * healthier than it is.
+ * Replaces `convex/sync/waterLevelUpdater.ts`. No cron trigger is declared in
+ * wrangler.toml yet: this runs against a staging bucket prefix at Phase 5 before it is
+ * scheduled anywhere near production data.
  */
 export default {
-    async scheduled(_controller: ScheduledController, _env: Env): Promise<void> {
-        throw new Error("wl-sync scheduled() is not implemented until Phase 2 (issue #67)");
+    async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+        const result = await runSync(env);
+        // A scheduled Worker has no response to inspect; `wrangler tail` and the
+        // dashboard read stdout, so this line is the only observability the run has.
+        // eslint-disable-next-line no-console
+        console.log(
+            `wl-sync: success=${result.success} changed=${result.changed} ` +
+                `districts=${result.districtsCount} stations=${result.stationsCount} ` +
+                `status=${result.overallStatus}${result.error ? ` error=${result.error}` : ""}`
+        );
     },
 };

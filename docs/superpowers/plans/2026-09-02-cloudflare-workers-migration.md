@@ -227,25 +227,72 @@ Two findings worth carrying into Phase 2:
    therefore structurally absent, not merely guarded. The guard still ports, and a
    test pins both halves of that.
 
-### Phase 2 — `wl-sync` water level Worker
+### Phase 2 — `wl-sync` water level Worker — DONE 2026-09-05
 
-Port `updateWaterLevels` to a `scheduled()` handler, preserving all existing
-resilience behaviour:
+`updateWaterLevels` ported to a `scheduled()` handler. Every resilience behaviour is
+preserved and pinned by test: summary failure aborts and records `upstream_error`; a
+matching fingerprint short-circuits before the district fetches; per-district failures
+warn and continue; all-districts-failed is an outage rather than a sync of zero
+stations; the fingerprint is withheld when any district failed; `syncState` is read
+before the data and `meta.json` written last.
 
-- summary fetch failure aborts the run and records `upstream_error`
-- fingerprint match short-circuits before the district fetches
-- per-district failures warn and continue; all-districts-failed is an outage
-- the fingerprint is withheld when any district failed, so the next run retries
-- `syncState` is read before the data and `meta.json` written last, so meta never
-  describes data that was not published
+Changes from the Convex version, each forced by evidence:
 
-Phase 0 adds one requirement the Convex version did not have: **fetch the districts
-in parallel**. Sequentially they took 162 s in a measured run, because ~40% of JPS
-connections stall ~20 s. Parallel fetches bring a bad run to roughly the slowest
-single district (~40 s) and keep the retry budget comfortably inside the 15-minute
-cron wall clock. Nine parallel fetches also stay far under the 50-subrequest cap.
+- **District fetches run concurrently.** Sequential measured 162 s for nine districts
+  with the ~20 s stalls; concurrent costs the slowest district, and nine subrequests
+  sit far under the 50 cap.
+- **Station identity is the JPS `id`** (what Convex stored as `jpsSelId`), not a Convex
+  document id. See *Station identity* below.
+- **Output is sorted by id and de-duplicated through a `Map`.** Concurrency makes
+  arrival order vary, and without a sort the file churns every publish and defeats
+  byte-comparison.
+- **`cameras.json` is not written here.** The camera mirror owns it; writing an empty
+  one from this Worker would blank every camera in the app.
 
-**Verify:** golden-file equivalence test (below) plus Worker integration tests.
+**Verified:** 219 tests / 29 files (168 app + 51 workers) · build clean · workers tsc
+and eslint clean · `wrangler deploy --dry-run` resolves all bindings. Against the real
+captured JPS payloads the mapper produces 81 stations, all with readings, thresholds
+and valid timestamps.
+
+#### Coordinates — a gap this plan had wrong
+
+This plan claimed "the district endpoint already returns names, codes, lat/lng and
+thresholds, so `stations.json` is built straight from the fetch". **It returns no
+coordinates at all** — measured 0 of 176 stations, every value an empty string. Today's
+snapshot has 177/270 with coordinates because Convex holds a hardcoded seed (`8c7fded`).
+
+Coordinates live on `/JPSAPI/api/StationRiverLevels`, which has them for all 81 active
+stations and keys them by the same numeric id. That is the endpoint `8c7fded` gave up
+on as "Convex cannot reach JPS API" — it is reachable, just slow and subject to the same
+~40% stall rate.
+
+So the Worker fetches it alongside the districts, and **falls back to the coordinates in
+the previously published `stations.json`** when it fails. A flaky metadata fetch
+degrades to "pins are as old as the last success" instead of moving every station to
+0,0. Its failure never fails the run.
+
+#### Station identity
+
+The published contract identified stations by **Convex document id**, which the
+migration cannot reproduce — JPS has never heard of it, and it is not in the snapshot in
+any other form. It reached further than the files: `/stations/$id` routes on it,
+`trends.json` is keyed by it, and OneSignal stores subscriptions as `station_{id}` tags
+outside our database.
+
+Decision (2026-09-05, owner): switch identity to the JPS id and clear the OneSignal
+tags, since no real subscribers exist. **Verify the subscriber count in the OneSignal
+dashboard before cutover** — if that assumption is wrong the failure is silent, and
+silent is the worst mode for a flood alert.
+
+This also resolves a data-quality problem rather than carrying it across. Production
+holds **270 station documents for 177 distinct JPS stations** — 93 duplicates, created
+when the upsert matched `jpsSelId` with `.first()` and began writing to the other twin
+around 2026-08-26. All 84 non-duplicated stations are dead; every reading belongs to a
+duplicated one. Keying on the upstream id makes that failure unrepresentable.
+
+Expect the published station count to drop from **270 to ~81** (`stationStatus === 1`,
+which is the filter Convex already applied before storing). Most of the difference is
+duplicates and stations that have never reported — the substance of #85.
 
 ### Phase 3 — `wl-cameras` mirror Worker
 
