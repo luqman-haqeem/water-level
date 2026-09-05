@@ -93,6 +93,12 @@ export const getDistricts = internalMutation({
   },
 });
 
+// REMOVED, matching main (#68/#71): createCamera and getCameras.
+// `createCamera` was a public passthrough to `upsertCamera` below, which is an
+// insert-OR-patch keyed on a caller-supplied `jpsCameraId` — so it allowed
+// anonymous overwrite of any camera record, including flipping `isEnabled` to
+// hide a camera from every client. `getCameras` was an unused debug read.
+
 export const upsertCamera = internalMutation({
   args: {
     districtId: v.id("districts"),

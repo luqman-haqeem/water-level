@@ -1,6 +1,16 @@
-import { internalAction, internalMutation } from "../_generated/server";
+import { internalAction, internalMutation, ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { convertJpsDateToIso } from "./jpsDate";
+import { computeJpsFingerprint, fingerprintToRecord, latestJpsUpdate } from "./changeDetection";
+import { fetchWithRetry } from "../lib/fetchWithRetry";
+import { WATER_LEVELS_KEY } from "../lib/syncKeys";
+import { parseThreshold } from "../lib/alertLevel";
+import {
+    CLEANUP_BATCH_SIZE,
+    CLEANUP_MAX_BATCHES_PER_RUN,
+    HISTORY_RETENTION_MS,
+} from "../lib/retention";
 
 const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
@@ -27,11 +37,14 @@ interface JpsStationData {
     referenceName: string;
     districtName: string;
     waterLevel: number | null;
-    wlth_normal: number;
-    wlth_alert: number;
-    wlth_warning: number;
-    wlth_danger: number;
-    waterlevelStatus: number;
+    // Nullable in practice: JPS omits or nulls thresholds for stations it has
+    // not configured, and sends `waterlevelStatus: null` for some of them.
+    // Declaring them non-null hid that from the type checker.
+    wlth_normal: number | null;
+    wlth_alert: number | null;
+    wlth_warning: number | null;
+    wlth_danger: number | null;
+    waterlevelStatus: number | null;
     stationStatus: number;
     lastUpdate: string;
     latitude: string | number;
@@ -49,176 +62,218 @@ interface JpsDistrictStationsResponse {
     stations: JpsStationData[];
 }
 
-// Helper function to convert JPS date format (DD/MM/YYYY HH:mm:ss) to ISO string
-// JPS provides Malaysian local time (UTC+8), we need to convert to UTC
-function convertJpsDateToIso(jpsDate: string): string {
-    if (!jpsDate) return new Date().toISOString();
+export interface UpdateResult {
+    success: boolean;
+    changed: boolean;
+    districtsCount: number;
+    stationsCount: number;
+    overallStatus: string;
+    timestamp: string;
+    error?: string;
+}
 
+function computeOverallStatus(summaryData: JpsDistrictSummary[]): string {
+    const total = (pick: (d: JpsDistrictSummary) => number) =>
+        summaryData.reduce((sum, d) => sum + pick(d), 0);
+    if (total((d) => d.danger) > 0) return "DANGER";
+    if (total((d) => d.warning) > 0) return "WARNING";
+    if (total((d) => d.alert) > 0) return "ALERT";
+    return "NORMAL";
+}
+
+/** Publishes the snapshot; an R2 failure must never fail the Convex write. */
+async function publishQuietly(ctx: ActionCtx, includeData: boolean): Promise<void> {
     try {
-        // JPS format: "21/08/2025 21:15:00" (Malaysian local time UTC+8)
-        const [datePart, timePart] = jpsDate.split(" ");
-        const [day, month, year] = datePart.split("/");
-        const [hour, minute, second] = timePart.split(":");
-
-        // Create Date object in Malaysian timezone (UTC+8)
-        // First create as if it's UTC, then subtract 8 hours to convert from Malaysian time to UTC
-        const malaysianDate = new Date(
-            parseInt(year),
-            parseInt(month) - 1,
-            parseInt(day),
-            parseInt(hour),
-            parseInt(minute),
-            parseInt(second)
-        );
-
-        // Subtract 8 hours to convert from Malaysian time (UTC+8) to UTC
-        const utcDate = new Date(malaysianDate.getTime() - 8 * 60 * 60 * 1000);
-
-        return utcDate.toISOString();
+        await ctx.runAction(internal.sync.snapshotPublisher.publishSnapshot, { includeData });
     } catch (error) {
-        console.warn(`Failed to convert JPS date "${jpsDate}":`, error);
-        return new Date().toISOString();
+        console.error("Snapshot publish failed (Convex data is intact):", error);
     }
 }
 
 export const updateWaterLevels = internalAction({
-    handler: async (
-        ctx
-    ): Promise<{
-        success: boolean;
-        districtsCount: number;
-        stationsCount: number;
-        overallStatus: string;
-        timestamp: string;
-    }> => {
+    handler: async (ctx): Promise<UpdateResult> => {
+        const attemptedAt = new Date().toISOString();
+        console.debug("🌊 Starting water level sync…");
+
+        const previous = await ctx.runQuery(internal.syncState.get, { key: WATER_LEVELS_KEY });
+
+        // 1. Summary (the only fetch whose failure aborts the run)
+        let summaryData: JpsDistrictSummary[];
         try {
-            console.log("🌊 Starting automated water level scraping...");
-
-            // Fetch summary data from JPS API
-            const summaryResponse = await fetch(
-                `${BASE_URL}/StationRiverLevels/GetWLStationSummary`
+            const summaryResponse = await fetchWithRetry(
+                `${BASE_URL}/StationRiverLevels/GetWLStationSummary`,
+                { timeoutMs: 20_000, retries: 1, backoffMs: 5_000 }
             );
-            if (!summaryResponse.ok) {
-                throw new Error(
-                    `HTTP ${summaryResponse.status}: Failed to fetch water level summary`
-                );
+            const parsed: unknown = await summaryResponse.json();
+            if (!Array.isArray(parsed)) {
+                throw new Error("JPS summary response is not an array");
             }
+            summaryData = parsed as JpsDistrictSummary[];
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("❌ JPS summary fetch failed:", message);
+            await ctx.runMutation(internal.syncState.record, {
+                key: WATER_LEVELS_KEY,
+                attemptedAt,
+                status: "upstream_error",
+                error: message,
+            });
+            await publishQuietly(ctx, false);
+            return {
+                success: false,
+                changed: false,
+                districtsCount: 0,
+                stationsCount: 0,
+                overallStatus: "UNKNOWN",
+                timestamp: attemptedAt,
+                error: message,
+            };
+        }
 
-            const summaryData: JpsDistrictSummary[] = await summaryResponse.json();
-            const timestamp = new Date().toISOString();
+        // 2. Change detection — JPS updates irregularly; skip writes when nothing moved
+        const stamps = summaryData.map((d) => ({ districtId: d.districtId, allLastUpdated: d.allLastUpdated }));
+        const fingerprint = computeJpsFingerprint(stamps);
+        const jpsLastUpdate = latestJpsUpdate(stamps) ?? undefined;
+        const overallStatus = computeOverallStatus(summaryData);
 
-            // Process summary data
-            const districts = summaryData.map((district) => ({
-                districtId: district.districtId,
-                districtName: district.district,
-                totalStations: district.total_station,
-                normalCount: district.normal,
-                alertCount: district.alert,
-                warningCount: district.warning,
-                dangerCount: district.danger,
-                onlineStations: district.online,
-                offlineStations: district.offline,
-                lastUpdated: district.lastUpdated,
-                allLastUpdated: district.allLastUpdated,
-                timestamp: timestamp,
-            }));
-
-            // Calculate overall status
-            const totalDanger = districts.reduce(
-                (sum, d) => sum + d.dangerCount,
-                0
-            );
-            const totalWarning = districts.reduce(
-                (sum, d) => sum + d.warningCount,
-                0
-            );
-            const totalAlert = districts.reduce(
-                (sum, d) => sum + d.alertCount,
-                0
-            );
-
-            let overallStatus = "NORMAL";
-            if (totalDanger > 0) overallStatus = "DANGER";
-            else if (totalWarning > 0) overallStatus = "WARNING";
-            else if (totalAlert > 0) overallStatus = "ALERT";
-
-            // Fetch and save district station details with water level data
-            let totalStationsSaved = 0;
-            for (const district of districts) {
-                try {
-                    const districtResponse = await fetch(
-                        `${BASE_URL}/StationRiverLevels/GetWLAllStationData/${district.districtId}`
-                    );
-                    if (districtResponse.ok) {
-                        const stationData: JpsDistrictStationsResponse = await districtResponse.json();
-                        const stationsData = stationData.stations || [];
-                        const stations = stationsData
-                            .map((station) => ({
-                                id: station.id,
-                                stationId: station.stationId || "",
-                                name: station.stationName,
-                                stationCode: station.stationCode,
-                                referenceName: station.referenceName,
-                                districtName: station.districtName,
-                                currentWaterLevel:
-                                    (station.waterLevel === null || station.waterLevel === -9999)
-                                        ? null
-                                        : station.waterLevel,
-                                normalLevel: station.wlth_normal || 0,
-                                alertLevel: station.wlth_alert || 0,
-                                warningLevel: station.wlth_warning || 0,
-                                dangerLevel: station.wlth_danger || 0,
-                                waterlevelStatus: station.waterlevelStatus || -1,
-                                stationStatus: station.stationStatus || 0,
-                                lastUpdate: convertJpsDateToIso(station.lastUpdate),
-                                latitude: typeof station.latitude === 'string' ? parseFloat(station.latitude) || undefined : station.latitude || undefined,
-                                longitude: typeof station.longitude === 'string' ? parseFloat(station.longitude) || undefined : station.longitude || undefined,
-                                batteryLevel: station.batteryLevel === null ? undefined : station.batteryLevel,
-                                gsmNumber: station.gsmNumber,
-                                markerType: station.markerType,
-                                mode: typeof station.mode === 'boolean' ? station.mode : undefined,
-                                z1: typeof station.z1 === 'boolean' ? station.z1 : undefined,
-                                z2: typeof station.z2 === 'boolean' ? station.z2 : undefined,
-                                z3: typeof station.z3 === 'boolean' ? station.z3 : undefined,
-                            }))
-                            .filter((station) => station.stationStatus == 1);
-
-                        const result = await ctx.runMutation(
-                            internal.waterLevelData.storeDistrictStationsInternal,
-                            {
-                                districtId: district.districtId,
-                                districtName: district.districtName,
-                                jpsDistrictsId: district.districtId,
-                                stations,
-                            }
-                        );
-
-                        if (result.success) {
-                            totalStationsSaved += result.stationsCount;
-                        }
-                    }
-                } catch (error) {
-                    console.warn(
-                        `Failed to fetch district ${district.districtId}: ${error}`
-                    );
-                }
-            }
-
-            console.log(
-                `✅ Automated scraping complete: ${districts.length} districts, ${totalStationsSaved} stations, Status: ${overallStatus}`
-            );
-
+        if (previous && previous.lastJpsFingerprint === fingerprint) {
+            console.debug("JPS data unchanged since last run; skipping DB writes");
+            await ctx.runMutation(internal.syncState.record, {
+                key: WATER_LEVELS_KEY,
+                attemptedAt,
+                status: "ok",
+                fingerprint,
+                jpsLastUpdate,
+            });
+            await publishQuietly(ctx, false);
             return {
                 success: true,
-                districtsCount: districts.length,
-                stationsCount: totalStationsSaved,
+                changed: false,
+                districtsCount: summaryData.length,
+                stationsCount: 0,
                 overallStatus,
-                timestamp,
+                timestamp: attemptedAt,
             };
-        } catch (error) {
-            console.error("❌ Automated water level scraping failed:", error);
-            throw error;
         }
+
+        // 3. District station data (per-district failures are warn-and-continue)
+        let totalStationsSaved = 0;
+        let failedDistricts = 0;
+        for (const district of summaryData) {
+            try {
+                const districtResponse = await fetchWithRetry(
+                    `${BASE_URL}/StationRiverLevels/GetWLAllStationData/${district.districtId}`,
+                    { timeoutMs: 20_000, retries: 1, backoffMs: 5_000 }
+                );
+                const stationData: JpsDistrictStationsResponse = await districtResponse.json();
+                const stationsData = stationData.stations || [];
+                const stations = stationsData
+                    .map((station) => ({
+                        id: station.id,
+                        stationId: station.stationId || "",
+                        name: station.stationName,
+                        stationCode: station.stationCode,
+                        referenceName: station.referenceName,
+                        districtName: station.districtName,
+                        currentWaterLevel:
+                            (station.waterLevel === null || station.waterLevel === -9999)
+                                ? null
+                                : station.waterLevel,
+                        // `parseThreshold`, not `|| 0`: collapsing an absent
+                        // threshold to 0 made `level >= dangerLevel` true for
+                        // every reading, so a station JPS publishes no
+                        // thresholds for classified as DANGER (#73). Absent now
+                        // stays absent all the way to the snapshot.
+                        normalLevel: parseThreshold(station.wlth_normal),
+                        alertLevel: parseThreshold(station.wlth_alert),
+                        warningLevel: parseThreshold(station.wlth_warning),
+                        dangerLevel: parseThreshold(station.wlth_danger),
+                        // `??`, not `||`: JPS sends 0 for "normal", and `0 || -1`
+                        // rewrote it to -1, pushing a reading JPS had already
+                        // classified as safe down the threshold-guessing path.
+                        waterlevelStatus: station.waterlevelStatus ?? -1,
+                        stationStatus: station.stationStatus || 0,
+                        lastUpdate: convertJpsDateToIso(station.lastUpdate),
+                        latitude: typeof station.latitude === 'string' ? parseFloat(station.latitude) || undefined : station.latitude || undefined,
+                        longitude: typeof station.longitude === 'string' ? parseFloat(station.longitude) || undefined : station.longitude || undefined,
+                        batteryLevel: station.batteryLevel === null ? undefined : station.batteryLevel,
+                        gsmNumber: station.gsmNumber,
+                        markerType: station.markerType,
+                        mode: typeof station.mode === 'boolean' ? station.mode : undefined,
+                        z1: typeof station.z1 === 'boolean' ? station.z1 : undefined,
+                        z2: typeof station.z2 === 'boolean' ? station.z2 : undefined,
+                        z3: typeof station.z3 === 'boolean' ? station.z3 : undefined,
+                    }))
+                    .filter((station) => station.stationStatus == 1);
+
+                const result = await ctx.runMutation(
+                    internal.waterLevelData.storeDistrictStationsInternal,
+                    {
+                        districtId: district.districtId,
+                        districtName: district.district,
+                        jpsDistrictsId: district.districtId,
+                        stations,
+                    }
+                );
+                if (result.success) totalStationsSaved += result.stationsCount;
+            } catch (error) {
+                failedDistricts += 1;
+                console.warn(`Failed to fetch district ${district.districtId}: ${error}`);
+            }
+        }
+
+        // Every district failed: JPS answered the summary but served nothing
+        // else, so treat the run as an upstream outage, not a successful sync.
+        if (summaryData.length > 0 && failedDistricts === summaryData.length) {
+            const message = `All ${summaryData.length} district fetches failed`;
+            console.error(`❌ ${message}`);
+            await ctx.runMutation(internal.syncState.record, {
+                key: WATER_LEVELS_KEY,
+                attemptedAt,
+                status: "upstream_error",
+                error: message,
+            });
+            await publishQuietly(ctx, false);
+            return {
+                success: false,
+                changed: false,
+                districtsCount: summaryData.length,
+                stationsCount: 0,
+                overallStatus,
+                timestamp: attemptedAt,
+                error: message,
+            };
+        }
+
+        if (failedDistricts > 0) {
+            console.warn(
+                `${failedDistricts} district fetch(es) failed; fingerprint not recorded so the next run retries`
+            );
+        }
+
+        // 4. Record success and publish the full snapshot. When some districts
+        // failed the fingerprint is withheld so the next run re-fetches them.
+        await ctx.runMutation(internal.syncState.record, {
+            key: WATER_LEVELS_KEY,
+            attemptedAt,
+            status: "ok",
+            fingerprint: fingerprintToRecord(fingerprint, failedDistricts),
+            jpsLastUpdate,
+            syncedAt: attemptedAt,
+        });
+        await publishQuietly(ctx, true);
+
+        console.debug(
+            `✅ Sync complete: ${summaryData.length} districts, ${totalStationsSaved} stations, status ${overallStatus}`
+        );
+        return {
+            success: true,
+            changed: true,
+            districtsCount: summaryData.length,
+            stationsCount: totalStationsSaved,
+            overallStatus,
+            timestamp: attemptedAt,
+        };
     },
 });
 
@@ -313,24 +368,28 @@ export const upsertCurrentLevel = internalMutation({
     },
 });
 
-// Daily cleanup function for old waterLevelHistory records
-// Uses pagination to avoid hitting the 32,000 document read limit
+// Cleanup for waterLevelHistory rows past the retention horizon.
+// Uses pagination to avoid hitting the 32,000 document read limit.
+//
+// The cutoff is HISTORY_RETENTION_MS, no longer the 3 hours the trend charts
+// display. Those were the same value, so history was deleted as soon as it left
+// the chart and nothing ever accumulated (#80).
 export const cleanupOldHistoryData = internalMutation({
     handler: async (ctx) => {
-        const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
-        const BATCH_SIZE = 250;
-        const MAX_BATCHES_PER_RUN = 8;
+        const cutoff = Date.now() - HISTORY_RETENTION_MS;
+        const BATCH_SIZE = CLEANUP_BATCH_SIZE;
+        const MAX_BATCHES_PER_RUN = CLEANUP_MAX_BATCHES_PER_RUN;
         let totalDeleted = 0;
         let batchesProcessed = 0;
 
-        console.log("🧹 Starting daily waterLevelHistory cleanup...");
+        console.log("🧹 Starting waterLevelHistory cleanup...");
 
         try {
             while (batchesProcessed < MAX_BATCHES_PER_RUN) {
                 // Query a limited batch of old records
                 const oldRecords = await ctx.db
                     .query("waterLevelHistory")
-                    .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
+                    .withIndex("by_timestamp", (q) => q.lt("timestamp", cutoff))
                     .take(BATCH_SIZE);
 
                 if (oldRecords.length === 0) {
@@ -356,7 +415,7 @@ export const cleanupOldHistoryData = internalMutation({
             const hasMore = (
                 await ctx.db
                     .query("waterLevelHistory")
-                    .withIndex("by_timestamp", (q) => q.lt("timestamp", threeHoursAgo))
+                    .withIndex("by_timestamp", (q) => q.lt("timestamp", cutoff))
                     .take(1)
             ).length > 0;
 

@@ -58,6 +58,7 @@ export default defineSchema({
     longitude: v.optional(v.number()),
     mainBasin: v.optional(v.string()),
     subBasin: v.optional(v.string()),
+    lastImageAt: v.optional(v.string()), // ISO time the CCTV frame was mirrored to R2
   })
     .index("by_jps_camera_id", ["jpsCameraId"])
     .index("by_district", ["districtId"])
@@ -82,4 +83,15 @@ export default defineSchema({
   })
     .index("by_station", ["stationId"])
     .index("by_notified_at", ["notifiedAt"]),
+
+  syncState: defineTable({
+    key: v.string(), // "waterLevels"
+    lastJpsFingerprint: v.optional(v.string()),
+    lastJpsUpdate: v.optional(v.string()), // ISO, max of JPS allLastUpdated
+    lastSyncedAt: v.optional(v.string()), // ISO, last successful full sync (our clock)
+    lastAttemptAt: v.string(), // ISO, last attempt (our clock)
+    lastStatus: v.union(v.literal("ok"), v.literal("upstream_error")),
+    failingSince: v.optional(v.string()), // ISO, first failure of the current outage
+    lastError: v.optional(v.string()),
+  }).index("by_key", ["key"]),
 });

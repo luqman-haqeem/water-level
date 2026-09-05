@@ -1,14 +1,8 @@
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { useSnapshot } from "@/hooks/useSnapshot";
+import type { CamerasSnapshot } from "@/lib/snapshotTypes";
 
-/**
- * Reactively subscribes to all enabled cameras with district details.
- * Convex pushes updates automatically when camera data changes.
- */
+/** All enabled cameras with district details, from the R2 snapshot. */
 export function useCameras() {
-    const data = useQuery(api.cameras.getCamerasWithDetails);
-    return {
-        data,
-        isLoading: data === undefined,
-    };
+    const { data } = useSnapshot<CamerasSnapshot>("cameras");
+    return { data: data?.items, isLoading: data === undefined };
 }

@@ -20,6 +20,9 @@ import { useStationSubscription } from "@/hooks/useStationSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
+import { cameraImageUrl } from "@/lib/cameraImageUrl";
+import { snapshotBaseUrl } from "@/lib/snapshotEnv";
+import { formatThreshold } from "@/lib/thresholds";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -220,20 +223,36 @@ export function StationDetailRoute() {
         }
     };
 
-    // Plain-language delta to next threshold
+    // Plain-language delta to next threshold.
+    //
+    // Every branch here needs a threshold to subtract from, so an absent one is
+    // not a formatting problem but a "we cannot answer this" case. With the old
+    // `|| 0` thresholds the very first comparison (`level >= 0`) matched, and a
+    // station JPS publishes no thresholds for was told it was at or above Danger
+    // (#73). Now an absent threshold short-circuits to an honest message.
     const getThresholdDelta = () => {
         if (!currentStation.current_levels) return null;
         const level = currentStation.current_levels.current_level;
         const danger = currentStation.danger_water_level;
         const warning = currentStation.warning_water_level;
         const alert = currentStation.alert_water_level;
-        const normal = currentStation.normal_water_level;
 
-        if (level >= danger) return { text: 'At or above Danger level', severity: 'danger' };
-        if (level >= warning) return { text: `${(danger - level).toFixed(2)}m below Danger`, severity: 'warning' };
-        if (level >= alert) return { text: `${(warning - level).toFixed(2)}m below Warning`, severity: 'alert' };
-        if (level >= normal) return { text: `${(alert - level).toFixed(2)}m below Alert`, severity: 'normal' };
-        return { text: `${(alert - level).toFixed(2)}m below Alert`, severity: 'normal' };
+        if (danger === null && warning === null && alert === null) {
+            return { text: 'No threshold levels published for this station', severity: 'unknown' };
+        }
+
+        if (danger !== null && level >= danger) return { text: 'At or above Danger level', severity: 'danger' };
+        if (danger !== null && warning !== null && level >= warning) return { text: `${(danger - level).toFixed(2)}m below Danger`, severity: 'warning' };
+        if (warning !== null && alert !== null && level >= alert) return { text: `${(warning - level).toFixed(2)}m below Warning`, severity: 'alert' };
+        // Below alert: the original code had two identical branches here (one for
+        // `level >= normal`, one for below it), so `normal` never affected the
+        // output. Kept as one branch.
+        if (alert !== null) return { text: `${(alert - level).toFixed(2)}m below Alert`, severity: 'normal' };
+        // Danger and/or warning known but alert absent: report against the
+        // lowest threshold we actually have rather than inventing one.
+        const nextUp = warning ?? danger!;
+        const nextLabel = warning !== null ? 'Warning' : 'Danger';
+        return { text: `${(nextUp - level).toFixed(2)}m below ${nextLabel}`, severity: 'normal' };
     };
 
     const thresholdDelta = getThresholdDelta();
@@ -348,7 +367,8 @@ export function StationDetailRoute() {
                                 thresholdDelta.severity === 'danger' && "text-danger",
                                 thresholdDelta.severity === 'warning' && "text-warning",
                                 thresholdDelta.severity === 'alert' && "text-alert",
-                                thresholdDelta.severity === 'normal' && "text-muted-foreground"
+                                thresholdDelta.severity === 'normal' && "text-muted-foreground",
+                                thresholdDelta.severity === 'unknown' && "text-muted-foreground italic"
                             )}>
                                 {thresholdDelta.text}
                             </p>
@@ -425,22 +445,22 @@ export function StationDetailRoute() {
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-normal rounded-full" />
                                 <span className="text-sm text-muted-foreground w-16">Normal</span>
-                                <span className="text-sm font-medium">{currentStation.normal_water_level}m</span>
+                                <span className="text-sm font-medium">{formatThreshold(currentStation.normal_water_level)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-alert rounded-full" />
                                 <span className="text-sm text-muted-foreground w-16">Alert</span>
-                                <span className="text-sm font-medium">{currentStation.alert_water_level}m</span>
+                                <span className="text-sm font-medium">{formatThreshold(currentStation.alert_water_level)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-warning rounded-full" />
                                 <span className="text-sm text-muted-foreground w-16">Warning</span>
-                                <span className="text-sm font-medium">{currentStation.warning_water_level}m</span>
+                                <span className="text-sm font-medium">{formatThreshold(currentStation.warning_water_level)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-danger rounded-full" />
                                 <span className="text-sm text-muted-foreground w-16">Danger</span>
-                                <span className="text-sm font-medium">{currentStation.danger_water_level}m</span>
+                                <span className="text-sm font-medium">{formatThreshold(currentStation.danger_water_level)}</span>
                             </div>
                         </div>
                     </div>
@@ -459,14 +479,22 @@ export function StationDetailRoute() {
                                     <div
                                         onClick={() =>
                                             openFullscreen(
-                                                `/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`
+                                                cameraImageUrl(
+                                                    snapshotBaseUrl(),
+                                                    currentStation?.cameras?.jps_camera_id ?? "",
+                                                    currentStation?.cameras?.captured_at
+                                                )
                                             )
                                         }
                                         className="relative cursor-pointer"
                                     >
                                         <img
                                             key={currentStation.current_levels?.updated_at?.toString()}
-                                            src={`/api/proxy-image/${currentStation?.cameras?.jps_camera_id}`}
+                                            src={cameraImageUrl(
+                                                snapshotBaseUrl(),
+                                                currentStation.cameras.jps_camera_id,
+                                                currentStation.cameras.captured_at
+                                            )}
                                             alt="Live camera feed"
                                             className="w-full rounded-md"
                                             onError={(e) =>
