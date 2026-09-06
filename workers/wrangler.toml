@@ -16,7 +16,7 @@ workers_dev = true
 [[r2_buckets]]
 binding = "SNAPSHOT"
 bucket_name = "riverlevel-snapshot"
-preview_bucket_name = "riverlevel-snapshot-staging"
+preview_bucket_name = "riverlevel-snapshot-dev"
 
 # Replaces the Convex `syncState` table and the `notificationLog` cooldown.
 # ~288 writes/day against the free plan's 1,000/day.
@@ -39,21 +39,31 @@ SITE_URL = "https://riverlevel.netlify.app"
 # Wrangler environments do NOT inherit bindings from the top level — every binding
 # has to be repeated here. Omitting one does not error; it deploys without it.
 #
-# Points at a separate bucket, never a prefix inside the production one: a wrong key
-# here would overwrite the live snapshot, and a separate bucket makes that impossible
-# rather than merely unlikely.
+# Points at riverlevel-snapshot-dev — a separate bucket, never a prefix inside the
+# production one: a wrong key under a shared bucket would overwrite the live snapshot,
+# and a separate bucket makes that impossible rather than merely unlikely. The dev
+# bucket is reused rather than a new one created because it already has public access
+# configured, which is what makes the frontend click-through possible.
 # ---------------------------------------------------------------------------
 [env.staging]
 name = "wl-sync-staging"
 
 [[env.staging.r2_buckets]]
 binding = "SNAPSHOT"
-bucket_name = "riverlevel-snapshot-staging"
+bucket_name = "riverlevel-snapshot-dev"
 
 [[env.staging.kv_namespaces]]
 binding = "SYNC_STATE"
-id = "placeholder-create-with-wrangler-kv-namespace-create"
+id = "306d01a3aedf464ab99b99a84b884662"
 
 [env.staging.vars]
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
 SITE_URL = "https://riverlevel.netlify.app"
+
+# Staging schedule only — the top-level (production) config still declares no triggers.
+# */5 water levels; the weekly camera roster is branched on controller.cron.
+#
+# "SUN", not "0": Cloudflare weekdays run 1 = Sunday to 7 = Saturday, off by one from
+# standard cron, and it rejects 0 outright. The name sidesteps the whole question.
+[env.staging.triggers]
+crons = ["*/5 * * * *", "0 2 * * SUN"]
