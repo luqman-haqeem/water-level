@@ -5,6 +5,7 @@ import { publishMeta, publishSnapshot } from "./publish";
 import { readSyncState, recordSyncState } from "./syncState";
 import { appendTrends, readTrends } from "./trends";
 import { fetchCoordinates, mergeCoordinates, readPublishedCoordinates } from "./coordinates";
+import { notifyDangerStations } from "./notify";
 
 export interface SyncResult {
     success: boolean;
@@ -141,6 +142,11 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
             stations, trends, state, attemptedAt, generatedAt: attemptedAt,
         })
     );
+
+    // After publishing, never before: an alert that points at data the app cannot yet
+    // load is worse than one that arrives five seconds later. Failures here are logged
+    // inside and never fail the sync — the readings are already safe on R2.
+    await notifyDangerStations(env, stations, now);
 
     return {
         success: true, changed: true, districtsCount: summary.length,

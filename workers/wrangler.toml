@@ -26,3 +26,9 @@ id = "placeholder-set-at-phase-5"
 
 [vars]
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+SITE_URL = "https://riverlevel.netlify.app"
+
+# Secrets, set with `wrangler secret put` — never in this file:
+#   ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY
+# Danger alerts are skipped with a warning when either is missing, so a staging
+# deployment without them syncs normally instead of failing.

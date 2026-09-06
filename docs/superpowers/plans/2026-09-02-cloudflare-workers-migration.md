@@ -338,12 +338,53 @@ stations are few.
 **This must land before Phase 6.** Cutting over without it degrades exactly the case
 the product exists for.
 
-### Phase 4 — Metadata and notifications
+### Phase 4 — Metadata and notifications — DONE 2026-09-06
 
-- Weekly camera metadata refresh -> `cameras.json`.
-- Station metadata comes from the district fetches; no separate weekly station job.
-- Danger notifications: check KV `notif:{stationId}`, POST OneSignal, set the key with
-  a 1 h TTL. Preserve the "skip if data older than 45 minutes" staleness guard.
+- **Weekly camera roster** on the `0 2 * * 0` trigger inside `wl-sync`, branching on
+  `controller.cron`. If any district fetch fails the published roster is kept rather
+  than replaced, since a partial list silently drops every camera in the failed
+  districts. `captured_at` is preserved on republish — it belongs to the mirror, and
+  nulling it would tell the UI every frame is of unknown age until the rotation came
+  round again.
+- **No separate station metadata job.** Station details arrive with the readings on
+  every run, so the weekly station sync disappears — one fewer cron and one fewer way
+  for metadata to contradict the data.
+- **Danger notifications** as a single OneSignal POST with a tag filter. Subscriber
+  state already lives in OneSignal, so there is no recipient list to migrate. Sent
+  *after* publishing: an alert pointing at data the app cannot yet load is worse than
+  one that arrives a moment later.
+- **Cooldown is a KV key with a 1 h TTL**, not a logged timestamp compared on read.
+  Expiry becomes the storage's job, so the window cannot drift and nothing accumulates
+  that later needs pruning. The key is written only after OneSignal accepts — a failed
+  send must not silence a station for an hour.
+- **The 45-minute staleness guard is preserved.** JPS keeps serving a station's last
+  reading after its telemetry dies; without the guard a gauge that flatlined above
+  danger would re-alert every hour forever and train people to ignore real alerts.
+
+#### The Phase 3 regression is fixed
+
+Cameras at alert-or-above stations are now mirrored **every run**, on top of the slice,
+so they no longer degrade to a 15-minute refresh exactly when they matter. Elevated
+stations are read from the published `stations.json` — one R2 GET of a file the mirror
+already depends on — and there are few of them, so the subrequest count stays far below
+the 50 cap.
+
+That needed a camera-to-station link, which JPS does not publish: its camera endpoint
+returns only id, name, brand, image URL and online flags. Convex held the association in
+`cameras.stationId`, a hand-curated column the snapshot never exposed. It is now
+`workers/src/cameraLinks.ts`, exported from the production `cameras` table on
+2026-09-06 in **JPS ids** — 37 of 93 cameras carry a link, all 37 resolved with no
+dangling references, covering 37 distinct stations. Translating through `jpsSelId` also
+resolves the duplicate station documents automatically, since both twins shared it.
+`cameras.json` now carries `station_id`, and unlinked cameras simply mirror on the
+normal rotation.
+
+**Verified:** 250 tests / 32 files (168 app + 82 workers) · build, tsc and eslint clean
+· both Worker configs pass `wrangler deploy --dry-run`.
+
+**Secrets** (`wrangler secret put`, never in wrangler.toml): `ONESIGNAL_APP_ID`,
+`ONESIGNAL_REST_API_KEY`. Both optional at the type level on purpose — a staging
+deployment without them syncs normally and skips alerts with a warning.
 
 ### Phase 5 — Staging verification
 
