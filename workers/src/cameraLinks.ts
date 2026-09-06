@@ -2,12 +2,25 @@
  * Which water level station each CCTV camera watches, in JPS ids:
  * `{ jps_camera_id: jps_station_id }`.
  *
- * Curated by hand by the repository owner. JPS publishes nothing connecting the two —
- * its camera endpoint returns only id, name, brand, image URL and online flags — so
- * this cannot be derived. Matching cameras to their nearest station by coordinates was
- * tried and rejected: it disagreed with the curated list 8 times out of 36, and in
- * every disagreement the names matched exactly while the coordinates differed by up to
- * 109 km. JPS coordinate data is not reliable enough for this.
+ * Curated by hand by the repository owner. JPS publishes no field connecting the two —
+ * its camera endpoint returns only id, name, brand, image URL and online flags.
+ *
+ * It does publish coordinates for both, and those *corroborate* this map rather than
+ * replacing it. Measuring each curated pair against JPS's own lat/lng:
+ *
+ * | camera id | links | median distance | max     |
+ * |-----------|-------|-----------------|---------|
+ * | < 1000    | 24    | **0.00 km**     | 17.9 km |
+ * | >= 1000   | 12    | 16.81 km        | 109 km  |
+ *
+ * Every older camera sits essentially on top of the station it is linked to, which is
+ * independent confirmation the curation is right. The 1000+ series is where the data
+ * breaks down: 7 of 12 are wrong, and camera 1289 ("Rimba KDR") carries station 260's
+ * (Jenderam Hilir) coordinates to seven decimal places — they are misassigned, not
+ * merely imprecise.
+ *
+ * So coordinates are usable evidence for cameras below id 1000 and worthless above it.
+ * Do not derive the whole map from them.
  *
  * Originally exported from the production Convex `cameras.stationId` column on
  * 2026-09-06 and translated into JPS ids, which also resolved the duplicate station
