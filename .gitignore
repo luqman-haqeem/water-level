@@ -24,6 +24,10 @@ yarn-error.log*
 .env*.local
 .env
 
+# Local Worker secrets (wrangler reads these for `wrangler dev`)
+.dev.vars
+.dev.vars.*
+
 # typescript
 *.tsbuildinfo
 
