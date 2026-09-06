@@ -52,6 +52,26 @@ needs no credentials.
 `.dev.vars` exists it wins and `.env` is excluded *entirely* rather than merged, which
 fails silently. This project uses `.env`.
 
+## Bucket CORS
+
+The browser fetches the snapshot cross-origin, so the bucket needs a CORS policy or the
+app loads nothing. `r2-cors.json` is that policy:
+
+```bash
+npx wrangler r2 bucket cors set <bucket> --file workers/r2-cors.json
+npx wrangler r2 bucket cors list <bucket>
+```
+
+`https://*.netlify.app` is included so **deploy previews work** — Netlify gives each PR
+its own origin (`deploy-preview-64--riverlevel.netlify.app`), which an exact-origin list
+does not cover. R2 honours the wildcard and echoes the specific origin back.
+
+`If-None-Match` must be allowed and `ETag` exposed, or the snapshot store's polling
+degrades from a 304 to a full refetch every cycle.
+
+**Before cutover the production bucket needs this too** — it has never had a policy
+because nothing has ever read from it.
+
 ## Tests
 
 Run inside workerd via Miniflare with real (local, simulated) R2 and KV bindings —
