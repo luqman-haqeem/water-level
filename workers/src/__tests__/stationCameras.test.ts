@@ -66,3 +66,33 @@ describe("stations carry their camera", () => {
         expect(built[0].cameras).toBeNull();
     });
 });
+
+describe("one camera per station", () => {
+    it("never maps two cameras to the same station", () => {
+        // A station renders a single camera, so a second entry would displace the first
+        // rather than add to it — and which one won would depend on roster order.
+        const byStation = new Map<string, string[]>();
+        for (const [cameraId, stationId] of Object.entries(CAMERA_STATION_LINKS)) {
+            byStation.set(stationId, [...(byStation.get(stationId) ?? []), cameraId]);
+        }
+        const clashes = [...byStation.entries()].filter(([, cams]) => cams.length > 1);
+        expect(clashes).toEqual([]);
+    });
+
+    it("uses only numeric JPS ids on both sides", () => {
+        // Guards a fat-fingered hand edit: a stray character here means a camera that
+        // silently never appears rather than an error.
+        for (const [cameraId, stationId] of Object.entries(CAMERA_STATION_LINKS)) {
+            expect(cameraId).toMatch(/^\d+$/);
+            expect(stationId).toMatch(/^\d+$/);
+        }
+    });
+
+    it("keeps the first camera and ignores a later claim on the same station", () => {
+        const index = indexCamerasByStation([
+            cam(),
+            cam({ id: "999", jps_camera_id: "999", station_id: LINKED_STATION }),
+        ]);
+        expect(index[LINKED_STATION].jps_camera_id).toBe(LINKED_CAMERA);
+    });
+});
