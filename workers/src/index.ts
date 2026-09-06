@@ -2,8 +2,17 @@ import { runSync } from "./sync";
 import { fetchSummary } from "./jps";
 import { fetchCameras, publishCameras } from "./cameraMetadata";
 
-/** The weekly camera metadata refresh; every other trigger is the water level sync. */
-const WEEKLY_METADATA_CRON = "0 2 * * 0";
+/**
+ * The weekly camera metadata refresh; every other trigger is the water level sync.
+ *
+ * Must match the string in wrangler.toml exactly — `controller.cron` reports the
+ * schedule as configured, so a mismatch would silently route the weekly run into the
+ * water level sync and the camera roster would never refresh. Pinned by test.
+ *
+ * "SUN" rather than "0": Cloudflare weekdays are 1 = Sunday to 7 = Saturday, off by one
+ * from standard cron, and it rejects "0" as invalid.
+ */
+export const WEEKLY_METADATA_CRON = "0 2 * * SUN";
 
 /**
  * wl-sync — water level sync and weekly metadata refresh (issue #67, Phases 2 and 4).
