@@ -7,6 +7,7 @@ import {
 } from "./shared";
 import { readSyncState } from "./syncState";
 import type { RetryOverrides } from "./jps";
+import { SNAPSHOT_KEYS as KEYS } from "./shared";
 
 // HTTPS, never http. Over cleartext a network attacker could substitute the frames we
 // mirror and then serve from our own domain. Phase 0 saw https 522 once and http
@@ -24,7 +25,32 @@ export interface CameraEntry {
     id: string;
     jps_camera_id: string;
     captured_at: string | null;
+    /** JPS id of the station this camera watches, when known. See cameraLinks.ts. */
+    station_id?: string | null;
     [key: string]: unknown;
+}
+
+/**
+ * Reads which stations are currently at alert or above, from the published snapshot.
+ *
+ * Cheap enough to do every run — one R2 GET of a file the mirror already depends on —
+ * and it keeps the mirror from needing its own view of the water level data.
+ */
+export async function readElevatedStations(bucket: R2Bucket): Promise<Set<string>> {
+    const object = await bucket.get(KEYS.stations);
+    if (!object) return new Set();
+    try {
+        const parsed = JSON.parse(await object.text()) as {
+            items?: Array<{ id: string; current_levels?: { alert_level: string } | null }>;
+        };
+        return new Set(
+            (parsed.items ?? [])
+                .filter((s) => Number(s.current_levels?.alert_level ?? -1) >= 1)
+                .map((s) => s.id)
+        );
+    } catch {
+        return new Set();
+    }
 }
 
 /**
@@ -86,7 +112,16 @@ export async function mirrorCameras(
     }
 
     const cameras = await readCameras(env.SNAPSHOT);
-    const slice = selectSlice(cameras, now());
+
+    // The rotation alone would refresh every camera every 15 minutes, including the ones
+    // watching a river that is rising — a three-fold slowdown exactly when the frames
+    // matter most. Cameras at alert-or-above stations are therefore mirrored every run,
+    // on top of the slice. There are few of them, so the subrequest count stays far
+    // under the 50 cap.
+    const elevated = await readElevatedStations(env.SNAPSHOT);
+    const priority = cameras.filter((c) => c.station_id && elevated.has(c.station_id));
+
+    const slice = [...new Map([...selectSlice(cameras, now()), ...priority].map((c) => [c.id, c])).values()];
     if (slice.length === 0) return { attempted: 0, uploaded: 0 };
 
     let uploaded = 0;
