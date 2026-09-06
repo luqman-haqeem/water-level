@@ -623,6 +623,22 @@ quiet camera now refreshes every 30 minutes rather than 15. Cameras at alert-or-
 stations bypass the rotation and are still mirrored every run, so the degradation
 applies only where it does not matter.
 
+## Bucket CORS (found in staging, 2026-09-06)
+
+The deploy preview failed to load any data: the bucket allowed
+`https://riverlevel.netlify.app` and localhost, but Netlify gives every PR its own
+origin (`deploy-preview-64--riverlevel.netlify.app`), which that list does not cover.
+
+Policy now lives in `workers/r2-cors.json` and includes `https://*.netlify.app`, which
+R2 honours — verified by preflight returning 204 with the specific origin echoed back.
+`If-None-Match` must be allowed and `ETag` exposed, or the snapshot store's ETag polling
+degrades to a full refetch every cycle instead of a 304.
+
+**Cutover requirement:** the production bucket has no CORS policy at all — nothing has
+ever read from it — so applying this is a prerequisite for Phase 6, not an afterthought.
+Without it the app loads zero data, and the failure is entirely client-side, so nothing
+in the Worker logs would show it.
+
 ## Rollback
 
 Both backends write the same R2 keys, so cutover is reversible: set
