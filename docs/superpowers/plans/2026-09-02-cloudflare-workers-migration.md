@@ -382,9 +382,15 @@ normal rotation.
 **Verified:** 250 tests / 32 files (168 app + 82 workers) · build, tsc and eslint clean
 · both Worker configs pass `wrangler deploy --dry-run`.
 
-**Secrets** (`wrangler secret put`, never in wrangler.toml): `ONESIGNAL_APP_ID`,
-`ONESIGNAL_REST_API_KEY`. Both optional at the type level on purpose — a staging
-deployment without them syncs normally and skips alerts with a warning.
+**Secrets:** `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`, never in wrangler.toml. Set
+them in the Cloudflare dashboard (Settings > Variables and Secrets > type *Secret*) or
+with `wrangler secret put`; both survive later deploys. Locally they go in
+`workers/.env` — decided 2026-09-06 over `.dev.vars`, which the repo already had no
+ignore rule for. Wrangler accepts either but never both: `.dev.vars` wins and excludes
+`.env` entirely rather than merging, which fails silently.
+
+Both are optional at the type level on purpose — a staging deployment without them
+syncs normally and skips alerts with a warning.
 
 ### Phase 5 — Staging verification
 

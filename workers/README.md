@@ -36,6 +36,22 @@ committed (same convention as `convex/_generated`). It supersedes
 cd workers && npx wrangler types
 ```
 
+## Secrets
+
+`ONESIGNAL_APP_ID` and `ONESIGNAL_REST_API_KEY`. Both are optional — without them the
+sync runs normally and skips danger alerts with a warning, so a staging deployment
+needs no credentials.
+
+- **Deployed:** set them in the Cloudflare dashboard (Workers & Pages > the Worker >
+  Settings > Variables and Secrets > Add > type *Secret*), or with
+  `wrangler secret put`. Either way they survive later deploys.
+- **Local:** `workers/.env` (this directory, not the repo root — wrangler resolves
+  relative to the config file).
+
+**Do not add a `.dev.vars` file.** Wrangler accepts either, never both: when
+`.dev.vars` exists it wins and `.env` is excluded *entirely* rather than merged, which
+fails silently. This project uses `.env`.
+
 ## Tests
 
 Run inside workerd via Miniflare with real (local, simulated) R2 and KV bindings —

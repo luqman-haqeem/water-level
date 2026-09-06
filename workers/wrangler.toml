@@ -32,3 +32,28 @@ SITE_URL = "https://riverlevel.netlify.app"
 #   ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY
 # Danger alerts are skipped with a warning when either is missing, so a staging
 # deployment without them syncs normally instead of failing.
+
+# ---------------------------------------------------------------------------
+# Staging (Phase 5). Deploy with: wrangler deploy --env staging --config workers/wrangler.toml
+#
+# Wrangler environments do NOT inherit bindings from the top level — every binding
+# has to be repeated here. Omitting one does not error; it deploys without it.
+#
+# Points at a separate bucket, never a prefix inside the production one: a wrong key
+# here would overwrite the live snapshot, and a separate bucket makes that impossible
+# rather than merely unlikely.
+# ---------------------------------------------------------------------------
+[env.staging]
+name = "wl-sync-staging"
+
+[[env.staging.r2_buckets]]
+binding = "SNAPSHOT"
+bucket_name = "riverlevel-snapshot-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SYNC_STATE"
+id = "placeholder-create-with-wrangler-kv-namespace-create"
+
+[env.staging.vars]
+JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+SITE_URL = "https://riverlevel.netlify.app"

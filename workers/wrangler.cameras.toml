@@ -24,3 +24,28 @@ id = "placeholder-set-at-phase-5"
 
 [vars]
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+
+# ---------------------------------------------------------------------------
+# Staging (Phase 5). Deploy with: wrangler deploy --env staging --config workers/wrangler.cameras.toml
+#
+# Wrangler environments do NOT inherit bindings from the top level — every binding
+# has to be repeated here. Omitting one does not error; it deploys without it.
+#
+# Points at a separate bucket, never a prefix inside the production one: a wrong key
+# here would overwrite the live snapshot, and a separate bucket makes that impossible
+# rather than merely unlikely.
+# ---------------------------------------------------------------------------
+[env.staging]
+name = "wl-cameras-staging"
+
+[[env.staging.r2_buckets]]
+binding = "SNAPSHOT"
+bucket_name = "riverlevel-snapshot-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SYNC_STATE"
+id = "placeholder-create-with-wrangler-kv-namespace-create"
+
+[env.staging.vars]
+JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+SITE_URL = "https://riverlevel.netlify.app"
