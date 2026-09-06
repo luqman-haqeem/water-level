@@ -52,7 +52,9 @@ id = "306d01a3aedf464ab99b99a84b884662"
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
 SITE_URL = "https://riverlevel.netlify.app"
 
-# Staging schedule only. Each run mirrors a clock-derived third of the roster, so every
-# camera refreshes every 15 minutes, plus any camera watching an elevated station.
+# Staging schedule only. Each run mirrors a clock-derived half of the roster, so every
+# camera refreshes every 30 minutes, plus any camera watching an elevated station, which
+# is mirrored every run. The period here MUST match SLICE_INTERVAL_MS in cameraSync.ts:
+# the slice is derived from the clock, so a mismatch silently freezes part of the roster.
 [env.staging.triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/15 * * * *"]

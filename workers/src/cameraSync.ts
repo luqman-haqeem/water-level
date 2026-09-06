@@ -17,9 +17,22 @@ export const CCTV_BASE_URL = "https://infobanjirjps.selangor.gov.my/InfoBanjir.W
 /** Stop hammering a dead upstream; an outage should cost one slice, not a full run. */
 const MAX_CONSECUTIVE_FAILURES = 10;
 
-/** Every camera is refreshed once per this many slices. 3 slices x 5 min = 15 min. */
-export const SLICE_COUNT = 3;
-const SLICE_INTERVAL_MS = 5 * 60 * 1000;
+/**
+ * How often this Worker is scheduled. **Must equal the cron period in
+ * wrangler.cameras.toml** — the slice is derived from the clock, so if the cron fires
+ * less often than this the index does not advance and the same slice is mirrored every
+ * time, leaving the rest to go stale forever with no error. Pinned by test.
+ */
+export const SLICE_INTERVAL_MS = 15 * 60 * 1000;
+
+/**
+ * Two slices, not three: 92 cameras must be split so each run stays under the free
+ * plan's 50 external subrequests per invocation. Two gives ~46 per run and a full
+ * refresh every 30 minutes; three would be safer on subrequests but stretch the cycle
+ * to 45 minutes. Cameras on a rising river bypass the rotation entirely and are
+ * mirrored every run, so the cycle length only governs the quiet ones.
+ */
+export const SLICE_COUNT = 2;
 
 export interface CameraEntry {
     id: string;
@@ -65,8 +78,8 @@ export function sliceIndex(now: number): number {
 }
 
 /**
- * Partitions by position, not by hash: every camera lands in exactly one slice and all
- * three slices together cover the list with no gaps or repeats, whatever its length.
+ * Partitions by position, not by hash: every camera lands in exactly one slice and the
+ * slices together cover the list with no gaps or repeats, whatever its length.
  */
 export function selectSlice(cameras: CameraEntry[], now: number): CameraEntry[] {
     const slice = sliceIndex(now);

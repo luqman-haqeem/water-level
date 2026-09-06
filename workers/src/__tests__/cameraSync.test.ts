@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { SNAPSHOT_KEYS } from "../shared";
 import { SYNC_STATE_KEY, type SyncStateRow } from "../syncState";
-import { SLICE_COUNT, mirrorCameras, selectSlice, sliceIndex, type CameraEntry } from "../cameraSync";
+import { SLICE_COUNT, SLICE_INTERVAL_MS, mirrorCameras, selectSlice, sliceIndex, type CameraEntry } from "../cameraSync";
 
 const NOW = Date.parse("2026-09-05T12:00:00.000Z");
 const retry = { sleep: async () => {} };
@@ -37,23 +37,29 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("slice rotation", () => {
-    it("covers every camera exactly once across the three slices", () => {
+    it("covers every camera exactly once across a full cycle", () => {
         // The property that matters: no camera is skipped and none is mirrored twice,
         // whatever the list length. A hash-based split would not guarantee this.
         const cameras = Array.from({ length: 92 }, (_, i) => camera(i));
         const seen = Array.from({ length: SLICE_COUNT }, (_, s) =>
-            selectSlice(cameras, s * 5 * 60 * 1000)
+            selectSlice(cameras, s * SLICE_INTERVAL_MS)
         ).flat();
 
         expect(seen).toHaveLength(92);
         expect(new Set(seen.map((c) => c.id)).size).toBe(92);
     });
 
-    it("advances one slice per five minutes and wraps", () => {
-        expect(sliceIndex(0)).toBe(0);
-        expect(sliceIndex(5 * 60 * 1000)).toBe(1);
-        expect(sliceIndex(10 * 60 * 1000)).toBe(2);
-        expect(sliceIndex(15 * 60 * 1000)).toBe(0);
+    it("advances exactly one slice per scheduled run and wraps", () => {
+        for (let i = 0; i < SLICE_COUNT * 2; i++) {
+            expect(sliceIndex(i * SLICE_INTERVAL_MS)).toBe(i % SLICE_COUNT);
+        }
+    });
+
+    it("keeps a run under the free plan's 50 external subrequests", () => {
+        // One fetch per camera in the slice. Exceeding the cap would truncate the run
+        // mid-roster rather than fail loudly.
+        const cameras = Array.from({ length: 92 }, (_, i) => camera(i));
+        expect(selectSlice(cameras, 0).length).toBeLessThanOrEqual(50);
     });
 
     it("needs no stored cursor, so a missed run cannot stall the rotation", () => {
@@ -66,12 +72,13 @@ describe("slice rotation", () => {
 
 describe("mirrorCameras", () => {
     it("mirrors its slice to cam/{id}.jpg", async () => {
-        await putCameras([camera(0), camera(1), camera(2)]);
+        const cameras = [camera(0), camera(1), camera(2)];
+        await putCameras(cameras);
         stubFrames();
 
         const result = await mirrorCameras(env, { now: () => 0, retry });
 
-        expect(result.uploaded).toBe(1); // slice 0 of 3
+        expect(result.uploaded).toBe(selectSlice(cameras, 0).length);
         const stored = await env.SNAPSHOT.get("cam/0.jpg");
         expect(new Uint8Array(await stored!.arrayBuffer())).toEqual(JPEG);
         expect(stored!.httpMetadata?.contentType).toBe("image/jpeg");
@@ -140,22 +147,24 @@ describe("mirrorCameras", () => {
 
         const result = await mirrorCameras(env, { now: () => 0, retry });
 
-        expect(result.attempted).toBe(12);
+        expect(result.attempted).toBe(Math.ceil(36 / SLICE_COUNT));
         expect(result.uploaded).toBeGreaterThan(1);
     });
 
     it("refreshes captured_at only for the cameras it actually mirrored", async () => {
-        await putCameras([camera(0), camera(1), camera(2)]);
+        const cameras = [camera(0), camera(1), camera(2)];
+        await putCameras(cameras);
         stubFrames();
 
         await mirrorCameras(env, { now: () => NOW, retry });
 
+        const inSlice = selectSlice(cameras, NOW).length;
         const items = JSON.parse(await (await env.SNAPSHOT.get(SNAPSHOT_KEYS.cameras))!.text()).items;
         const mirrored = items.filter((c: CameraEntry) => c.captured_at !== null);
-        expect(mirrored).toHaveLength(1);
+        expect(mirrored).toHaveLength(inSlice);
         expect(mirrored[0].captured_at).toBe(new Date(NOW).toISOString());
         // Untouched cameras keep whatever the metadata refresh last published.
-        expect(items.filter((c: CameraEntry) => c.captured_at === null)).toHaveLength(2);
+        expect(items.filter((c: CameraEntry) => c.captured_at === null)).toHaveLength(3 - inSlice);
     });
 
     it("leaves cameras.json alone when nothing uploaded", async () => {

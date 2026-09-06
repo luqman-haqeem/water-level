@@ -61,9 +61,9 @@ JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
 SITE_URL = "https://riverlevel.netlify.app"
 
 # Staging schedule only — the top-level (production) config still declares no triggers.
-# */5 water levels; the weekly camera roster is branched on controller.cron.
+# */15 water levels; the weekly camera roster is branched on controller.cron.
 #
 # "SUN", not "0": Cloudflare weekdays run 1 = Sunday to 7 = Saturday, off by one from
 # standard cron, and it rejects 0 outright. The name sidesteps the whole question.
 [env.staging.triggers]
-crons = ["*/5 * * * *", "0 2 * * SUN"]
+crons = ["*/15 * * * *", "0 2 * * SUN"]

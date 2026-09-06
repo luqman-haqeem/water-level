@@ -103,11 +103,13 @@ describe("prioritising cameras on a rising river", () => {
         vi.stubGlobal("fetch", vi.fn(async () =>
             new Response(new Uint8Array([0xff, 0xd8]), { headers: { "content-type": "image/jpeg" } })));
 
-        // Slice 0 covers camera "0" only; camera "1" is elevated and must come too.
-        expect(selectSlice(cameras, 0).map((c) => c.id)).toEqual(["0"]);
+        // Camera "1" must be one the rotation skips this run, or the test proves nothing.
+        const rotation = selectSlice(cameras, 0).map((c) => c.id);
+        expect(rotation).not.toContain("1");
+
         const result = await mirrorCameras(env, { now: () => 0, retry });
 
-        expect(result.attempted).toBe(2);
+        expect(result.attempted).toBe(rotation.length + 1);
         expect(await env.SNAPSHOT.get("cam/1.jpg")).not.toBeNull();
     });
 });

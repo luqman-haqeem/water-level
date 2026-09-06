@@ -51,10 +51,10 @@ needs no changes.
 
 **Two Workers, three cron triggers** (free plan allows 5 per account):
 
-- **`wl-sync`** — `*/5 * * * *` water levels; `0 2 * * 0` weekly camera metadata
-- **`wl-cameras`** — `*/5 * * * *`, mirrors a rotating 1/3 slice of cameras
-  (~31 per run, full cycle every 15 min). The slice is derived from the clock
-  (`floor(now / 5min) % 3`), so no cursor needs storing.
+- **`wl-sync`** — `*/15 * * * *` water levels; `0 2 * * SUN` weekly camera metadata
+- **`wl-cameras`** — `*/15 * * * *`, mirrors a rotating 1/2 slice of cameras
+  (~46 per run, full cycle every 30 min). The slice is derived from the clock
+  (`floor(now / SLICE_INTERVAL_MS) % 2`), so no cursor needs storing.
 
 Convex is deleted. No database replaces it:
 
@@ -556,6 +556,33 @@ object is rewritten each run or appended as `history/YYYY-MM-DD/HH.json` to avoi
 read-modify-write growing through the day; and whether the existing 14 days in
 Convex should be exported at cutover or simply left to age out while the new store
 accumulates in parallel.
+
+## Scheduling — changed to 15 minutes (2026-09-06)
+
+Both Workers now run `*/15` rather than `*/5`, on the owner's decision. JPS publishes
+on a ~15-minute nominal cycle, so 5-minute polling was mostly re-reading unchanged data
+and short-circuiting on the fingerprint anyway.
+
+**This forced a matching change to the camera slice, and the trap is worth recording.**
+The slice is `floor(now / SLICE_INTERVAL_MS) % SLICE_COUNT`. With the interval left at
+5 minutes but the cron moved to 15, every run lands on the same index:
+
+| Run time | Slice with a 5-minute interval |
+|---|---|
+| +0 min | 0 |
+| +15 min | 0 |
+| +30 min | 0 |
+| +45 min | 0 |
+
+Two thirds of the roster would have frozen permanently, with no error — the mirror would
+report success every run while most frames silently aged. `SLICE_INTERVAL_MS` must equal
+the cron period, and a test now asserts that against the real `wrangler.cameras.toml`.
+
+`SLICE_COUNT` drops to 2 because 92 cameras still have to fit the free plan's 50
+external subrequests per invocation: two slices give ~46 per run. The cost is that a
+quiet camera now refreshes every 30 minutes rather than 15. Cameras at alert-or-above
+stations bypass the rotation and are still mirrored every run, so the degradation
+applies only where it does not matter.
 
 ## Rollback
 
