@@ -86,13 +86,12 @@ export const CAMERA_STATION_LINKS: Record<string, string> = {
     "1278": "222",   // Paya Jaras                ->  PAYA JARAS, SG. BULOH
 
     // ---- SABAK BERNAM ----
-    "1289": "833",   // Rimba KDR                 ->  RIMBA KDR
+    "1289": "260",   // Rimba KDR                 ->  JENDERAM HILIR
 
     // ---- SEPANG ----
     "7": "176",      // Pekan Dengkil             ->  DENGKIL
     "8": "206",      // Kg. Salak Tinggi          ->  KG. SALAK TINGGI
     "236": "286",    // Pulau Meranti             ->  PULAU MERANTI
-    "1283": "260",   // Jenderam Hilir            ->  JENDERAM HILIR
 };
 
 /** Cameras watching any of the given stations. */
