@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { SNAPSHOT_KEYS } from "../shared";
 import { SYNC_STATE_KEY, type SyncStateRow } from "../syncState";
-import { SLICE_COUNT, SLICE_INTERVAL_MS, mirrorCameras, selectSlice, sliceIndex, type CameraEntry } from "../cameraSync";
+import { CONCURRENCY, SLICE_COUNT, SLICE_INTERVAL_MS, mirrorCameras, selectSlice, sliceIndex, type CameraEntry } from "../cameraSync";
 
 const NOW = Date.parse("2026-09-05T12:00:00.000Z");
 const retry = { sleep: async () => {} };
@@ -128,14 +128,21 @@ describe("mirrorCameras", () => {
         expect(await env.SNAPSHOT.get("cam/0.jpg")).toBeNull();
     });
 
-    it("gives up after ten consecutive failures instead of grinding through the slice", async () => {
-        // 36 cameras -> a 12-camera slice. The breaker should stop it at 10.
-        await putCameras(Array.from({ length: 36 }, (_, i) => camera(i)));
+    it("gives up early instead of grinding through the whole slice", async () => {
+        const cameras = Array.from({ length: 36 }, (_, i) => camera(i));
+        await putCameras(cameras);
         stubFrames(() => new Error("522"));
 
         await mirrorCameras(env, { now: () => 0, retry });
 
-        expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(10);
+        // Not exactly 10: fetches run concurrently, so up to CONCURRENCY-1 are already
+        // in flight when the threshold trips. The guarantee is that it stops well short
+        // of the slice rather than spending the run's whole subrequest budget on a dead
+        // upstream.
+        const calls = (fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+        const sliceSize = selectSlice(cameras, 0).length;
+        expect(calls).toBeLessThan(sliceSize);
+        expect(calls).toBeLessThanOrEqual(10 + CONCURRENCY);
     });
 
     it("resets the failure count after a success, so scattered failures do not trip it", async () => {
