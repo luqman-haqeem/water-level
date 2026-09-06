@@ -18,6 +18,43 @@ export const CCTV_BASE_URL = "https://infobanjirjps.selangor.gov.my/InfoBanjir.W
 const MAX_CONSECUTIVE_FAILURES = 10;
 
 /**
+ * Long enough to survive a JPS connect stall.
+ *
+ * Was 5 s, inherited from the Convex version, and it lost 23 of 31 frames on the first
+ * staging run. JPS answers a CCTV request in 1.6-3 s normally, but roughly one attempt
+ * in six stalls ~16-20 s at TCP connect — the same SYN-retransmission behaviour Phase 0
+ * measured on every other JPS endpoint. A 5 s deadline turns every stalled connection
+ * into a lost frame.
+ */
+const FETCH_TIMEOUT_MS = 20_000;
+
+/**
+ * Fetches in flight at once.
+ *
+ * Sequential fetches at a 20 s timeout could take 46 x 20 s in the worst case, past the
+ * 15-minute cron wall clock and into the next scheduled run. Six at a time bounds a bad
+ * slice to roughly two and a half minutes, and 46 subrequests still sits under the free
+ * plan's 50 per invocation.
+ */
+export const CONCURRENCY = 6;
+
+/**
+ * Runs `fn` over `items` with at most `limit` in flight.
+ *
+ * Workers share a cursor rather than being handed fixed chunks, so one slow camera
+ * cannot leave a lane idle while others queue behind it.
+ */
+async function runPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+    let next = 0;
+    const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) {
+            await fn(items[next++]);
+        }
+    });
+    await Promise.all(lanes);
+}
+
+/**
  * How often this Worker is scheduled. **Must equal the cron period in
  * wrangler.cameras.toml** — the slice is derived from the clock, so if the cron fires
  * less often than this the index does not advance and the same slice is mirrored every
@@ -142,11 +179,15 @@ export async function mirrorCameras(
     const capturedAt = new Date(now()).toISOString();
     const mirrored = new Set<string>();
 
-    for (const camera of slice) {
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break;
+    // `consecutiveFailures` means "failures since the last success" here rather than a
+    // strict run of adjacent ones, because lanes interleave. The protective intent is
+    // the same: during a total outage nothing succeeds, the count climbs, and the run
+    // stops instead of spending its whole subrequest budget collecting failures.
+    await runPool(slice, CONCURRENCY, async (camera) => {
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) return;
         try {
             const response = await fetchWithRetry(`${CCTV_BASE_URL}/${camera.jps_camera_id}.jpg`, {
-                timeoutMs: 5_000,
+                timeoutMs: FETCH_TIMEOUT_MS,
                 retries: 0,
                 ...deps.retry,
             });
@@ -157,14 +198,14 @@ export async function mirrorCameras(
             if (!contentType.startsWith("image/")) {
                 consecutiveFailures += 1;
                 console.warn(`camera ${camera.jps_camera_id}: unexpected content-type "${contentType}"`);
-                continue;
+                return;
             }
 
             const body = new Uint8Array(await response.arrayBuffer());
             if (body.byteLength === 0) {
                 consecutiveFailures += 1;
                 console.warn(`camera ${camera.jps_camera_id}: empty body`);
-                continue;
+                return;
             }
 
             await env.SNAPSHOT.put(cameraImageKey(camera.jps_camera_id), body, {
@@ -179,7 +220,7 @@ export async function mirrorCameras(
                 `camera ${camera.jps_camera_id}: ${error instanceof Error ? error.message : String(error)}`
             );
         }
-    }
+    });
 
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
         console.error(`camera mirror aborted after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`);
