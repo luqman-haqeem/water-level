@@ -111,7 +111,7 @@ with the developer's IP.
 |---|---|---|
 | 1 | Does JPS accept Cloudflare IPs? | **PASS** |
 | 2 | Does `fetch()` to plain `http://` work from the edge? | **PASS** |
-| 3 | Does the build fit in 10 ms CPU? | **Deferred to Phase 5** — measured p95 4.79 ms locally |
+| 3 | Does the build fit in 10 ms CPU? | **PASS, measured 7 ms on a real run** — see Phase 5 |
 
 **1. JPS accepts Cloudflare IPs.** From the deployed Worker the summary endpoint
 returned 200 with all 9 districts, and 8/9 district endpoints returned 200. A
@@ -556,6 +556,45 @@ object is rewritten each run or appended as `history/YYYY-MM-DD/HH.json` to avoi
 read-modify-write growing through the day; and whether the existing 14 days in
 Convex should be exported at cutover or simply left to age out while the new store
 accumulates in parallel.
+
+## Phase 0 question 3, finally answered (2026-09-06)
+
+Measured on a real staging invocation via `wrangler tail`:
+
+```
+cron: */15 * * * *   outcome: ok   cpuTime: 7 ms   wallTime: 50149 ms
+```
+
+**7 ms against the free plan's 10 ms.** It passes, but with less headroom than the
+local estimate suggested — local measurement of the same pipeline gave p50 1.97 ms and
+p95 4.79 ms, so real workerd costs roughly 1.5x the Node figure. Worth remembering
+whenever a local benchmark is used to argue about this limit.
+
+The 50 s wall clock is JPS, not us; CPU time excludes I/O wait.
+
+**The margin now matters more than it did.** This plan assumed only ~1/3 of runs would
+rebuild, the rest short-circuiting on the fingerprint. That held at `*/5`. At `*/15` the
+poll interval matches JPS's own publish cycle, so most runs *do* find new data and take
+the full build path. The expensive path is now the common one, at 70% of budget.
+
+If it ever exceeds: build only on fingerprint change is already in place, gzip is
+already dropped, and the fallback is splitting the raw dump and the build across two
+chained Workers.
+
+### The same run proved the resilience logic under real failure
+
+```
+Failed to fetch district 2: The operation was aborted
+1 district fetch(es) failed; fingerprint withheld so the next run retries
+OneSignal not configured; skipping danger notifications
+wl-sync: success=true changed=true districts=9 stations=79 status=NORMAL
+```
+
+A district genuinely timed out against live JPS, and the run warned, continued, published
+the other eight, and withheld the fingerprint so the next run retries — exactly the
+behaviour ported from Convex, observed in production conditions rather than in a test
+with a stubbed failure. The missing OneSignal credentials also degraded as designed:
+skipped with a warning rather than failing the sync.
 
 ## Scheduling — changed to 15 minutes (2026-09-06)
 
