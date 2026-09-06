@@ -1,6 +1,6 @@
 /**
  * Which water level station each CCTV camera watches, in JPS ids:
- * \`{ jps_camera_id: jps_station_id }\`.
+ * `{ jps_camera_id: jps_station_id }`.
  *
  * Curated by hand by the repository owner. JPS publishes nothing connecting the two —
  * its camera endpoint returns only id, name, brand, image URL and online flags — so
@@ -9,9 +9,9 @@
  * every disagreement the names matched exactly while the coordinates differed by up to
  * 109 km. JPS coordinate data is not reliable enough for this.
  *
- * Originally exported from the production Convex \`cameras.stationId\` column on
+ * Originally exported from the production Convex `cameras.stationId` column on
  * 2026-09-06 and translated into JPS ids, which also resolved the duplicate station
- * documents, since both twins shared one \`jpsSelId\`.
+ * documents, since both twins shared one `jpsSelId`.
  *
  * **One camera per station.** A station renders a single camera, so a second entry
  * pointing at the same station would silently displace the first rather than add to it.
