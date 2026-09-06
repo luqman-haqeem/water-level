@@ -36,12 +36,14 @@
  */
 export const CAMERA_STATION_LINKS: Record<string, string> = {
     // ---- GOMBAK ----
+    "2": "845",      // Batu Caves                ->  BATU CAVES, SG. BATU
     "3": "242",      // Kg. Melayu Sri Kundang    ->  KG. MELAYU SERI KUNDANG
 
     // ---- HULU LANGAT ----
     "4": "235",      // Bt. 15 (I.K.B.N)          ->  BATU 15, HULU LANGAT
     "19": "163",     // Bt. 12 Sg.Serai           ->  BATU 12, HULU LANGAT
     "31": "248",     // Kg. Baru Balakong         ->  KG. BARU BALAKONG
+    "33": "241",     // Seri Tanjung, Semenyih    ->  JALAN SRI TANJUNG, SEMENYIH
     "37": "174",     // Pekan Kajang              ->  PEKAN KAJANG
     "1255": "230",   // Batu 9                    ->  BATU 9, HULU LANGAT
     "1273": "226",   // Bangi Lama                ->  PEKAN BANGI LAMA
@@ -52,6 +54,7 @@ export const CAMERA_STATION_LINKS: Record<string, string> = {
     "26": "201",     // Jambatan S.K.C            ->  JAMBATAN S.K.C
     "27": "202",     // Tanjung Malim             ->  TANJUNG MALIM
     "34": "232",     // Kg. Timah Bkt. Beruntung  ->  KG. TIMAH, BUKIT BERUNTUNG
+    "35": "240",     // Kg. Selisek               ->  KG. SG. SELISIK
     "36": "239",     // Kg. Sg. Buaya             ->  KG. SG. BUAYA
 
     // ---- KLANG ----
@@ -67,12 +70,13 @@ export const CAMERA_STATION_LINKS: Record<string, string> = {
 
     // ---- KUALA SELANGOR ----
     "25": "161",     // Rantau Panjang            ->  RANTAU PANJANG
-    "234": "1173",   // PA Ijok Compartment D     ->  PINTU AIR IJOK
+    "234": "253",    // PA Ijok Compartment D     ->  P/A SG. YU 1
     "1265": "217",   // Kampung Asahan            ->  KG. ASAHAN
     "1267": "160",   // Saujana Aman              ->  SAUJANA AMAN
     "1288": "250",   // Pekan Tanjung Karang      ->  P/A PEKAN TG. KARANG
 
     // ---- PETALING ----
+    "10": "179",     // Bt.3, Shah Alam           ->  BATU TIGA
     "13": "192",     // Kg. Melayu Subang         ->  KG. MELAYU SUBANG
     "15": "156",     // TTDI Jaya, Shah Alam      ->  T.T.D.I JAYA, SHAH ALAM
     "21": "193",     // Taman Mayang              ->  TAMAN MAYANG
