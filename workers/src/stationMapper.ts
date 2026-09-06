@@ -1,6 +1,7 @@
 import { computeAlertLevel, convertJpsDateToIso, parseThreshold } from "./shared";
 import type { DistrictOutcome, JpsStation } from "./jps";
 import type { Coordinates } from "./coordinates";
+import type { StationCamera } from "./stationCameras";
 
 /**
  * A station as published in `stations.json`. Field names are snake_case because the
@@ -19,7 +20,9 @@ export interface SnapshotStation {
     danger_water_level: number | null;
     districts: { name: string } | null;
     current_levels: { current_level: number; updated_at: string; alert_level: string } | null;
-    cameras: null;
+    /** The camera watching this station, if one does. Drives the card badge, the
+     *  "has a camera" filter, and the camera view on the detail page. */
+    cameras: StationCamera | null;
 }
 
 /**
@@ -47,7 +50,8 @@ const NO_READING = -9999;
 export function toSnapshotStation(
     station: JpsStation,
     districtName: string,
-    coordinates: Coordinates = {}
+    coordinates: Coordinates = {},
+    cameras: Record<string, StationCamera> = {}
 ): SnapshotStation {
     const currentWaterLevel =
         station.waterLevel === null || station.waterLevel === NO_READING ? null : station.waterLevel;
@@ -93,8 +97,7 @@ export function toSnapshotStation(
                       updated_at: convertJpsDateToIso(station.lastUpdate),
                       alert_level: String(alertLevel),
                   },
-        // Station-to-camera linkage is rebuilt by the camera Worker (Phase 3/4).
-        cameras: null,
+        cameras: cameras[id] ?? null,
     };
 }
 
@@ -109,7 +112,8 @@ export function toSnapshotStation(
  */
 export function buildStations(
     districts: DistrictOutcome[],
-    coordinates: Coordinates = {}
+    coordinates: Coordinates = {},
+    cameras: Record<string, StationCamera> = {}
 ): SnapshotStation[] {
     // Keyed by id, so one JPS station can only ever produce one entry. Convex matched
     // on jpsSelId with `.first()` and quietly began writing to a second document,
@@ -119,7 +123,7 @@ export function buildStations(
     for (const d of districts) {
         for (const s of d.stations) {
             if (s.stationStatus !== 1) continue;
-            byId.set(stationId(s), toSnapshotStation(s, d.districtName, coordinates));
+            byId.set(stationId(s), toSnapshotStation(s, d.districtName, coordinates, cameras));
         }
     }
     return [...byId.values()].sort((a, b) => Number(a.id) - Number(b.id));

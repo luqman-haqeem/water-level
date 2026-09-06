@@ -5,6 +5,8 @@ import { publishMeta, publishSnapshot } from "./publish";
 import { readSyncState, recordSyncState } from "./syncState";
 import { appendTrends, readTrends } from "./trends";
 import { fetchCoordinates, mergeCoordinates, readPublishedCoordinates } from "./coordinates";
+import { readCameras } from "./cameraSync";
+import { indexCamerasByStation } from "./stationCameras";
 import { notifyDangerStations } from "./notify";
 
 export interface SyncResult {
@@ -122,9 +124,14 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
     // Read the previous coordinates before overwriting stations.json, so a failed index
     // fetch carries the last known pins forward instead of blanking the map.
     const previousCoordinates = await readPublishedCoordinates(env.SNAPSHOT);
+    // Read-only: cameras.json belongs to the mirror. Stations carry a copy of the camera
+    // that watches them, which is what drives the card badge, the "has a camera" filter
+    // and the detail page's camera view.
+    const stationCameras = indexCamerasByStation(await readCameras(env.SNAPSHOT));
     const stations = buildStations(
         districts,
-        mergeCoordinates(previousCoordinates, coordinates ?? {})
+        mergeCoordinates(previousCoordinates, coordinates ?? {}),
+        stationCameras
     );
     const trends = appendTrends(await readTrends(env.SNAPSHOT), stations, now());
 
