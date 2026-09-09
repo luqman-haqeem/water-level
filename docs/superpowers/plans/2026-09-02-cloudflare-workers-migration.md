@@ -394,9 +394,12 @@ syncs normally and skips alerts with a warning.
 
 ### Phase 5 — Staging verification
 
-- Point the Workers at a **staging bucket prefix**, never production.
+- Point the Workers at a **staging bucket prefix**, never production. **DONE**
 - Run a local frontend against it via `VITE_SNAPSHOT_BASE_URL` and click through.
-- Soak for 24 h; confirm cron actually fires every 5 min.
+  **Owner's call — outstanding.**
+- Soak for 24 h; confirm cron actually fires every 15 min. **DONE, 71 h —
+  see "Soak result" below. Cron does not reliably fire; that is a platform
+  property, not a bug in our code.**
 - **Measure CPU here** (carried over from Phase 0, question 3). `wrangler tail` on the
   staging deployment, on a real free-plan account — a temporary preview account does
   not enforce the 10 ms cap and cannot answer this. Local measurement predicts p95
@@ -638,6 +641,70 @@ degrades to a full refetch every cycle instead of a 304.
 ever read from it — so applying this is a prerequisite for Phase 6, not an afterthought.
 Without it the app loads zero data, and the failure is entirely client-side, so nothing
 in the Worker logs would show it.
+
+## Soak result (2026-09-09)
+
+71 hours on staging, 2026-09-06 16:00Z to 2026-09-09 15:00Z, both Workers, read
+from the `workersInvocationsAdaptive` GraphQL dataset.
+
+| | `wl-sync` | `wl-cameras` |
+|---|---|---|
+| Windows expected (`*/15`) | 284 | 284 |
+| Windows that actually fired | 244 | 247 |
+| **Missed** | **40 (14.1%)** | **37 (13.0%)** |
+| Errors | 0 | 0 |
+| Longest outage | **3.50 h** (09-08 23:45 → 09-09 03:15) | **2.50 h** (09-08 23:45 → 09-09 02:15) |
+
+Zero errors across 71 hours: no `scriptThrewException`, no `exceededCpu`, no 1102.
+Every invocation that ran, succeeded. **The 10 ms CPU limit is not a problem** —
+the 7 ms measurement from Phase 0 holds under three days of real traffic.
+
+### Cron delivery is best-effort, and it shows
+
+One window in seven never fires. Most misses are single windows, which the next
+run absorbs invisibly: JPS publishes every 15 minutes, so a skipped window costs
+one reading, and the fingerprint short-circuit means ~2/3 of runs had nothing new
+to publish anyway.
+
+The 3.5-hour outage is the finding that matters. **Both Workers went dark inside
+the same minute and both came back on their own**, with no errors on either side
+of the gap. Two independently deployed scripts stopping and restarting together
+is the free plan's documented "runs on underutilized machines" scheduling, not
+our code failing. Nothing in the repo can prevent it.
+
+What a user would have seen during those 3.5 hours is the design working:
+`meta.json` stopped advancing, `attemptedAt` aged past `STALENESS_THRESHOLD_MS`
+(45 min), `freshness.ts` returned `snapshot-stale`, `DataFreshnessBanner` said so,
+and `StationCard` dimmed every reading to `alert_level = -1`. Stale data was
+labelled stale rather than served as current. That is the correct failure, but it
+is still 3.5 hours of a flood app showing nothing current — during a flood, that is
+the window that matters most.
+
+**This is an owner's decision, not a code change**, and it should be made before
+Phase 6:
+
+1. **Accept it.** Occasional multi-hour staleness, honestly labelled. Free.
+2. **Workers Paid, $5/month.** Cron on paid plans is not best-effort in the same
+   way; it also lifts the CPU cap, which stops mattering the moment history
+   retention lands.
+3. **External heartbeat.** A free uptime monitor watching `meta.json`'s
+   `attemptedAt` and alerting the owner. Detects the outage; does not fix it.
+   This is the dead-man's switch already specified above, which must run somewhere
+   other than Cloudflare precisely because of this failure mode.
+
+Option 3 is worth doing regardless of 1 vs 2 — right now nothing tells the owner
+the pipeline stopped.
+
+### `workers.dev` disabled on both Workers
+
+The soak also caught 72 invocations that were not cron: bursts of up to 10 in a
+single minute, hitting the public `*.workers.dev` hostname. Neither Worker exports
+a `fetch` handler, so these were scanners probing a URL that can only ever return
+an error — while still billing against the free plan's 100k requests/day and
+producing the `clientDisconnected` status in the analytics.
+
+`workers_dev = false` in both configs. Cron triggers do not use that hostname, and
+both deployments were re-verified to keep their schedules afterwards.
 
 ## Rollback
 

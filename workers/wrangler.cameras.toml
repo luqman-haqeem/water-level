@@ -9,7 +9,10 @@
 name = "wl-cameras"
 main = "src/cameras-index.ts"
 compatibility_date = "2026-07-01"
-workers_dev = true
+# Cron-only Worker: no fetch handler, so the workers.dev hostname serves nothing but
+# scanner probes that still bill against the free-plan request budget. Disabled;
+# cron triggers do not need it.
+workers_dev = false
 
 [[r2_buckets]]
 binding = "SNAPSHOT"
