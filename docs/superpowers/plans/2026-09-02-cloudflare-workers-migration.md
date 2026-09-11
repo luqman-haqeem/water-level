@@ -400,16 +400,32 @@ syncs normally and skips alerts with a warning.
 - Soak for 24 h; confirm cron actually fires every 15 min. **DONE, 71 h —
   see "Soak result" below. Cron does not reliably fire; that is a platform
   property, not a bug in our code.**
-- **Measure CPU here** (carried over from Phase 0, question 3). `wrangler tail` on the
-  staging deployment, on a real free-plan account — a temporary preview account does
-  not enforce the 10 ms cap and cannot answer this. Local measurement predicts p95
-  ~4.8 ms; if the real figure is materially worse, split the raw dump and the build
-  across two chained Workers before cutover.
+- **Measure CPU here** (carried over from Phase 0, question 3). **DONE — settled by
+  the soak.** 71 h and 491 invocations across both Workers produced zero
+  `exceededCpu` and zero errors of any kind, on a real free-plan account that does
+  enforce the 10 ms cap. The Phase 0 figure of 7 ms holds under real traffic; the
+  chained-Worker split is not needed and is dropped from the plan.
 
 ### Phase 6 — Cutover
 
-- Repoint the Workers at the production bucket.
-- Leave Convex deployed but dormant (`CRONS_ENABLED` unset).
+Blockers, all of which must be cleared first:
+
+- **Apply `workers/r2-cors.json` to the production bucket.** It has no CORS policy at
+  all today. Without it the app loads zero data, and the failure is entirely
+  client-side — every Worker log will show a successful publish.
+- **Set the OneSignal secrets** on both production Workers (dashboard, never
+  `wrangler.toml`).
+- **Decide the cron-reliability question** — accept / Workers Paid / Actions standby,
+  see *Soak result*.
+- **Design the history store** — see *History retention*. Still open.
+
+Then:
+
+- Repoint the Workers at the production bucket. The bucket is empty, so this is a
+  first write, not a swap: Convex keeps serving the live site until
+  `VITE_SNAPSHOT_BASE_URL` flips.
+- Leave Convex deployed but dormant (`CRONS_ENABLED` unset). Dormant only — it is
+  **not** a usable standby, see *Convex as a standby publisher*.
 - Watch for one week.
 
 ### Phase 7 — Decommission Convex
@@ -695,6 +711,56 @@ Phase 6:
 Option 3 is worth doing regardless of 1 vs 2 — right now nothing tells the owner
 the pipeline stopped.
 
+### Convex as a standby publisher — rejected (2026-09-09)
+
+The obvious fourth option, raised by the owner: keep Convex alive as a fallback
+publisher that takes over when the Cloudflare snapshot goes stale. Investigated and
+rejected. Three findings, in order of how much they matter.
+
+**1. There is nothing to keep alive.** `syncState` is empty on the *production*
+deployment — the R2 publisher only ever ran on Convex **dev**, whose crons are off
+(`7aeafd2`). Production still runs the legacy DB-only pipeline and has never written
+a byte to R2. So this is not "leave a working thing running as insurance", it is
+"build a second publisher and re-enable the crons the migration switched off".
+Convex's own cron is healthy — production wrote a reading 6 minutes before this was
+checked — but health is not the constraint.
+
+**2. The two backends no longer publish the same contract.** This is the blocker.
+`convex/stations.ts:56` emits `id: station._id`, a Convex document ID, over **270
+station documents** (counted in prod: 177 real stations plus 93 duplicates from the
+old `.first()` upsert). The Workers path emits JPS ids over a deduplicated set. A
+Convex standby would therefore swap the entire public contract at the moment it
+fired: different station set, different ids, so routes 404, favorites break, and
+OneSignal tags stop matching — all of it **during the outage**, which is the one
+moment the app has to work. Closing that gap means porting the identity switch and
+the dedupe into Convex and then maintaining two implementations of one pipeline
+forever, with the standby almost never exercised. Untested failover is how a backup
+becomes the second failure.
+
+**3. Cost is the weakest objection, contrary to the framing in *Why*.** The ~34
+GB/month figure assumes Convex publishes every run. A standby that only fires after
+45 minutes of staleness would have published ~12 times across the 3.5 h gap: ~140 MB
+with camera frames, ~2.5 MB for water-level JSON alone. Both fit the free tier. The
+money is not what rules this out; the divergence in finding 2 is.
+
+**Chosen instead: GitHub Actions as the standby publisher.** This plan dismissed
+Actions as a *sync* path over its 5-15 minute cron delay, and that reasoning does not
+carry over — the delay is irrelevant to a standby that only fires once the snapshot
+is already 45+ minutes stale. It wins on the exact axis Convex loses: it runs the
+same `workers/src` code, so there is one implementation, one identity scheme, and no
+contract to keep in sync. Free and unlimited on public repos, independent of
+Cloudflare, and it reaches R2 over the S3-compatible API. It also folds into the
+dead-man's switch — one job checks `meta.json` staleness and either alerts or
+publishes.
+
+Needs its own design pass before it is built. Phase 7 stands as written.
+
+**Unrelated bug found while checking (legacy path only).** Production Convex writes
+`recordedAt: "2026-09-09T23:13:08.083Z"` where the numeric `timestamp` field decodes
+to `15:13:08Z` — Malaysia time stamped as UTC, 8 hours ahead. It is confined to the
+legacy pipeline that Phase 7 deletes, so it needs no fix, but it is one more reason
+not to treat Convex production as a trustworthy source.
+
 ### `workers.dev` disabled on both Workers
 
 The soak also caught 72 invocations that were not cron: bursts of up to 10 in a
@@ -708,9 +774,19 @@ both deployments were re-verified to keep their schedules afterwards.
 
 ## Rollback
 
-Both backends write the same R2 keys, so cutover is reversible: set
-`CRONS_ENABLED=true` on Convex and disable the Worker crons. Convex stays deployed
-but dormant until Phase 7, so rollback is a config change, not a redeploy.
+**Corrected 2026-09-09.** This section previously read "both backends write the same
+R2 keys, so cutover is reversible: set `CRONS_ENABLED=true` on Convex and disable the
+Worker crons." That is no longer true and must not be relied on. The keys still match,
+but the *contents* do not: Convex emits document IDs over 270 station docs, the Workers
+emit JPS ids over a deduplicated set (see *Convex as a standby publisher* above).
+Flipping `CRONS_ENABLED` would republish the old contract under the new frontend and
+break routing, favorites and notification tags.
+
+Rollback is therefore **frontend-side**: point `VITE_SNAPSHOT_BASE_URL` back at the
+last good snapshot, or redeploy the pre-migration frontend that reads Convex directly.
+Since the production bucket is empty until cutover, Phase 6 is a first write rather
+than a swap — Convex keeps serving the live site until the env var flips, which is the
+safe ordering.
 
 ## Risks
 
@@ -718,10 +794,10 @@ but dormant until Phase 7, so rollback is a config change, not a redeploy.
 |---|---|---|
 | ~~JPS blocks or rate-limits Cloudflare IPs~~ | **Resolved** — Phase 0: 11/12 from the edge vs 12/12 local; the `8c7fded` note was a timeout, not a block | none needed |
 | ~~`http://` fetch unavailable from Workers~~ | **Resolved** — Phase 0: 200 `image/jpeg` from the edge; upstream is HTTPS since `23165d2` | Use HTTPS and retry; **never** downgrade to `http://` on failure |
-| Build exceeds 10 ms CPU | Low — measured p95 4.79 ms of a 10 ms budget | Confirmed at Phase 5 via `wrangler tail`, not before; build only on fingerprint change (~1/3 of runs); no gzip; if it ever tightens, split raw-dump and build across two chained Workers |
+| ~~Build exceeds 10 ms CPU~~ | **Resolved** — Phase 5 soak: 491 invocations over 71 h on a real free-plan account, zero `exceededCpu` | none needed; the chained-Worker split is dropped |
 | JPS connect stalls ~20 s on ~40% of attempts | **High — observed** | Fetch districts in parallel, not sequentially; explicit retry budget well inside the 15-minute cron wall clock; withhold the fingerprint when any district failed so the next run retries |
 | KV write cap (1,000/day) | Low | 288/day projected; move `syncState` to an R2 key if it ever tightens |
 | Migration silently drops the 14 d history `3941656` preserved | **High** if unaddressed | Design the history store before Phase 6 — see *History retention* |
-| Cron drift or missed runs | Low | `meta.json` surfaces staleness in the UI banner, but that informs visitors, not the operator — needs the dead-man's switch above |
+| Cron drift or missed runs | **High — measured: 14% of windows never fire; worst observed outage 3.5 h, both Workers together** | Free-plan best-effort scheduling; not fixable in our code. Owner decision before Phase 6: accept / Workers Paid / standby publisher — see *Soak result*. UI banner already degrades correctly; operator still needs the dead-man's switch |
 | Silent staleness: writer dies and nobody is told | **High — observed** (2 days stale with `status:"ok"`) | Off-Cloudflare GitHub Actions watchdog on `syncedAt` age; never alert on `status` |
 | `r2.dev` rate-limits under flood-day traffic | Medium | **Accepted 2026-09-04** — no custom domain, traffic out of scope; revisit before flood season |
