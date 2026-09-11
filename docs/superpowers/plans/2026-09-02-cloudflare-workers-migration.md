@@ -410,11 +410,21 @@ syncs normally and skips alerts with a warning.
 
 Blockers, all of which must be cleared first:
 
-- **Apply `workers/r2-cors.json` to the production bucket.** It has no CORS policy at
-  all today. Without it the app loads zero data, and the failure is entirely
-  client-side — every Worker log will show a successful publish.
+- **Reconcile CORS on the production bucket.** *Corrected 2026-09-11: it is no longer
+  true that production has no CORS policy.* It carries the three-origin rule
+  (`riverlevel.netlify.app` + both localhost ports) but **not** the
+  `https://*.netlify.app` wildcard that `workers/r2-cors.json` and the staging bucket
+  have. Production therefore works for the live site and local dev, and fails only for
+  Netlify deploy previews. Decide whether previews should read production at all — if
+  not, leave production as-is and let previews point at staging. Either way the failure
+  mode is worth remembering: it is entirely client-side, so every Worker log shows a
+  successful publish while the app loads nothing.
 - **Set the OneSignal secrets** on both production Workers (dashboard, never
-  `wrangler.toml`).
+  `wrangler.toml`). Note that staging has **no** secrets set, so `notify.ts` has been
+  taking its `!appId || !restApiKey` early return for the whole soak — the push path
+  is unexercised against the live OneSignal API and its first real run will be in
+  production. Set the secrets on staging and force one alert-level notification
+  before cutover.
 - **Decide the cron-reliability question** — accept / Workers Paid / Actions standby,
   see *Soak result*.
 - **Design the history store** — see *History retention*. Still open.
@@ -663,13 +673,23 @@ in the Worker logs would show it.
 71 hours on staging, 2026-09-06 16:00Z to 2026-09-09 15:00Z, both Workers, read
 from the `workersInvocationsAdaptive` GraphQL dataset.
 
+**Re-measured 2026-09-11 over the full 119 h**, 2026-09-06 16:00Z → 2026-09-11 14:45Z:
+
 | | `wl-sync` | `wl-cameras` |
 |---|---|---|
-| Windows expected (`*/15`) | 284 | 284 |
-| Windows that actually fired | 244 | 247 |
-| **Missed** | **40 (14.1%)** | **37 (13.0%)** |
+| Windows expected (`*/15`) | 476 | 476 |
+| Windows that actually fired | 410 | 411 |
+| **Missed** | **66 (13.9%)** | **65 (13.7%)** |
 | Errors | 0 | 0 |
-| Longest outage | **3.50 h** (09-08 23:45 → 09-09 03:15) | **2.50 h** (09-08 23:45 → 09-09 02:15) |
+| Multi-hour outages | 3.50 h (09-08 23:45 → 09-09 03:15), 2.75 h (09-11 12:15 → ongoing) | 2.50 h, 2.75 h — **same windows** |
+| Isolated single-window misses | 37 | 36 |
+
+**Measurement caveat, recorded so it is not rediscovered.** The cron's firing minute
+drifted from `:00/:15/:30/:45` to `:01/:16/:31/:46` on 09-09 at 22:16 and stayed
+there. Bucketing invocations by exact minute — rather than flooring them into their
+15-minute window — makes that drift read as a fabricated 32-hour outage. Cloudflare
+fires cron *approximately* on schedule; any future analysis must floor to the window.
+The 14% figure below survived the correction unchanged.
 
 Zero errors across 71 hours: no `scriptThrewException`, no `exceededCpu`, no 1102.
 Every invocation that ran, succeeded. **The 10 ms CPU limit is not a problem** —
@@ -682,11 +702,16 @@ run absorbs invisibly: JPS publishes every 15 minutes, so a skipped window costs
 one reading, and the fingerprint short-circuit means ~2/3 of runs had nothing new
 to publish anyway.
 
-The 3.5-hour outage is the finding that matters. **Both Workers went dark inside
-the same minute and both came back on their own**, with no errors on either side
-of the gap. Two independently deployed scripts stopping and restarting together
-is the free plan's documented "runs on underutilized machines" scheduling, not
-our code failing. Nothing in the repo can prevent it.
+The multi-hour outages are the finding that matters, and there are now **two of
+them**. In both, **both Workers went dark inside the same minute and recovered
+together**, with no errors on either side of the gap. Two independently deployed
+scripts stopping and restarting in lockstep is the free plan's documented "runs on
+underutilized machines" scheduling, not our code failing. Nothing in the repo can
+prevent it.
+
+The second one was still in progress when this was written (09-11 12:15Z onward,
+2.75 h and counting, snapshot frozen at `syncedAt 11:45Z`), which settles that the
+first was not a one-off. Two in five days, on a flood app.
 
 What a user would have seen during those 3.5 hours is the design working:
 `meta.json` stopped advancing, `attemptedAt` aged past `STALENESS_THRESHOLD_MS`
