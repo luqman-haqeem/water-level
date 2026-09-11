@@ -721,20 +721,59 @@ labelled stale rather than served as current. That is the correct failure, but i
 is still 3.5 hours of a flood app showing nothing current — during a flood, that is
 the window that matters most.
 
-**This is an owner's decision, not a code change**, and it should be made before
-Phase 6:
+**DECIDED 2026-09-11 by the owner: accept it.** Occasional multi-hour staleness,
+honestly labelled by the freshness banner, on the free plan. The alternatives
+considered and declined were Workers Paid ($5/month, non-best-effort cron plus a
+lifted CPU cap) and building the Actions standby publisher now.
 
-1. **Accept it.** Occasional multi-hour staleness, honestly labelled. Free.
-2. **Workers Paid, $5/month.** Cron on paid plans is not best-effort in the same
-   way; it also lifts the CPU cap, which stops mattering the moment history
-   retention lands.
-3. **External heartbeat.** A free uptime monitor watching `meta.json`'s
-   `attemptedAt` and alerting the owner. Detects the outage; does not fix it.
-   This is the dead-man's switch already specified above, which must run somewhere
-   other than Cloudflare precisely because of this failure mode.
+Accepting raises the priority of the **dead-man's switch** rather than lowering it.
+Under this decision the app's staleness story is entirely client-side: a visitor who
+loads the page sees the banner, and nobody else learns anything. The off-Cloudflare
+GitHub Actions watchdog on `syncedAt` age is now the *only* thing that would tell the
+owner the pipeline stopped, so it should land with or shortly after Phase 6. The
+Actions standby *publisher* stays deferred; the Actions *watchdog* does not.
 
-Option 3 is worth doing regardless of 1 vs 2 — right now nothing tells the owner
-the pipeline stopped.
+### Why the Workers stop triggering (answered 2026-09-11)
+
+Two distinct causes, and only one of them is the free plan.
+
+**1. The baseline ~10% single-window misses — free-plan best-effort scheduling.**
+Cloudflare schedules free-plan cron on underutilized capacity, so individual windows
+are dropped. Measured over the 75 h *before* any platform incident: 14.6% of windows
+missed, or **10.4% excluding the single 3.5 h outage**. Almost all are isolated
+single windows that the next run absorbs invisibly. Not fixable in our code, and this
+is what the owner accepted.
+
+**2. The current multi-hour blackout — an open Cloudflare incident.**
+[Workers Cron Triggers degraded](https://www.cloudflarestatus.com/incidents/sjs8s0q2x4hw),
+opened **2026-09-09 19:17Z**, still at status `identified` — not resolved — when
+checked on 09-11 15:57Z. Cloudflare's own wording: *"Workers Cron Triggers may not
+execute or may be delayed in executing. Updates to Workers Cron Triggers may take some
+time to take effect."*
+
+The local evidence matches it precisely:
+
+- The cron's firing minute drifted from `:00/:15/:30/:45` to `:01/:16/:31/:46` at
+  **09-09 22:16Z**, three hours after the incident opened, and never drifted back.
+- Both Workers' final invocation was at **09-11 12:00Z** with status
+  `clientDisconnected`, *in the same minute*, after which neither has run for 4 h.
+- Their cron triggers are still correctly registered — verified against
+  `/workers/scripts/{name}/schedules`, both showing `*/15 * * * *`. Nothing is
+  misconfigured on our side; the schedule exists and is simply not being executed.
+
+Note that the incident did **not** inflate the single-window miss rate: measured from
+the incident opening to the blackout, misses actually fell to 6.7%. The incident
+manifests as total stoppage, not as degradation.
+
+**3. The 09-08 3.5 h outage is unexplained.** It predates the incident by ~20 hours,
+so it is either free-plan scheduling at its worst or an unreported blip. Both Workers
+went dark and recovered together there too.
+
+**What this means for the accept decision.** The 4 h blackout being a platform
+incident rather than the free plan is *mildly* reassuring — a paid plan would not
+obviously have been immune, since the incident names Workers Cron Triggers generally
+and not a plan tier. The steady-state cost of staying free is the 10.4% single-window
+miss rate, which is benign. The tail risk is what the dead-man's switch exists for.
 
 ### Convex as a standby publisher — rejected (2026-09-09)
 
