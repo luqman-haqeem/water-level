@@ -1,5 +1,5 @@
 import type { Config, Context } from "https://edge.netlify.com/v1/mod.ts";
-import { ImageResponse } from "https://deno.land/x/og_edge/mod.ts";
+import { ImageResponse } from "https://deno.land/x/og_edge@0.0.6/mod.ts";
 import React from "https://esm.sh/react@18.2.0";
 
 // Styles for the Open Graph image
@@ -224,25 +224,19 @@ function getAlertInfo(alertLevel: string, isOnline: boolean) {
     return ALERT_COLORS[alertLevel as keyof typeof ALERT_COLORS] || ALERT_COLORS.offline;
 }
 
-/** Shape returned by the Convex `stations:getStationDetailById` query. */
-interface StationDetail {
+interface SnapshotStationForOg {
+    id: string;
     station_name: string;
     districts: { name: string };
-    current_levels: {
-        current_level: number;
-        updated_at?: string;
-        alert_level: string;
-    } | null;
-    cameras: {
-        img_url?: string;
-        jps_camera_id: string;
-        is_enabled: boolean;
-    } | null;
+    current_levels: { current_level: number; alert_level: string; updated_at?: string } | null;
+    cameras: { jps_camera_id: string; is_enabled: boolean } | null;
     station_status: boolean;
 }
 
+const SNAPSHOT_BASE_URL = (Netlify.env.get("VITE_SNAPSHOT_BASE_URL") ?? "").replace(/\/+$/, "");
+
 /**
- * Fetches the authoritative station record from Convex.
+ * Fetches the authoritative station record from the published R2 snapshot.
  *
  * SECURITY: every value rendered into this card must come from here, never from
  * the query string. This endpoint previously read `name`, `district`, `level`,
@@ -250,64 +244,44 @@ interface StationDetail {
  * could mint an authentic-looking red "DANGER 99.90m" card on our own domain for
  * a real station (or a reassuring "NORMAL" one during an actual flood) and share
  * it. For a public flood-warning app that is a misinformation vector, so the
- * spoofable parameters are gone entirely.
+ * spoofable parameters are gone entirely. That property is preserved here — only
+ * `stationId` comes from the request, and it is used solely as a lookup key.
  *
- * The previous implementation also queried a function that does not exist
- * (`waterLevelData:getCurrentLevelByStationId`) and did not unwrap Convex's
- * `{ status, value }` response envelope, so the live-data path never worked and
- * every request silently fell through to the spoofable parameters.
+ * The read path is now one CDN-cached fetch of stations.json: no Convex, no JPS.
+ * The previous implementation queried `stations:getStationDetailById` over the
+ * Convex HTTP API, which is why this endpoint returned 502 in production.
+ * Returns null if the snapshot is unreachable or the id is unknown.
  */
-async function getStationDetail(
-    stationId: string
-): Promise<StationDetail | null> {
-    const convexUrl =
-        Deno.env.get("CONVEX_URL") ?? Deno.env.get("VITE_CONVEX_URL");
-
-    if (!convexUrl) {
-        console.error("CONVEX_URL / VITE_CONVEX_URL is not configured");
+async function getStationFromSnapshot(stationId: string): Promise<SnapshotStationForOg | null> {
+    if (!SNAPSHOT_BASE_URL) {
+        console.error("VITE_SNAPSHOT_BASE_URL is not configured");
         return null;
     }
-
     try {
-        const response = await fetch(`${convexUrl}/api/query`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                path: "stations:getStationDetailById",
-                args: { stationId },
-            }),
+        const response = await fetch(`${SNAPSHOT_BASE_URL}/stations.json`, {
             signal: AbortSignal.timeout(5000),
         });
-
         if (!response.ok) {
-            console.error(`Convex query failed: HTTP ${response.status}`);
+            console.warn(`og-image: stations.json HTTP ${response.status}`);
             return null;
         }
-
-        // Convex wraps results as { status: "success", value } or
-        // { status: "error", errorMessage }. An invalid/forged stationId lands
-        // in the error branch rather than throwing.
-        const result = await response.json();
-        if (result?.status !== "success" || !result.value) {
-            return null;
-        }
-
-        return result.value as StationDetail;
+        const body = (await response.json()) as { items: SnapshotStationForOg[] };
+        return body.items.find((s) => s.id === stationId) ?? null;
     } catch (error) {
-        console.error("Failed to fetch station detail:", error);
+        console.warn("og-image: snapshot fetch failed", error);
         return null;
     }
 }
 
-/** JPS camera ids are bare integers — mirrors the check in the image proxy. */
+/** JPS camera ids are bare integers — mirrors `cameraImageKey` in the publisher. */
 const CAMERA_ID_PATTERN = /^[0-9]{1,10}$/;
 
 /**
  * Adds caching to a rendered card.
  *
- * Each request costs a Convex query, a camera-image fetch and a satori render,
+ * Each request costs a snapshot fetch, a camera-image fetch and a satori render,
  * so an uncached endpoint is a cheap amplification target. 5 minutes matches the
- * proxy-image cache and is well inside the 15-minute sync interval.
+ * mirrored frames' Cache-Control and is well inside the 15-minute mirror interval.
  */
 function withCacheHeaders(response: Response): Response {
     const headers = new Headers(response.headers);
@@ -327,7 +301,7 @@ export default async (request: Request, context: Context) => {
     }
 
     // Single source of truth. No query parameter influences what is rendered.
-    const station = await getStationDetail(stationId);
+    const station = await getStationFromSnapshot(stationId);
 
     if (!station) {
         return new Response("Station not found", { status: 404 });
@@ -346,20 +320,22 @@ export default async (request: Request, context: Context) => {
     // The camera image is rendered server-side by ImageResponse, so `src` is an
     // outbound fetch from this edge function. It must never be caller-supplied:
     // the previous `?camera=` parameter made this a straightforward SSRF sink
-    // (e.g. `?camera=http://169.254.169.254/latest/meta-data/`). We now build it
-    // from the database's own camera id and route it through our own hardened
-    // proxy, with the same numeric validation the proxy applies.
+    // (e.g. `?camera=http://169.254.169.254/latest/meta-data/`). The id now comes
+    // from the snapshot and addresses a mirrored frame on our own bucket, but the
+    // numeric check is kept: the id is interpolated into a URL, and URL parsing
+    // collapses `..`, so a hostile or malformed upstream id could otherwise walk
+    // out of the `cam/` prefix. Same guard as `cameraImageKey` applies server-side.
     const jpsCameraId = station.cameras?.jps_camera_id;
     const cameraUrl =
         station.cameras?.is_enabled &&
         jpsCameraId &&
         CAMERA_ID_PATTERN.test(jpsCameraId)
-            ? `${new URL(request.url).origin}/api/proxy-image/${jpsCameraId}`
+            ? `${SNAPSHOT_BASE_URL}/cam/${jpsCameraId}.jpg`
             : null;
     const hasCameraImage = cameraUrl !== null;
 
     const alertInfo = getAlertInfo(alertLevel, isOnline);
-    const lastUpdated = formatDateTime(updatedAt);
+    const lastUpdated = updatedAt ? formatDateTime(updatedAt) : "No recent reading";
 
     // Choose layout based on camera availability
     if (hasCameraImage) {

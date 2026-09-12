@@ -32,6 +32,15 @@ Check it out live: [Water Level Monitoring System](https://riverlevel.netlify.ap
 - **vite-plugin-pwa** - Progressive Web App support
 - **OneSignal** - Push notifications
 
+### Data flow
+
+1. A Convex cron scrapes the JPS Selangor API every 5 minutes (skipping unchanged data) and stores readings in Convex.
+2. After each run it publishes `stations.json`, `cameras.json`, `trends.json` and `meta.json` to a Cloudflare R2 bucket served from `VITE_SNAPSHOT_BASE_URL` — the public URL of the bucket (an `https://pub-<hash>.r2.dev` subdomain, or `cdn.<domain>` once a custom domain is attached); CCTV frames are mirrored to `cam/{id}.jpg` every 15 minutes (5 minutes for stations at alert level or above).
+3. The frontend reads only those static files (ETag-polled every 2 minutes, cached in localStorage and the service worker), so the site stays up when JPS is down and costs nothing under a traffic spike. The browser never connects to Convex.
+4. Danger push notifications (OneSignal) are still scheduled from the Convex scraper.
+
+See `docs/superpowers/specs/2026-08-29-resilient-read-path-design.md`.
+
 ## Getting Started
 
 ### Prerequisites
@@ -63,7 +72,9 @@ bun install
 
 ```bash
 cp .env.example .env.local
-# Add your VITE_CONVEX_URL and other required variables
+# Add your VITE_SNAPSHOT_BASE_URL and other required variables.
+# VITE_SNAPSHOT_BASE_URL is the public URL of the R2 bucket
+# (https://pub-<hash>.r2.dev, or cdn.<domain> once a custom domain is attached).
 ```
 
 ### Running the Development Server

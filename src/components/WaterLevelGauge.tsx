@@ -2,10 +2,11 @@ import { cn } from '@/lib/utils'
 import { AlertTriangle, Droplets } from 'lucide-react'
 
 interface WaterLevel {
-  normal: number
-  alert: number
-  warning: number  
-  danger: number
+  /** null = JPS publishes no threshold for this station (#73). */
+  normal: number | null
+  alert: number | null
+  warning: number | null
+  danger: number | null
 }
 
 interface WaterLevelGaugeProps {
@@ -31,21 +32,54 @@ export default function WaterLevelGauge({
   showCurrentValue = true,
   animated = true
 }: WaterLevelGaugeProps) {
+  // The whole gauge is scaled off the danger threshold, so without it there is
+  // nothing honest to draw. Previously `danger` arrived as 0 for these stations,
+  // which made every zone collapse and every reading read as Danger (#73).
+  const danger = levels.danger
+  if (danger === null) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        {(stationName || showCurrentValue) && (
+          <div className="flex items-center justify-between">
+            {stationName && (
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Droplets className="w-4 h-4 text-water-blue" />
+                {stationName}
+              </h4>
+            )}
+            {showCurrentValue && (
+              <span className="text-lg font-bold text-foreground">
+                {currentLevel.toFixed(1)}m
+              </span>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          JPS publishes no threshold levels for this station, so this reading
+          cannot be placed on a scale.
+        </p>
+      </div>
+    )
+  }
+
   // Calculate the maximum height for the gauge
-  const maxLevel = Math.max(levels.danger * 1.2, currentLevel * 1.1)
-  
-  // Calculate percentages for each level
-  const normalPercent = (levels.normal / maxLevel) * 100
-  const alertPercent = (levels.alert / maxLevel) * 100
-  const warningPercent = (levels.warning / maxLevel) * 100
-  const dangerPercent = (levels.danger / maxLevel) * 100
+  const maxLevel = Math.max(danger * 1.2, currentLevel * 1.1)
+
+  // Calculate percentages for each level. Absent thresholds collapse onto the
+  // next one up rather than to 0, so a missing band renders as no band instead
+  // of a band that falsely starts at zero.
+  const pct = (value: number) => (value / maxLevel) * 100
+  const dangerPercent = pct(danger)
+  const warningPercent = levels.warning !== null ? pct(levels.warning) : dangerPercent
+  const alertPercent = levels.alert !== null ? pct(levels.alert) : warningPercent
+  const normalPercent = levels.normal !== null ? pct(levels.normal) : 0
   const currentPercent = Math.min((currentLevel / maxLevel) * 100, 100)
 
-  // Determine current alert level
+  // Determine current alert level, comparing only against thresholds we have.
   const getCurrentAlertLevel = () => {
-    if (currentLevel >= levels.danger) return { level: 3, name: 'Danger', color: 'bg-danger', icon: '🔴' }
-    if (currentLevel >= levels.warning) return { level: 2, name: 'Warning', color: 'bg-warning', icon: '🟡' }
-    if (currentLevel >= levels.alert) return { level: 1, name: 'Alert', color: 'bg-alert', icon: '🟠' }
+    if (currentLevel >= danger) return { level: 3, name: 'Danger', color: 'bg-danger', icon: '🔴' }
+    if (levels.warning !== null && currentLevel >= levels.warning) return { level: 2, name: 'Warning', color: 'bg-warning', icon: '🟡' }
+    if (levels.alert !== null && currentLevel >= levels.alert) return { level: 1, name: 'Alert', color: 'bg-alert', icon: '🟠' }
     return { level: 0, name: 'Normal', color: 'bg-normal', icon: '🟢' }
   }
 
@@ -57,7 +91,8 @@ export default function WaterLevelGauge({
     lg: orientation === 'vertical' ? 'w-16 h-40' : 'w-40 h-16'
   }
 
-  const LevelMarker = ({ percent, label, color, value }: { percent: number, label: string, color: string, value: number }) => {
+  const LevelMarker = ({ percent, label, color, value }: { percent: number, label: string, color: string, value: number | null }) => {
+    if (value === null) return null
     if (orientation === 'vertical') {
       return (
         <div 
@@ -173,7 +208,7 @@ export default function WaterLevelGauge({
               "absolute transition-all duration-1000 ease-out z-10",
               currentAlert.color,
               orientation === 'vertical' ? "w-full h-1" : "h-full w-1",
-              animated && currentLevel >= levels.danger && "animate-pulse"
+              animated && currentLevel >= danger && "animate-pulse"
             )}
             style={
               orientation === 'vertical' 
@@ -188,7 +223,7 @@ export default function WaterLevelGauge({
                 orientation === 'vertical' 
                   ? "inset-x-0 bottom-0" 
                   : "inset-y-0 left-0",
-                animated && currentLevel >= levels.danger && "animate-pulse"
+                animated && currentLevel >= danger && "animate-pulse"
               )}
               style={
                 orientation === 'vertical' 

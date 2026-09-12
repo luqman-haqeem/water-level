@@ -1,0 +1,63 @@
+# wl-cameras — CCTV mirror (issue #67, Phase 3).
+#
+# Deliberately a separate Worker and a separate config from wl-sync: this is the part
+# that moves real bytes (~11 MB per full cycle vs ~200 KB for the snapshot), so it is
+# the one most likely to need throttling or rolling back on its own.
+#
+# No cron trigger yet. Phase 5 schedules it as `*/5 * * * *`, mirroring a clock-derived
+# third of the camera list so every camera refreshes every 15 minutes.
+name = "wl-cameras"
+main = "src/cameras-index.ts"
+compatibility_date = "2026-07-01"
+# Cron-only Worker: no fetch handler, so the workers.dev hostname serves nothing but
+# scanner probes that still bill against the free-plan request budget. Disabled;
+# cron triggers do not need it.
+workers_dev = false
+
+[[r2_buckets]]
+binding = "SNAPSHOT"
+bucket_name = "riverlevel-snapshot"
+preview_bucket_name = "riverlevel-snapshot-dev"
+
+# Read-only here: the mirror consults the water level sync's status to decide whether
+# JPS is worth calling at all.
+[[kv_namespaces]]
+binding = "SYNC_STATE"
+id = "placeholder-set-at-phase-5"
+
+[vars]
+JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+
+# ---------------------------------------------------------------------------
+# Staging (Phase 5). Deploy with: wrangler deploy --env staging --config workers/wrangler.cameras.toml
+#
+# Wrangler environments do NOT inherit bindings from the top level — every binding
+# has to be repeated here. Omitting one does not error; it deploys without it.
+#
+# Points at riverlevel-snapshot-dev — a separate bucket, never a prefix inside the
+# production one: a wrong key under a shared bucket would overwrite the live snapshot,
+# and a separate bucket makes that impossible rather than merely unlikely. The dev
+# bucket is reused rather than a new one created because it already has public access
+# configured, which is what makes the frontend click-through possible.
+# ---------------------------------------------------------------------------
+[env.staging]
+name = "wl-cameras-staging"
+
+[[env.staging.r2_buckets]]
+binding = "SNAPSHOT"
+bucket_name = "riverlevel-snapshot-dev"
+
+[[env.staging.kv_namespaces]]
+binding = "SYNC_STATE"
+id = "306d01a3aedf464ab99b99a84b884662"
+
+[env.staging.vars]
+JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+SITE_URL = "https://riverlevel.netlify.app"
+
+# Staging schedule only. Each run mirrors a clock-derived half of the roster, so every
+# camera refreshes every 30 minutes, plus any camera watching an elevated station, which
+# is mirrored every run. The period here MUST match SLICE_INTERVAL_MS in cameraSync.ts:
+# the slice is derived from the clock, so a mismatch silently freezes part of the roster.
+[env.staging.triggers]
+crons = ["*/15 * * * *"]

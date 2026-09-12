@@ -20,10 +20,11 @@ interface MiniTrendChartProps {
     stationId: string
     currentLevel: number
     thresholds: {
-        normal: number
-        alert: number
-        warning: number
-        danger: number
+        /** null = JPS publishes no threshold for this station (#73). */
+        normal: number | null
+        alert: number | null
+        warning: number | null
+        danger: number | null
     }
     height?: number
     className?: string
@@ -78,8 +79,16 @@ export default function MiniTrendChart({
         }
 
         const dataMidpoint = (dataMax + dataMin) / 2
-        const minLevel = Math.max(dataMidpoint - effectiveRange / 2, Math.min(thresholds.normal, dataMin - 0.5))
-        const maxLevel = Math.min(dataMidpoint + effectiveRange / 2, Math.max(thresholds.danger, dataMax + 0.5))
+        // An absent threshold drops out of the y-axis bounds entirely. Coercing
+        // it to 0 dragged the axis down to zero and squashed the trend line flat.
+        const lowBound = thresholds.normal !== null
+            ? Math.min(thresholds.normal, dataMin - 0.5)
+            : dataMin - 0.5
+        const highBound = thresholds.danger !== null
+            ? Math.max(thresholds.danger, dataMax + 0.5)
+            : dataMax + 0.5
+        const minLevel = Math.max(dataMidpoint - effectiveRange / 2, lowBound)
+        const maxLevel = Math.min(dataMidpoint + effectiveRange / 2, highBound)
         const levelRange = maxLevel - minLevel || 1
 
         // Create SVG path points
@@ -96,8 +105,12 @@ export default function MiniTrendChart({
         }, '')
 
         // Calculate threshold positions
-        const getThresholdY = (level: number) =>
-            padding + chartHeight - ((level - minLevel) / levelRange) * chartHeight
+        // null in -> null out, so the render skips that line rather than drawing
+        // it at whatever y a 0 threshold maps to.
+        const getThresholdY = (level: number | null) =>
+            level === null
+                ? null
+                : padding + chartHeight - ((level - minLevel) / levelRange) * chartHeight
 
         return {
             points: svgPoints,
@@ -211,30 +224,36 @@ export default function MiniTrendChart({
                 onMouseLeave={handleMouseLeave}
             >
                 {/* Threshold lines */}
-                <line
-                    x1={chartData.padding}
-                    y1={chartData.thresholds.danger}
-                    x2={chartData.width - chartData.padding}
-                    y2={chartData.thresholds.danger}
-                    className="stroke-destructive/20"
-                    strokeWidth={1}
-                />
-                <line
-                    x1={chartData.padding}
-                    y1={chartData.thresholds.warning}
-                    x2={chartData.width - chartData.padding}
-                    y2={chartData.thresholds.warning}
-                    className="stroke-warning/20"
-                    strokeWidth={1}
-                />
-                <line
-                    x1={chartData.padding}
-                    y1={chartData.thresholds.alert}
-                    x2={chartData.width - chartData.padding}
-                    y2={chartData.thresholds.alert}
-                    className="stroke-alert/20"
-                    strokeWidth={1}
-                />
+                {chartData.thresholds.danger !== null && (
+                    <line
+                        x1={chartData.padding}
+                        y1={chartData.thresholds.danger}
+                        x2={chartData.width - chartData.padding}
+                        y2={chartData.thresholds.danger}
+                        className="stroke-destructive/20"
+                        strokeWidth={1}
+                    />
+                )}
+                {chartData.thresholds.warning !== null && (
+                    <line
+                        x1={chartData.padding}
+                        y1={chartData.thresholds.warning}
+                        x2={chartData.width - chartData.padding}
+                        y2={chartData.thresholds.warning}
+                        className="stroke-warning/20"
+                        strokeWidth={1}
+                    />
+                )}
+                {chartData.thresholds.alert !== null && (
+                    <line
+                        x1={chartData.padding}
+                        y1={chartData.thresholds.alert}
+                        x2={chartData.width - chartData.padding}
+                        y2={chartData.thresholds.alert}
+                        className="stroke-alert/20"
+                        strokeWidth={1}
+                    />
+                )}
 
                 {/* Trend line */}
                 <path

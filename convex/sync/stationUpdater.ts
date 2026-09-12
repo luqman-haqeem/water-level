@@ -128,6 +128,14 @@ export const insertDistrict = internalMutation({
   },
 });
 
+// REMOVED, matching main (#68): createDistrict, getAllDistricts, createStation.
+// All three were public mutations. `createStation` forwarded straight into
+// `upsertStation` below, whose lookup is keyed on a caller-supplied `jpsSelId`,
+// so an existing id took the `ctx.db.patch` branch — an arbitrary
+// station-overwrite primitive that could rewrite the water level thresholds
+// used to decide whether a danger notification fires. Use `npx convex run` on
+// the internal functions for manual seeding.
+
 export const upsertStation = internalMutation({
   args: {
     districtId: v.id("districts"),
