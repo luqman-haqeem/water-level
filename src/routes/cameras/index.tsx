@@ -7,7 +7,7 @@ import { useCameras } from "@/hooks/useCameras";
 import { refreshSnapshots } from "@/hooks/useSnapshot";
 import usePullToRefresh from "@/hooks/usePullToRefresh";
 import PullToRefreshIndicator from "@/components/PullToRefreshIndicator";
-import { cameraImageUrl } from "@/lib/cameraImageUrl";
+import { cameraFrameUrl } from "@/lib/cameraImageUrl";
 import { snapshotBaseUrl } from "@/lib/snapshotEnv";
 
 export function CamerasRoute() {
@@ -72,8 +72,7 @@ export function CamerasRoute() {
     const getCurrentCameraIndex = () => {
         return filteredCameras.findIndex(
             (camera) =>
-                cameraImageUrl(snapshotBaseUrl(), camera.jps_camera_id, camera.captured_at) ===
-                fullscreenImageSrc
+                cameraFrameUrl(snapshotBaseUrl(), camera) === fullscreenImageSrc
         );
     };
 
@@ -102,7 +101,7 @@ export function CamerasRoute() {
         const newCamera = filteredCameras[newIndex];
         if (newCamera) {
             setFullscreenImageSrc(
-                cameraImageUrl(snapshotBaseUrl(), newCamera.jps_camera_id, newCamera.captured_at)
+                cameraFrameUrl(snapshotBaseUrl(), newCamera)
             );
         }
     };
