@@ -967,11 +967,22 @@ The certificate validates, so no browser warning, and a plain `<img src>` needs 
    exact day traffic peaks, at an origin already known to return 522s under load.
 
 **Recommendation: defer.** The chain would be mirrored frame → JPS over HTTPS →
-`/nocctv.png`, which `CameraCard`'s existing `onError` handler is already shaped for, so
-it is a small frontend change whenever it is wanted. But it trades a stale frame with an
-honest timestamp for a 20-second wait on an origin that may fail anyway, and it is
-entirely independent of the standby writer. Decide it on its own merits, after the
-writer is in place.
+`/nocctv.png`. It trades a stale frame carrying an honest timestamp for a 20-second wait
+on an origin that may fail anyway, and it is entirely independent of the standby writer,
+so it should be decided on its own merits afterwards.
+
+*Correction:* an earlier draft said `CameraCard`'s existing `onError` was "already shaped"
+for this. It is not. `CameraCard.tsx:48` is a **single hardcoded swap** to `/nocctv.png`,
+not a chain, and naively pointing it at JPS would loop forever — the same handler would
+re-assign the same failing URL on every error. A real chain needs:
+
+1. **Stage state** (`r2 | jps | placeholder`) so each failure advances rather than repeats.
+2. **`hasImageError` corrected** — it is currently set on the *first* failure, so it would
+   report an error while the JPS attempt is still in flight, and that flag drives the UI.
+3. **Stage reset on manual refresh** — `handleRefreshImage` bumps `imageKey` to force a
+   remount, and the stage must reset with it.
+
+Still roughly ten lines, but a restructure rather than a one-line redirect.
 
 ## Convex as an off-Cloudflare mirror (design, 2026-09-11) — SUPERSEDED
 
