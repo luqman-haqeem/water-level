@@ -8,7 +8,7 @@ import {
     LocationIcon,
 } from '@/components/icons/IconLibrary'
 import { Id } from "../../convex/_generated/dataModel"
-import { cameraImageUrl } from "@/lib/cameraImageUrl"
+import { cameraFrameUrl, NO_FRAME_IMAGE } from "@/lib/cameraImageUrl"
 import { snapshotBaseUrl } from "@/lib/snapshotEnv"
 import formatTimestamp from "@/utils/timeUtils"
 
@@ -38,7 +38,7 @@ export default function CameraCard({
     const [hasImageError, setHasImageError] = useState(false)
     const [imageKey, setImageKey] = useState(0)
 
-    const imageUrl = cameraImageUrl(snapshotBaseUrl(), camera.jps_camera_id, camera.captured_at)
+    const imageUrl = cameraFrameUrl(snapshotBaseUrl(), camera)
 
     const handleImageLoad = () => {
         setIsImageLoading(false)
@@ -48,7 +48,7 @@ export default function CameraCard({
     const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
         setIsImageLoading(false)
         setHasImageError(true)
-        e.currentTarget.src = '/nocctv.png'
+        e.currentTarget.src = NO_FRAME_IMAGE
     }
 
     const handleRefreshImage = (e: React.MouseEvent) => {

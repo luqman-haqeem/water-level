@@ -20,7 +20,7 @@ import { useStationSubscription } from "@/hooks/useStationSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
-import { cameraImageUrl } from "@/lib/cameraImageUrl";
+import { cameraFrameUrl, NO_FRAME_IMAGE } from "@/lib/cameraImageUrl";
 import { snapshotBaseUrl } from "@/lib/snapshotEnv";
 import { formatThreshold } from "@/lib/thresholds";
 
@@ -30,6 +30,11 @@ export function StationDetailRoute() {
 
     // Fetch ONLY this station's details (optimized: 4 DB lookups instead of all stations)
     const { data: currentStation, isLoading: isLoadingStation } = useStationDetail(stationId);
+
+    // Computed once so the click target and the rendered frame can never disagree, and
+    // because narrowing `currentStation.cameras` does not survive into the onClick callback.
+    const stationCamera = currentStation?.cameras ?? null;
+    const stationFrameUrl = stationCamera ? cameraFrameUrl(snapshotBaseUrl(), stationCamera) : null;
 
     // Fetch full station list only for prev/next navigation (cached from list page visit)
     const { data: stations } = useStations();
@@ -478,28 +483,19 @@ export function StationDetailRoute() {
                                 <div>
                                     <div
                                         onClick={() =>
-                                            openFullscreen(
-                                                cameraImageUrl(
-                                                    snapshotBaseUrl(),
-                                                    currentStation?.cameras?.jps_camera_id ?? "",
-                                                    currentStation?.cameras?.captured_at
-                                                )
-                                            )
+                                            stationFrameUrl &&
+                                            openFullscreen(stationFrameUrl)
                                         }
                                         className="relative cursor-pointer"
                                     >
                                         <img
                                             key={currentStation.current_levels?.updated_at?.toString()}
-                                            src={cameraImageUrl(
-                                                snapshotBaseUrl(),
-                                                currentStation.cameras.jps_camera_id,
-                                                currentStation.cameras.captured_at
-                                            )}
+                                            src={stationFrameUrl ?? NO_FRAME_IMAGE}
                                             alt="Live camera feed"
                                             className="w-full rounded-md"
                                             onError={(e) =>
                                                 (e.currentTarget.src =
-                                                    "/nocctv.png")
+                                                    NO_FRAME_IMAGE)
                                             }
                                         />
                                         <div className="absolute top-0 right-0 m-2">
