@@ -966,23 +966,83 @@ The certificate validates, so no browser warning, and a plain `<img src>` needs 
    connections stall ~20 s at TCP connect. Every viewer would hit JPS directly, on the
    exact day traffic peaks, at an origin already known to return 522s under load.
 
-**Recommendation: defer.** The chain would be mirrored frame → JPS over HTTPS →
-`/nocctv.png`. It trades a stale frame carrying an honest timestamp for a 20-second wait
-on an origin that may fail anyway, and it is entirely independent of the standby writer,
-so it should be decided on its own merits afterwards.
+**Owner's requirement, 2026-09-12: never show a stale camera frame.** *"Even though the
+Worker cannot process the image into R2, the image is still live at the JPS URL — I
+don't want users to see stale camera images."*
 
-*Correction:* an earlier draft said `CameraCard`'s existing `onError` was "already shaped"
-for this. It is not. `CameraCard.tsx:48` is a **single hardcoded swap** to `/nocctv.png`,
-not a chain, and naively pointing it at JPS would loop forever — the same handler would
-re-assign the same failing URL on every error. A real chain needs:
+This overrides the earlier "defer" recommendation, and it is the right call. A CCTV frame
+is the one element users read as *what it looks like right now*; a timestamp underneath
+does not undo that impression. During a flood a two-hour-old frame showing a calm river
+is actively misleading in a way a stale number is not.
 
-1. **Stage state** (`r2 | jps | placeholder`) so each failure advances rather than repeats.
-2. **`hasImageError` corrected** — it is currently set on the *first* failure, so it would
-   report an error while the JPS attempt is still in flight, and that flag drives the UI.
-3. **Stage reset on manual refresh** — `handleRefreshImage` bumps `imageKey` to force a
-   remount, and the stage must reset with it.
+#### Mechanism: choose the source by freshness, do not chain through failures
 
-Still roughly ten lines, but a restructure rather than a one-line redirect.
+```
+isStale(camera.captured_at, 45 min)
+    ? src = live JPS frame over HTTPS
+    : src = mirrored R2 frame
+onError → /nocctv.png      // unchanged
+```
+
+Selecting the source is strictly simpler than the fallback chain sketched above: there
+is only ever one failure step, so `CameraCard`'s existing single-swap `onError` handler
+works **as-is**. No stage state, no loop, no `hasImageError` rework. The correction two
+paragraphs up applies only to the chained design, which this replaces.
+
+`captured_at` is the correct staleness signal: it records when the frame was mirrored, so
+if `wl-cameras` stops, it stops advancing and correctly reports the frame's true age.
+Reuse `STALENESS_THRESHOLD_MS` (45 min) rather than inventing a second threshold.
+
+#### Construct the URL, never pass `img_url` into `src`
+
+All 91 published entries share exactly one prefix and the filename is always
+`jps_camera_id`:
+
+```
+http://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/{jps_camera_id}.jpg
+```
+
+So build the URL from `jps_camera_id` against a constant HTTPS base, and do **not**
+interpolate the upstream-controlled `img_url` into an element attribute. `jps_camera_id`
+is already constrained by `CAMERA_ID_PATTERN` in `cameraImageKey`, and this is the same
+reasoning that guard documents: JPS is not attacker-controlled today, but a hostile or
+malformed upstream should not be able to steer where the browser fetches from.
+
+Two consequences of the data:
+
+- Every entry must be `https://`. All 91 stored values are `http://`, which an HTTPS page
+  blocks as mixed content. Building from a constant HTTPS base makes that structural
+  rather than a rewrite that could be forgotten.
+- **Camera 247 has an empty `img_url`** and no live frame. It must fall through to
+  `/nocctv.png` rather than constructing a URL that 404s.
+
+Add a cache-buster rounded to the minute; without one the browser may serve a cached
+frame, and with one keyed to every render it would refetch a 300 KB image continuously.
+
+#### Measured cost (2026-09-12)
+
+Real roster ids over HTTPS, certificate valid (`ssl_verify_result=0`), all 200:
+
+| Camera | Total | Size |
+|---|---|---|
+| 25 | 1.8 s | 112 KB |
+| 234 | 24.2 s | 227 KB |
+| 246 | 23.8 s | 74 KB |
+| 1265 | 24.3 s | 328 KB |
+
+Roughly **half of loads stall ~24 s** at TCP connect — the same SYN-retransmission
+behaviour documented in Phase 0 from both Cloudflare and a home IP — and the other half
+return in under two seconds. Frames are 74–328 KB, larger than the mirrored copies.
+
+This is acceptable given the requirement: a slow-loading live frame, or a placeholder, is
+strictly better than a confident stale one. Points worth accepting explicitly:
+
+- Users see a spinner for ~24 s about half the time while a stale frame is on screen
+  **only during a mirror outage** — never in normal operation.
+- Every viewer hits JPS directly, on the day traffic peaks, at an origin that returns
+  522s under load. `loading="lazy"` is already set on the `<img>`
+  (`CameraCard.tsx:95`), so the cameras list only fetches visible cards rather than all 92.
+- Viewer IPs are exposed to JPS, which is the data's owner anyway.
 
 ## Convex as an off-Cloudflare mirror (design, 2026-09-11) — SUPERSEDED
 
