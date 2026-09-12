@@ -24,6 +24,21 @@
 export const TRENDS_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 /**
+ * When a published snapshot counts as stale: 45 minutes, three missed 15-minute cycles.
+ *
+ * Deliberately generous. It gates the standby publisher, and two publishers writing
+ * `trends.json` — a read-modify-write file — would silently drop one side's readings,
+ * so waiting out three cycles keeps them apart. It is also the threshold the UI already
+ * uses to grey out readings, which keeps "the app calls this stale" and "the standby
+ * takes over" from disagreeing.
+ *
+ * The same 2_700_000 is currently spelled out in `workers/src/notify.ts`,
+ * `convex/sync/waterLevelUpdater.ts` and `src/utils/timeUtils.ts`. Those predate this
+ * constant; new code should import this one, and they should converge on it.
+ */
+export const STALENESS_THRESHOLD_MS = 45 * 60 * 1000;
+
+/**
  * How long waterLevelHistory rows are retained: 14 days.
  *
  * Not the 12 months #80 ultimately wants, and that is a storage limit rather

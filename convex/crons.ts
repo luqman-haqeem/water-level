@@ -72,4 +72,24 @@ if (cronsEnabled) {
     );
 }
 
+// Standby publisher — registered unconditionally, outside the CRONS_ENABLED gate.
+//
+// It is not part of the legacy pipeline that gate exists to keep switched off: it never
+// touches this deployment's tables, and it publishes only when the Cloudflare Worker's
+// snapshot has gone 45 minutes stale. Free-plan Worker cron is best-effort capacity, and
+// two blackouts of 3.5 h and 6 h were measured in five days.
+//
+// It must stay outside the gate to be useful. CRONS_ENABLED is read at push time, so
+// toggling it needs a deploy — useless as a failover switch. Arming instead lives inside
+// the handler, which reads meta.json and stands down when the Worker is healthy, so
+// failover and failback need no intervention.
+//
+// A no-op cycle is one small signed GET: no JPS traffic, no writes, no egress worth
+// counting. A publishing cycle is 88 KB and never includes camera frames.
+crons.interval(
+    "publish snapshot if the worker is down",
+    { minutes: 15 },
+    internal.standby.publisher.publishIfWorkerIsDown
+);
+
 export default crons;

@@ -61,4 +61,33 @@ describe("createR2Client.putObject", () => {
             })
         ).rejects.toThrow(/R2 PUT cam\/1.jpg failed: HTTP 403/);
     });
+
+    it("signs a GET and returns the body", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response('{"attemptedAt":"x"}', { status: 200 }));
+        vi.stubGlobal("fetch", fetchMock);
+
+        await expect(createR2Client(config).getObject("meta.json")).resolves.toBe('{"attemptedAt":"x"}');
+
+        const request = fetchMock.mock.calls[0][0] as Request;
+        expect(request.method).toBe("GET");
+        expect(request.url).toBe(
+            "https://acct123.r2.cloudflarestorage.com/riverlevel-snapshot-dev/meta.json"
+        );
+        expect(request.headers.get("authorization")).toMatch(/^AWS4-HMAC-SHA256 /);
+    });
+
+    it("returns null for a missing object, so a fresh bucket is not an error", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 404 })));
+        await expect(createR2Client(config).getObject("meta.json")).resolves.toBeNull();
+    });
+
+    // 403 rather than 500 on purpose: aws4fetch retries 5xx internally with backoff,
+    // so a stubbed 500 never settles. The behaviour under test is that a non-404 error
+    // throws instead of being mistaken for an absent object.
+    it("throws on a GET error rather than reporting the object as absent", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("denied", { status: 403 })));
+        await expect(createR2Client(config).getObject("meta.json")).rejects.toThrow(
+            /R2 GET meta.json failed: HTTP 403/
+        );
+    });
 });

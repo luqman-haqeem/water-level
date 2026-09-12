@@ -23,6 +23,8 @@ import type * as lib_retention from "../lib/retention.js";
 import type * as lib_syncKeys from "../lib/syncKeys.js";
 import type * as notifications from "../notifications.js";
 import type * as seedCoordinates from "../seedCoordinates.js";
+import type * as standby_decide from "../standby/decide.js";
+import type * as standby_publisher from "../standby/publisher.js";
 import type * as stations from "../stations.js";
 import type * as sync_cameraImageSync from "../sync/cameraImageSync.js";
 import type * as sync_cameraUpdater from "../sync/cameraUpdater.js";
@@ -55,6 +57,8 @@ declare const fullApi: ApiFromModules<{
   "lib/syncKeys": typeof lib_syncKeys;
   notifications: typeof notifications;
   seedCoordinates: typeof seedCoordinates;
+  "standby/decide": typeof standby_decide;
+  "standby/publisher": typeof standby_publisher;
   stations: typeof stations;
   "sync/cameraImageSync": typeof sync_cameraImageSync;
   "sync/cameraUpdater": typeof sync_cameraUpdater;
