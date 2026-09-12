@@ -775,7 +775,13 @@ obviously have been immune, since the incident names Workers Cron Triggers gener
 and not a plan tier. The steady-state cost of staying free is the 10.4% single-window
 miss rate, which is benign. The tail risk is what the dead-man's switch exists for.
 
-### Convex as a standby publisher — rejected (2026-09-09)
+### Convex running the old DB pipeline as a standby — rejected (2026-09-09)
+
+> **Superseded in scope, not in reasoning (2026-09-11).** What is rejected below is
+> reviving the *existing Convex pipeline* — the one that reads the Convex database and
+> publishes document IDs. That rejection stands and is the reason the design in
+> *Convex as an off-Cloudflare mirror* takes the shape it does: Convex mirrors the R2
+> **file contract**, and never becomes a second source of truth.
 
 The obvious fourth option, raised by the owner: keep Convex alive as a fallback
 publisher that takes over when the Cloudflare snapshot goes stale. Investigated and
@@ -835,6 +841,137 @@ producing the `clientDisconnected` status in the analytics.
 
 `workers_dev = false` in both configs. Cron triggers do not use that hostname, and
 both deployments were re-verified to keep their schedules afterwards.
+
+## Convex as an off-Cloudflare mirror (design, 2026-09-11)
+
+**Owner's design, approved in principle 2026-09-11: "convert Convex to have a similar
+structure as R2."** Not built. This section is the design pass; it needs its own
+review before any code lands.
+
+### The failure mode this exists for
+
+The 09-11 outage took out cron only — R2 stayed up and the app kept serving, just
+stale. A standby that *writes to R2* covers that case completely. It does nothing at
+all for the case where Cloudflare is down as a whole: then R2 is unreachable, and it
+does not matter who is publishing because the app cannot read anything.
+
+That second case is what this design covers, and it is why the mirror has to serve
+HTTP from outside Cloudflare. Convex is the natural host: it is already provisioned,
+already paid for at $0, and on a completely separate control plane.
+
+### Principle: mirror the file contract, never the data model
+
+The frontend must not learn to read Convex. If it calls Convex queries directly it
+gets document IDs over 270 station rows — the exact contract break that got the DB
+standby rejected — plus the `convex` client back in the bundle and a second fetch
+mechanism (reactive websocket) with different loading, error and caching semantics
+from the ETag-polled JSON path.
+
+So Convex stores and serves **the same four files, byte-identical**:
+
+| Key | Source of truth | Mirrored |
+|---|---|---|
+| `stations.json` | R2 | yes |
+| `cameras.json` | R2 | yes |
+| `trends.json` | R2 | yes |
+| `meta.json` | R2 | yes |
+| `cam/{id}.jpg` | R2 | **no** — see below |
+
+Camera frames are deliberately excluded: 92 × ~127 KB is 11.4 MB per refresh, which
+would dominate Convex egress for a nice-to-have. During a total Cloudflare outage the
+images 404, and `CameraCard`'s existing `onError` handler already swaps in
+`/nocctv.png`. Levels stay live; frames degrade visibly. That is the right trade for a
+flood app.
+
+### Storage
+
+A `snapshotMirror` table, one row per key: `{ key, body, contentType, etag, updatedAt }`.
+Simpler than Convex file storage for four small objects, and directly queryable by the
+HTTP handler.
+
+**Constraint to watch:** Convex documents cap at 1 MB. Today the whole snapshot is
+~178 KB, so every file fits comfortably. If *History retention* lands with a 14-day
+`trends.json`, that file will outgrow a single document and the mirror must move to
+Convex file storage. These two designs are coupled and should be settled together.
+
+### Serving
+
+A new `convex/http.ts` router exposing `GET /{file}.json` at
+`<deployment>.convex.site`, returning the stored body with the same
+`JSON_CACHE_CONTROL` and ETag the Worker sets, plus `If-None-Match` handling so the
+frontend's revalidation keeps working unchanged. CORS must allow the Netlify origins —
+the same list as `workers/r2-cors.json`.
+
+### The cron arms and disarms itself
+
+One Convex cron at `*/15`, registered permanently. Its first act is to read `meta.json`
+from R2:
+
+- **Fresh (< 45 min, matching `STALENESS_THRESHOLD_MS`)** → *mirror mode*. Cloudflare is
+  healthy. Copy R2's published JSON into the mirror table, but only when the ETag has
+  changed, so an unchanged run costs four conditional GETs and no writes.
+- **Stale, or the read fails outright** → *standby mode*. Run the full
+  `jps.ts` → `stationMapper.ts` → `buildDataFiles` path, write to the mirror, and
+  attempt R2 as well in case only cron is down.
+
+No flag to flip, no deploy, and no 2am decision: failover and failback are the same
+code path evaluated every 15 minutes. This replaces the `CRONS_ENABLED` gate for this
+job, because per `convex/crons.ts:16` that flag is read at push time and would need a
+deploy to toggle — useless as a failover switch. The gate must live *inside* the
+handler.
+
+### Frontend fallback
+
+There is exactly one fetch chokepoint, `snapshotStore.ts:52`:
+
+```ts
+const url = `${baseUrl}/${file}.json`;
+```
+
+It becomes an ordered list of base URLs — R2 first, the mirror second. **Primary is
+always tried first, so failback needs no detection logic at all.** A short circuit
+breaker (skip the primary for a few minutes after a failure) avoids paying a failed
+request on every poll during a sustained outage.
+
+`VITE_SNAPSHOT_BASE_URL` gains a sibling, `VITE_SNAPSHOT_FALLBACK_URL`. When it is
+unset the behaviour is exactly today's, which keeps the change inert until configured.
+
+### Cost
+
+Convex bills **Data egress** and **Database I/O**, both with 1 GB/month free.
+
+- *Mirror mode, steady state:* ingress from R2 is free; only changed files are written.
+  With the fingerprint short-circuit skipping ~2/3 of runs, DB I/O lands well under the
+  free tier. **This must be measured, not assumed** — an unconditional 212 KB copy every
+  15 minutes would be ~0.6 GB/month of DB I/O on its own, most of the budget, so the
+  ETag check is load-bearing rather than an optimisation.
+- *During an outage:* the mirror serves real users, ~212 KB per client load. This is the
+  genuine exposure, and a flood-day traffic spike is exactly when it would bite. Same
+  shape as the accepted `r2.dev` caching limitation, and worth revisiting alongside it.
+
+### What this costs structurally
+
+Phase 7 **shrinks rather than completes**. The standby action, the HTTP router, the R2
+client and the shared modules stay; the database tables, schema, auth config and the
+whole legacy sync pipeline still go. That is a permanent second deployment target to
+keep working — the price of surviving a total Cloudflare outage, paid whether or not
+one ever happens.
+
+### Open questions
+
+1. **Where does the publisher run?** This design puts *mirroring* on Convex, which is
+   settled. The full JPS→snapshot publish could run there too, or on GitHub Actions
+   with the identical `workers/src` code and no porting. Convex must be able to bundle
+   the shared modules from outside `convex/` — **unverified, and it gates the
+   Convex-hosted option.**
+2. **`syncState` in standby mode.** The Worker keeps it in KV. Convex already has a
+   `syncState` table (`convex/schema.ts:87`), currently empty, which is the natural home
+   — but the two stores then diverge, and on failback the Worker rebuilds once from a
+   stale fingerprint. Harmless, worth stating.
+3. **Split-brain on `trends.json`.** It is read-modify-write. If both publishers ever
+   run at once the later write silently drops the other's readings. The 45-minute
+   threshold makes overlap unlikely; it does not make it impossible.
+4. **Interaction with history retention.** See the 1 MB document cap above.
 
 ## Rollback
 
