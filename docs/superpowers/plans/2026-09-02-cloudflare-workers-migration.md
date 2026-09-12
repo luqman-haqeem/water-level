@@ -957,13 +957,91 @@ whole legacy sync pipeline still go. That is a permanent second deployment targe
 keep working — the price of surviving a total Cloudflare outage, paid whether or not
 one ever happens.
 
+### Scope: the mirror is a lifeboat, not an archive
+
+**Owner's decision, 2026-09-11: keep only what a temporary outage needs, so the mirror
+cannot approach Convex's limits.** The mirror carries the four published files and
+nothing else.
+
+This is already the case today and must stay that way: `trends.json` publishes only
+`TRENDS_WINDOW_MS` — **3 hours** (`convex/lib/retention.ts:24`). The 14 days in
+`HISTORY_RETENTION_MS` is the *retention* of the underlying store, not the size of the
+published file, so the mirror never sees it.
+
+The binding rule for *History retention*, which is still unbuilt: whatever long-window
+store that design introduces, **the mirror does not carry it.** If retention adds a
+separate long-history file, it stays R2-only. During a Cloudflare outage users get
+current levels and a 3-hour trend; deep history is unavailable until Cloudflare
+returns. That is the correct thing to sacrifice, and it keeps every mirrored document
+far below the 1 MB cap.
+
+### Verification results (2026-09-12)
+
+**1. Convex bundles imports from outside `convex/` — CONFIRMED.** A throwaway
+`convex/_bundleProbe.ts` importing `buildStations` from `workers/src/stationMapper.ts`
+and `computeOverallStatus` from `workers/src/jps.ts` deployed to the dev deployment and
+executed:
+
+```
+$ npx convex run _bundleProbe:probe
+{ "importedFromOutsideConvex": true, "stations": 0, "status": "NORMAL" }
+```
+
+The Convex-hosted publisher is therefore viable; the shared modules do not need to be
+duplicated or vendored. The probe was deleted and the deployment re-pushed without it.
+
+**2. Typecheck is the real obstacle, not bundling.** `npx convex dev --once` pulls the
+whole `workers/` tree into its `tsc` program and fails on Cloudflare ambient globals it
+has no types for:
+
+```
+workers/src/coordinates.ts:59  TS2304: Cannot find name 'R2Bucket'.
+workers/src/syncState.ts:10    TS2304: Cannot find name 'KVNamespace'.
+workers/src/cameraSync.ts:151  TS2304: Cannot find name 'Env'.
+```
+
+Bundling succeeds with `--typecheck disable`, but shipping that way would blind the
+whole Convex deployment to type errors. The fix belongs in the implementation: the
+Convex side must import **only** Cloudflare-free modules (`jps.ts`, `stationMapper.ts`,
+`cameraLinks.ts`, `stationCameras.ts` and the shared `convex/` primitives), with the
+platform-bound ones (`coordinates.ts`, `syncState.ts`, `cameraSync.ts`, `trends.ts`,
+`publish.ts`) reached through a narrow port interface. That is a healthy constraint —
+it is the same seam `workers/src/shared.ts` already enforces in the other direction —
+but it is real work and must not be estimated as zero.
+
+**3. 🚨 The Convex account is already over its free plan limits.** Every CLI invocation
+prints:
+
+```
+Your projects are above the Free plan limits.
+Decrease your usage or upgrade to avoid service interruption.
+```
+
+**This is the finding that most threatens the design.** A backup that can be suspended
+for quota is not a backup — and it would fail in exactly the correlated way that
+matters, since a Cloudflare outage during flood season is also when the mirror would
+serve its heaviest traffic and burn the most egress.
+
+It must be resolved before any of this is built, and the resolution is *not* obviously
+"pay":
+
+- Find out which meter is over — the dashboard at `dashboard.convex.dev/t/luqman` is the
+  only place that breaks it down.
+- The likeliest driver is the legacy production pipeline still writing
+  `waterLevelHistory` every 5 minutes against **270 station documents**, 93 of which are
+  duplicates. Phase 7 deletes that pipeline outright, which may drop usage below the
+  free tier on its own — in which case sequencing Phase 7 *before* the mirror solves
+  the problem for free.
+- If usage is still over afterwards, the mirror needs a paid Convex plan, and that cost
+  should be compared against Workers Paid at $5/month, which addresses the cron
+  reliability this whole thread started from.
+
 ### Open questions
 
-1. **Where does the publisher run?** This design puts *mirroring* on Convex, which is
-   settled. The full JPS→snapshot publish could run there too, or on GitHub Actions
-   with the identical `workers/src` code and no porting. Convex must be able to bundle
-   the shared modules from outside `convex/` — **unverified, and it gates the
-   Convex-hosted option.**
+1. **Where does the publisher run?** Mirroring on Convex is settled. The full
+   JPS→snapshot publish could run there — now confirmed possible — or on GitHub Actions
+   with the identical `workers/src` code. Actions still avoids the typecheck seam in
+   finding 2 entirely, so this remains genuinely open.
 2. **`syncState` in standby mode.** The Worker keeps it in KV. Convex already has a
    `syncState` table (`convex/schema.ts:87`), currently empty, which is the natural home
    — but the two stores then diverge, and on failback the Worker rebuilds once from a
