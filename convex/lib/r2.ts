@@ -14,6 +14,8 @@ export interface PutObjectOptions {
 
 export interface R2Client {
     putObject(key: string, body: string | Uint8Array, options: PutObjectOptions): Promise<void>;
+    /** Returns null for a missing object; throws only on a transport or server error. */
+    getObject(key: string): Promise<string | null>;
 }
 
 const REQUIRED = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"] as const;
@@ -31,7 +33,7 @@ export function r2ConfigFromEnv(env: Record<string, string | undefined>): R2Conf
     };
 }
 
-/** Minimal S3-compatible client for Cloudflare R2 (PUT only). Uses global fetch. */
+/** Minimal S3-compatible client for Cloudflare R2. Uses global fetch. */
 export function createR2Client(config: R2Config): R2Client {
     const aws = new AwsClient({
         accessKeyId: config.accessKeyId,
@@ -55,6 +57,18 @@ export function createR2Client(config: R2Config): R2Client {
                 const text = await response.text().catch(() => "");
                 throw new Error(`R2 PUT ${key} failed: HTTP ${response.status} ${text}`.trim());
             }
+        },
+
+        async getObject(key) {
+            const response = await aws.fetch(`${baseUrl}/${key}`, { method: "GET" });
+            // A snapshot file that has never been written is an expected state on a
+            // fresh bucket, not an error — the caller decides what an absent file means.
+            if (response.status === 404) return null;
+            if (!response.ok) {
+                const text = await response.text().catch(() => "");
+                throw new Error(`R2 GET ${key} failed: HTTP ${response.status} ${text}`.trim());
+            }
+            return await response.text();
         },
     };
 }
