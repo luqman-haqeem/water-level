@@ -1,5 +1,5 @@
 import { CAMERA_STATION_LINKS } from "./cameraLinks";
-import type { CameraEntry } from "./cameraSync";
+import type { CameraEntry } from "./snapshotFiles";
 
 /**
  * The camera attached to a station in `stations.json`.

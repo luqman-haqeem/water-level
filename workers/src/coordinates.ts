@@ -1,3 +1,4 @@
+import type { SnapshotReader } from "./snapshotFiles";
 import { SNAPSHOT_KEYS, fetchWithRetry } from "./shared";
 import type { RetryOverrides } from "./jps";
 
@@ -56,8 +57,8 @@ export async function fetchCoordinates(baseUrl: string, retry: RetryOverrides = 
  * to "map pins are as old as the last successful fetch" instead of "every pin jumps to
  * the Gulf of Guinea".
  */
-export async function readPublishedCoordinates(bucket: R2Bucket): Promise<Coordinates> {
-    const object = await bucket.get(SNAPSHOT_KEYS.stations);
+export async function readPublishedCoordinates(reader: SnapshotReader): Promise<Coordinates> {
+    const object = await reader.get(SNAPSHOT_KEYS.stations);
     if (!object) return {};
     try {
         const parsed = JSON.parse(await object.text()) as {

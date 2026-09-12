@@ -1,3 +1,5 @@
+export { readCameras, type CameraEntry, type SnapshotReader } from "./snapshotFiles";
+import { readCameras, type CameraEntry } from "./snapshotFiles";
 import {
     IMAGE_CACHE_CONTROL,
     JSON_CACHE_CONTROL,
@@ -71,15 +73,6 @@ export const SLICE_INTERVAL_MS = 15 * 60 * 1000;
  */
 export const SLICE_COUNT = 2;
 
-export interface CameraEntry {
-    id: string;
-    jps_camera_id: string;
-    captured_at: string | null;
-    /** JPS id of the station this camera watches, when known. See cameraLinks.ts. */
-    station_id?: string | null;
-    [key: string]: unknown;
-}
-
 /**
  * Reads which stations are currently at alert or above, from the published snapshot.
  *
@@ -123,17 +116,6 @@ export function selectSlice(cameras: CameraEntry[], now: number): CameraEntry[] 
     return cameras.filter((_, i) => i % SLICE_COUNT === slice);
 }
 
-export async function readCameras(bucket: R2Bucket): Promise<CameraEntry[]> {
-    const object = await bucket.get(SNAPSHOT_KEYS.cameras);
-    if (!object) return [];
-    try {
-        const parsed = JSON.parse(await object.text()) as { items?: CameraEntry[] };
-        return parsed.items ?? [];
-    } catch (error) {
-        console.warn(`cameras.json unreadable, nothing to mirror: ${error}`);
-        return [];
-    }
-}
 
 export interface MirrorResult {
     attempted: number;

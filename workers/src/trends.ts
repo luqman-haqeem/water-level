@@ -1,3 +1,4 @@
+import type { SnapshotReader } from "./snapshotFiles";
 import { SNAPSHOT_KEYS, TRENDS_WINDOW_MS } from "./shared";
 import type { SnapshotStation } from "./stationMapper";
 
@@ -18,8 +19,8 @@ export type Trends = Record<string, TrendPoint[]>;
  * losing three hours of trend is bad, refusing to publish current readings during a
  * flood is worse.
  */
-export async function readTrends(bucket: R2Bucket): Promise<Trends> {
-    const object = await bucket.get(SNAPSHOT_KEYS.trends);
+export async function readTrends(reader: SnapshotReader): Promise<Trends> {
+    const object = await reader.get(SNAPSHOT_KEYS.trends);
     if (!object) return {};
     try {
         const parsed = JSON.parse(await object.text()) as { items?: Trends };
