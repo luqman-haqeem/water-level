@@ -1009,32 +1009,31 @@ platform-bound ones (`coordinates.ts`, `syncState.ts`, `cameraSync.ts`, `trends.
 it is the same seam `workers/src/shared.ts` already enforces in the other direction —
 but it is real work and must not be estimated as zero.
 
-**3. 🚨 The Convex account is already over its free plan limits.** Every CLI invocation
-prints:
+**3. The Convex account is over its free plan limits — on Data egress only, and the
+migration fixes it.** Every CLI invocation prints `Your projects are above the Free
+plan limits`. The owner confirmed (2026-09-11) that the meter over quota is **Data
+egress**, and the cause is visible in the repo: `origin/main` — the currently deployed
+frontend — reads Convex at runtime from six modules (`src/lib/convexClient.ts`,
+`src/routes/__root.tsx`, and the four data hooks). Every live visitor is billed egress.
 
-```
-Your projects are above the Free plan limits.
-Decrease your usage or upgrade to avoid service interruption.
-```
+This branch has **zero** runtime Convex reads, so Phase 6 collapses that egress to
+approximately nothing as soon as the frontend flips to R2. **The overage resolves
+itself at cutover; it is not a blocker for the mirror.**
 
-**This is the finding that most threatens the design.** A backup that can be suspended
-for quota is not a backup — and it would fail in exactly the correlated way that
-matters, since a Cloudflare outage during flood season is also when the mirror would
-serve its heaviest traffic and burn the most egress.
+*Recorded because it is the mirror's own meter.* Data egress is exactly what a
+read-serving mirror consumes, so the headroom is worth stating rather than assuming:
 
-It must be resolved before any of this is built, and the resolution is *not* obviously
-"pay":
+- *Mirror mode (steady state):* reads come **from** R2, which is Convex ingress and
+  free; writes go to Convex's own database, which meters as Database I/O rather than
+  egress. Egress ≈ 0.
+- *Outage mode:* the mirror serves real users at ~212 KB per cold load, so the 1 GB
+  free tier is roughly 4,900 cold loads per month. ETag revalidation makes repeat polls
+  304s, which are negligible. Comfortable at current traffic; the thing that would
+  break it is a flood-day spike, which is the same exposure already accepted for
+  `r2.dev` being uncached.
 
-- Find out which meter is over — the dashboard at `dashboard.convex.dev/t/luqman` is the
-  only place that breaks it down.
-- The likeliest driver is the legacy production pipeline still writing
-  `waterLevelHistory` every 5 minutes against **270 station documents**, 93 of which are
-  duplicates. Phase 7 deletes that pipeline outright, which may drop usage below the
-  free tier on its own — in which case sequencing Phase 7 *before* the mirror solves
-  the problem for free.
-- If usage is still over afterwards, the mirror needs a paid Convex plan, and that cost
-  should be compared against Workers Paid at $5/month, which addresses the cron
-  reliability this whole thread started from.
+The earlier framing of this as the finding that "most threatens the design" was written
+before the meter was known and is withdrawn.
 
 ### Open questions
 
