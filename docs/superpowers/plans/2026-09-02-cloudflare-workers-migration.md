@@ -425,8 +425,10 @@ Blockers, all of which must be cleared first:
   is unexercised against the live OneSignal API and its first real run will be in
   production. Set the secrets on staging and force one alert-level notification
   before cutover.
-- **Decide the cron-reliability question** — accept / Workers Paid / Actions standby,
-  see *Soak result*.
+- ~~**Decide the cron-reliability question**~~ — **DECIDED 2026-09-11: accept**
+  best-effort cron on the free plan. The follow-on work is the Convex standby writer
+  (design above), which does not block cutover, plus the dead-man's switch, which
+  should ship with it.
 - **Design the history store** — see *History retention*. Still open.
 
 Then:
@@ -842,7 +844,144 @@ producing the `clientDisconnected` status in the analytics.
 `workers_dev = false` in both configs. Cron triggers do not use that hostname, and
 both deployments were re-verified to keep their schedules afterwards.
 
-## Convex as an off-Cloudflare mirror (design, 2026-09-11)
+## Convex as a standby writer (design, 2026-09-12) — CURRENT
+
+Supersedes *Convex as an off-Cloudflare mirror* below. Not built.
+
+### The problem, stated precisely
+
+Free-plan Worker cron is best-effort capacity — Cloudflare schedules it on
+underutilized machines. Measured over 119 h: 13.9% of windows never fire, and there
+have been two multi-hour blackouts (3.50 h on 09-08, 6 h on 09-11) in which **both**
+Workers stopped inside the same minute and recovered together.
+
+The owner's framing, and it is the right one: *the problem is not R2.* R2 stayed
+perfectly healthy through both blackouts and kept serving. The failure is that nothing
+was **writing** to it.
+
+### Why this is a writer, not a reader
+
+The earlier mirror design had Convex serve a copy of the snapshot so the frontend could
+read from it when R2 went stale. That solves the wrong half of the problem:
+
+- R2 is not the thing that failed, so reading elsewhere is not required.
+- A mirror copies whatever R2 holds. During a cron blackout that is *stale data*, so
+  the mirror would have served the identical frozen readings and helped nobody.
+- R2 is plain S3-compatible storage. Anything holding credentials can write to it; the
+  Worker is not privileged. "R2 will be stale" is only true while the Worker is the
+  sole writer.
+
+So the fix is a second **writer**. R2 stays the single source of truth, and the
+frontend needs **no changes at all** — no fallback URL, no staleness-triggered source
+switching, no second read path, no `convex/http.ts`, no CORS.
+
+### Mechanism
+
+One Convex cron at `*/15`. Its first act is a public GET of `meta.json` from R2:
+
+- **`attemptedAt` newer than `STALENESS_THRESHOLD_MS` (45 min)** → the Worker is alive.
+  Return immediately. Costs one small request.
+- **Stale, or the fetch fails** → run the full JPS→snapshot path and publish to R2.
+
+Failover and failback are the same code path evaluated every 15 minutes, so it arms and
+disarms itself with no flag, no deploy and no 2am decision. Note this cannot use the
+`CRONS_ENABLED` gate: per `convex/crons.ts:16` that flag is read at push time and would
+need a deploy to toggle. The check must live **inside** the handler.
+
+The 45-minute threshold also keeps the two writers apart. `trends.json` is
+read-modify-write, so simultaneous publishers would silently drop one side's readings;
+waiting three missed windows before acting makes overlap unlikely, though not
+impossible.
+
+### Egress — the constraint the owner flagged, quantified
+
+Convex bills every byte leaving it, and a `putObject` body is egress. Measured sizes:
+
+| File | Size | Republished by standby? |
+|---|---|---|
+| `stations.json` | 35 K | yes |
+| `trends.json` | 53 K | yes |
+| `meta.json` | 137 B | yes |
+| `cameras.json` | 24 K | no — weekly roster, untouched |
+
+**A standby publish is 88 KB**, not the 212 KB assumed in *Why*.
+
+- *Expected:* ~57 h of blackout per month at the observed rate → ~228 publishes →
+  **~20 MB/month**, roughly 2% of the 1 GB free tier. Health checks add ~3 MB.
+- *Worst case, Convex publishing continuously all month:* 2,880 × 88 KB =
+  **~253 MB/month** — still a quarter of the tier. **Even total, permanent failover
+  fits in the free plan.**
+
+This is not the 34 GB/month that motivated the migration. That figure was **97% camera
+JPEGs** — 11.4 MB every 15 minutes. The JSON share was ~1.2 GB at a 5-minute cadence
+with larger payloads; at today's 15 minutes and 88 KB the same workload is ~253 MB.
+
+### Guard rail: the standby must never mirror camera frames
+
+One image-mirroring run is 11.4 MB — more than half a month's standby budget in a
+single invocation, and the single line item that made Convex expensive before. This
+belongs in the code as an enforced constraint, not a comment: the standby entry point
+must not be able to reach `syncCameraImages` or any equivalent. Camera frames freeze
+during a blackout, by design.
+
+### Implementation notes
+
+- **Reuse, not rewrite.** `convex/lib/r2.ts:41` is already a working S3 client and
+  `snapshotPublisher.ts:42` already calls `putObject` — this is the path that published
+  to R2 from Convex in August.
+- **Bundling is confirmed** (see *Verification results* below): Convex executes code
+  imported from `workers/src/`, so the JPS→snapshot logic is shared, not duplicated.
+- **Typecheck seam.** Convex must import only the Cloudflare-free modules (`jps.ts`,
+  `stationMapper.ts`, `cameraLinks.ts`, `stationCameras.ts`) and reach the rest through
+  a port interface, or `tsc` fails on `R2Bucket` / `KVNamespace` / `Env`.
+- **`syncState`** goes in the existing, currently empty Convex table
+  (`convex/schema.ts:87`). On failback the Worker's KV holds a stale fingerprint and
+  rebuilds once. Harmless.
+- **Prerequisite:** Convex's egress overage must clear at Phase 6, when the frontend
+  stops reading Convex. Confirm on the dashboard before relying on this.
+
+### Camera frames during a blackout
+
+R2 frames do not disappear when the Worker stops — they simply stop refreshing, and the
+app keeps serving the last mirrored copy with its true `captured_at`. The open question
+is whether to additionally fall back to JPS directly for a live frame.
+
+**Verified 2026-09-12 — viable, but slow:**
+
+```
+https://infobanjirjps.selangor.gov.my/InfoBanjir.WebAdmin/CCTV_Image/25.jpg
+  code=200  type=image/jpeg  size=111580  ssl_verify_result=0  time=21.5s
+```
+
+The certificate validates, so no browser warning, and a plain `<img src>` needs no CORS.
+
+**Two hard constraints if this is built:**
+
+1. **The stored `img_url` cannot be used.** All 91 published values are `http://`. An
+   HTTPS page blocks mixed content outright, so the URL must be rewritten to `https://`
+   at render time. This is an *upgrade* and therefore consistent with `23165d2` — the
+   rule that bans downgrading to `http://` is not in tension with it. Falling back to
+   the raw stored URL would be both blocked by the browser and a re-opened MITM hole.
+2. **It is slow and it points users at a flaky origin.** 21.5 s here, and ~40% of JPS
+   connections stall ~20 s at TCP connect. Every viewer would hit JPS directly, on the
+   exact day traffic peaks, at an origin already known to return 522s under load.
+
+**Recommendation: defer.** The chain would be mirrored frame → JPS over HTTPS →
+`/nocctv.png`, which `CameraCard`'s existing `onError` handler is already shaped for, so
+it is a small frontend change whenever it is wanted. But it trades a stale frame with an
+honest timestamp for a 20-second wait on an origin that may fail anyway, and it is
+entirely independent of the standby writer. Decide it on its own merits, after the
+writer is in place.
+
+## Convex as an off-Cloudflare mirror (design, 2026-09-11) — SUPERSEDED
+
+> **Superseded 2026-09-12 by *Convex as a standby writer* above.** The owner clarified
+> that the failure mode is the Worker not running, not R2 being unavailable — and R2
+> stayed healthy through both observed blackouts. Since anything with S3 credentials can
+> write to R2, a second *writer* fixes it with no frontend change, where this design
+> needed an HTTP router, CORS, a fallback URL and a second read path to fix a failure
+> that has not occurred. Kept because its **verification results and scope decision below
+> remain valid and carry over.** Revisit only if R2 itself ever fails.
 
 **Owner's design, approved in principle 2026-09-11: "convert Convex to have a similar
 structure as R2."** Not built. This section is the design pass; it needs its own
