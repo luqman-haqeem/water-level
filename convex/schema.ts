@@ -94,4 +94,20 @@ export default defineSchema({
     failingSince: v.optional(v.string()), // ISO, first failure of the current outage
     lastError: v.optional(v.string()),
   }).index("by_key", ["key"]),
+
+  // One row. The standby publisher's heartbeat, written on every cycle including the
+  // ones where it stands down.
+  //
+  // Without it the standby is invisible while healthy: it returns early, writes
+  // nothing and logs nothing, so "is the backup actually armed?" can only be answered
+  // by tailing logs across a cron boundary and hoping. `convex logs` streams console
+  // output rather than execution records, so even that does not show a silent run.
+  // A backup whose liveness cannot be checked is not much of a backup.
+  standbyState: defineTable({
+    key: v.string(), // "publisher"
+    lastCheckedAt: v.string(), // ISO, every cycle — this is the liveness signal
+    lastReason: v.string(), // why it did or did not publish
+    lastPublishedAt: v.optional(v.string()), // ISO, last time it actually took over
+    lastSnapshotAgeMs: v.optional(v.number()), // age of meta.json as it saw it
+  }).index("by_key", ["key"]),
 });

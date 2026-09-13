@@ -1,6 +1,7 @@
 "use node";
 
 import { internalAction } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { createR2Client, r2ConfigFromEnv, type R2Client } from "../lib/r2";
 import {
     JSON_CACHE_CONTROL,
@@ -77,6 +78,16 @@ export interface StandbyDeps {
     baseUrl?: string;
     /** Retry overrides; tests inject a no-op sleep to skip the 5 s backoff. */
     retry?: RetryOverrides;
+    /**
+     * Liveness sink, called once per cycle before returning. Optional so the core stays
+     * testable without a Convex context; the action always supplies it.
+     */
+    heartbeat?: (beat: {
+        checkedAt: string;
+        reason: string;
+        published: boolean;
+        snapshotAgeMs?: number;
+    }) => Promise<void>;
 }
 
 /**
@@ -91,6 +102,30 @@ export async function runStandbyPublish(
     deps: StandbyDeps = {}
 ): Promise<StandbyResult> {
     const now = (deps.now ?? Date.now)();
+    const result = await attemptStandbyPublish(r2, deps, now);
+    // Written on every cycle, including stand-downs — a heartbeat that only appears
+    // during failover cannot distinguish "armed and idle" from "not running at all".
+    // Never allowed to fail the run: the readings are already safe on R2.
+    if (deps.heartbeat) {
+        try {
+            await deps.heartbeat({
+                checkedAt: new Date(now).toISOString(),
+                reason: result.reason,
+                published: result.published,
+                snapshotAgeMs: result.ageMs,
+            });
+        } catch (error) {
+            console.warn(`standby: heartbeat write failed: ${String(error)}`);
+        }
+    }
+    return result;
+}
+
+async function attemptStandbyPublish(
+    r2: R2Client,
+    deps: StandbyDeps,
+    now: number
+): Promise<StandbyResult> {
     const baseUrl = deps.baseUrl ?? jpsBaseUrl();
     const retry = deps.retry ?? {};
 
@@ -192,6 +227,10 @@ export async function runStandbyPublish(
 
 export const publishIfWorkerIsDown = internalAction({
     args: {},
-    handler: async (): Promise<StandbyResult> =>
-        runStandbyPublish(createR2Client(r2ConfigFromEnv(process.env))),
+    handler: async (ctx): Promise<StandbyResult> =>
+        runStandbyPublish(createR2Client(r2ConfigFromEnv(process.env)), {
+            heartbeat: async (beat) => {
+                await ctx.runMutation(internal.standby.state.recordHeartbeat, beat);
+            },
+        }),
 });

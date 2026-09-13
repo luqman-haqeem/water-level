@@ -195,6 +195,68 @@ describe("runStandbyPublish", () => {
         expect(puts).toEqual([]);
     });
 
+    it("beats on a stand-down cycle, so idle is distinguishable from dead", async () => {
+        const fetchSpy = vi.fn();
+        vi.stubGlobal("fetch", fetchSpy);
+        const fresh = JSON.stringify({ attemptedAt: new Date(NOW - 60_000).toISOString(), status: "ok" });
+        const { client } = fakeR2({ [SNAPSHOT_KEYS.meta]: fresh });
+        const beats: unknown[] = [];
+
+        await runStandbyPublish(client, {
+            now: () => NOW,
+            baseUrl: BASE,
+            retry: RETRY,
+            heartbeat: async (b) => void beats.push(b),
+        });
+
+        expect(beats).toEqual([
+            {
+                checkedAt: "2026-09-12T12:00:00.000Z",
+                reason: "worker-healthy",
+                published: false,
+                snapshotAgeMs: 60_000,
+            },
+        ]);
+    });
+
+    it("beats even when R2 is unreachable — the cycle still happened", async () => {
+        stubJps();
+        const beats: Array<{ reason: string }> = [];
+        const client: R2Client = {
+            async getObject() {
+                throw new Error("HTTP 403");
+            },
+            async putObject() {},
+        };
+
+        await runStandbyPublish(client, {
+            now: () => NOW,
+            baseUrl: BASE,
+            retry: RETRY,
+            heartbeat: async (b) => void beats.push(b),
+        });
+
+        expect(beats).toHaveLength(1);
+        expect(beats[0].reason).toBe("r2-unreachable");
+    });
+
+    it("does not let a failed heartbeat write fail a successful publish", async () => {
+        stubJps();
+        const { client, puts } = fakeR2({ [SNAPSHOT_KEYS.meta]: STALE_META });
+
+        const result = await runStandbyPublish(client, {
+            now: () => NOW,
+            baseUrl: BASE,
+            retry: RETRY,
+            heartbeat: async () => {
+                throw new Error("table write failed");
+            },
+        });
+
+        expect(result.published).toBe(true);
+        expect(puts.map((p) => p.key)).toContain(SNAPSHOT_KEYS.meta);
+    });
+
     it("skips the cycle when R2 cannot be read, since it could not be written either", async () => {
         stubJps();
         const client: R2Client = {
