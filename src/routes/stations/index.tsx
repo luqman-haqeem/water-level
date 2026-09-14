@@ -10,6 +10,8 @@ import { useStations } from "@/hooks/useStations";
 import { useFilter, FilterOptions } from "@/lib/FilterContext";
 import AdvancedFilter from "@/components/AdvancedFilter";
 import StatusSummary from "@/components/StatusSummary";
+import RiverStatusHero from "@/components/RiverStatusHero";
+import DataProvenanceFooter from "@/components/DataProvenanceFooter";
 import { useLocation } from "@/hooks/useLocation";
 import { calculateDistance } from "@/utils/locationUtils";
 import { isStale } from "@/utils/timeUtils";
@@ -364,11 +366,18 @@ export function StationsRoute() {
         <>
             <div className="flex-1 flex flex-col bg-background">
                 <div className="flex-1 p-4 sm:p-6 overflow-auto relative min-h-0">
-                    {/* Status Summary Strip */}
+                    {/* Stat-led hero — the "how bad is it now" answer, on paint */}
+                    <RiverStatusHero
+                        stations={stationsData}
+                        subscribedCount={subscribedIds.length}
+                        isLoading={isLoadingStations}
+                    />
+
+                    {/* Status Summary Strip — breakdown behind the hero figure */}
                     <StatusSummary stations={stationsData} />
 
                     {/* Search Bar + Filter Button (inline) */}
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-4 mt-5">
                         <Input
                             placeholder="Search stations or districts..."
                             value={searchTerm}
@@ -419,12 +428,15 @@ export function StationsRoute() {
                         </div>
                     )}
 
-                    {/* My Stations Section */}
+                    {/* My Stations Section — the resident's own, so it leads */}
                     {myStations.length > 0 && (
-                        <div className="mb-6">
-                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                                My Stations
-                            </h3>
+                        <div className="mb-8" id="my-stations">
+                            <div className="rule-b mb-4 flex items-baseline justify-between pb-2">
+                                <h2 className="text-heading-3">My stations</h2>
+                                <span className="text-readout text-body-small text-muted-foreground">
+                                    {myStations.length} followed
+                                </span>
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                                 {myStations.map((station) => {
                                     const distance =
@@ -456,12 +468,16 @@ export function StationsRoute() {
                         </div>
                     )}
 
-                    {/* Needs Attention Section */}
+                    {/* Needs Attention — anything above normal, hairline-flagged */}
                     {needsAttentionStations.length > 0 && (
-                        <div className="mb-6">
-                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                                Needs Attention
-                            </h3>
+                        <div className="mb-8 scroll-mt-4" id="needs-attention">
+                            <div className="rule-b mb-4 flex items-baseline justify-between pb-2">
+                                <h2 className="text-heading-3">Above normal</h2>
+                                <span className="text-readout text-body-small text-muted-foreground">
+                                    {needsAttentionStations.length} station
+                                    {needsAttentionStations.length === 1 ? "" : "s"}
+                                </span>
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                                 {needsAttentionStations.map((station) => {
                                     const distance =
@@ -492,6 +508,20 @@ export function StationsRoute() {
                             </div>
                         </div>
                     )}
+
+                    {/* All stations — the browsable body of the list */}
+                    <div className="rule-b mb-4 flex items-baseline justify-between pb-2 scroll-mt-4" id="all-stations">
+                        <h2 className="text-heading-3">
+                            {myStations.length > 0 || needsAttentionStations.length > 0
+                                ? "All other stations"
+                                : "All stations"}
+                        </h2>
+                        {!isLoadingStations && (
+                            <span className="text-readout text-body-small text-muted-foreground">
+                                {filteredStations.length} shown
+                            </span>
+                        )}
+                    </div>
 
                     {/* Station Cards Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -535,16 +565,18 @@ export function StationsRoute() {
                                 );
                             })
                         ) : (
-                            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-                                <p className="text-body-large text-muted-foreground mb-2">
-                                    No stations found
+                            <div className="col-span-full py-12">
+                                <p className="text-body-large mb-1">
+                                    No stations match
                                 </p>
                                 <p className="text-body text-muted-foreground">
-                                    Try adjusting your search or filters
+                                    Try a different name, or clear a filter.
                                 </p>
                             </div>
                         )}
                     </div>
+
+                    <DataProvenanceFooter />
                     <div className="pb-20"></div>
                 </div>
             </div>

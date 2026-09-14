@@ -17,12 +17,20 @@ interface StatusSummaryProps {
 
 type StatusKey = 'normal' | 'alert' | 'warning' | 'danger' | 'noData'
 
-const STATUS_CONFIG: Record<StatusKey, { label: string; dotClass: string; filterValue: string }> = {
-    normal: { label: 'normal', dotClass: 'bg-normal', filterValue: '0' },
-    alert: { label: 'alert', dotClass: 'bg-alert', filterValue: '1' },
-    warning: { label: 'warning', dotClass: 'bg-warning', filterValue: '2' },
-    danger: { label: 'danger', dotClass: 'bg-danger', filterValue: '3' },
-    noData: { label: 'no data', dotClass: 'bg-muted-foreground/50', filterValue: '-1' },
+/**
+ * A count strip, not a legend. The number is the object of interest, so it gets
+ * mono weight and the status colour; the word beside it stays quiet. A left
+ * hairline separates segments instead of a dot floating beside each one.
+ */
+const STATUS_CONFIG: Record<
+    StatusKey,
+    { label: string; countClass: string; filterValue: string }
+> = {
+    normal: { label: 'normal', countClass: 'text-normal', filterValue: '0' },
+    alert: { label: 'alert', countClass: 'text-alert', filterValue: '1' },
+    warning: { label: 'warning', countClass: 'text-warning', filterValue: '2' },
+    danger: { label: 'danger', countClass: 'text-danger', filterValue: '3' },
+    noData: { label: 'no data', countClass: 'text-muted-foreground', filterValue: '-1' },
 }
 
 export default function StatusSummary({ stations }: StatusSummaryProps) {
@@ -81,12 +89,17 @@ export default function StatusSummary({ stations }: StatusSummaryProps) {
         }
     }
 
+    const visibleKeys = (Object.keys(STATUS_CONFIG) as StatusKey[]).filter(
+        (key) => counts[key] > 0
+    )
+
+    if (visibleKeys.length === 0) return null
+
     return (
-        <div className="flex items-center gap-3 flex-wrap px-1 py-2">
-            {(Object.keys(STATUS_CONFIG) as StatusKey[]).map((key) => {
+        <div className="rule-b flex flex-wrap">
+            {visibleKeys.map((key, index) => {
                 const config = STATUS_CONFIG[key]
                 const count = counts[key]
-                if (count === 0) return null
 
                 const isActive =
                     advancedFilters.alertLevels.length === 1 &&
@@ -97,15 +110,15 @@ export default function StatusSummary({ stations }: StatusSummaryProps) {
                         key={key}
                         type="button"
                         onClick={() => handleSegmentClick(config.filterValue)}
-                        className={`flex items-center gap-1.5 text-sm transition-opacity ${
-                            isActive ? 'opacity-100 font-medium' : 'opacity-70 hover:opacity-100'
-                        }`}
+                        aria-pressed={isActive}
+                        className={`min-h-touch flex min-w-[5.5rem] flex-1 flex-col items-start justify-center gap-0.5 py-3 pr-4 text-left theme-transition-colors ${
+                            index > 0 ? 'rule-l pl-4' : ''
+                        } ${isActive ? 'bg-muted/60' : 'hover:bg-muted/40'}`}
                     >
-                        <span
-                            className={`w-2 h-2 rounded-full flex-shrink-0 ${config.dotClass}`}
-                            aria-hidden="true"
-                        />
-                        <span>{count} {config.label}</span>
+                        <span className={`text-readout text-lg font-bold ${config.countClass}`}>
+                            {count}
+                        </span>
+                        <span className="text-eyebrow text-muted-foreground">{config.label}</span>
                     </button>
                 )
             })}

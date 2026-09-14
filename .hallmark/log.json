@@ -1,0 +1,28 @@
+{
+  "runs": [
+    {
+      "date": "2026-09-14",
+      "scope": "/stations landing view",
+      "genre": "modern-minimal",
+      "macrostructure": "04 stat-led",
+      "theme": "cobalt",
+      "themeAxes": {
+        "paperBand": "cool near-white",
+        "displayStyle": "geometric sans (Space Grotesk)",
+        "accentHue": "electric blue"
+      },
+      "nav": "N9 edge-aligned minimal",
+      "footer": "Ft2 inline-rule single line",
+      "heroEnrichment": "none (typography + real data only)",
+      "motionStance": "motion-cut",
+      "brief": "audience: residents watching a river; use cases: check level, get alert; tone: delegated -> utilitarian",
+      "notes": [
+        "First Hallmark run in this project — no rotation constraint to satisfy.",
+        "No root tokens.css: this project's tokens are HSL triplets in src/styles/globals.css bridged via tailwind.config.ts. A root file would be dead code Vite never loads.",
+        "Skipped Cobalt's signature code-card (no code to show) and its light/dark band rhythm (the app already has user-chosen light/dark/high-contrast modes).",
+        "Introduced the font stack — nothing in the project declared a font before this run.",
+        "Added --rule token in all three colour modes for hairline structure."
+      ]
+    }
+  ]
+}

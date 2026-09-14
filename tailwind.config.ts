@@ -90,6 +90,13 @@ const config = {
         "high-contrast-bg": "hsl(var(--high-contrast-bg))",
         "high-contrast-fg": "hsl(var(--high-contrast-fg))",
         "high-contrast-border": "hsl(var(--high-contrast-border))",
+        // Hairline rule — structure without card chrome
+        rule: "hsl(var(--rule))",
+      },
+      fontFamily: {
+        display: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       borderRadius: {
         lg: "var(--radius)",

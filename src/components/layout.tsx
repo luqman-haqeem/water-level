@@ -60,9 +60,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <OneSignalProvider>
             <div className="flex flex-col h-screen bg-background">
                 {/* Header */}
-                <header className="border-b px-4 py-3 flex justify-between items-center min-h-touch">
+                {/* N9 · edge-aligned minimal — wordmark hard-left, controls hard-right */}
+                <header className="rule-b px-4 py-3 flex justify-between items-center gap-4 min-h-touch">
                     {!isMobile && (
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-5">
+                            <div className="flex items-center gap-2">
+                                <WaterIcon size="md" className="text-primary" />
+                                <span className="font-display text-base font-bold tracking-tight">
+                                    River Water Level
+                                </span>
+                            </div>
                             <Tabs
                                 value={activeTab}
                                 onValueChange={handleTabChange}
@@ -97,10 +104,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         </div>
                     )}
                     {isMobile && (
-                        <div className="flex items-center">
-                            <WaterIcon size="lg" className="text-primary mr-2" />
-                            <span className="text-heading-3">
-                                Water Level Monitor
+                        <div className="flex items-center gap-2 min-w-0">
+                            <WaterIcon size="md" className="text-primary shrink-0" />
+                            <span className="font-display text-base font-bold tracking-tight truncate">
+                                River Water Level
                             </span>
                         </div>
                     )}

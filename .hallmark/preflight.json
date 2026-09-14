@@ -1,0 +1,28 @@
+{
+  "scanned": "2026-09-14",
+  "framework": "Vite 6 + React 18 SPA (TanStack Router, code-defined route tree in src/routeTree.ts)",
+  "fontStack": null,
+  "fontStackNote": "No font-family declared anywhere — no next/font, no @fontsource, no Google Fonts link, no tailwind fontFamily extend. Falls through to Tailwind's default system sans.",
+  "palette": {
+    "format": "HSL channel triplets in CSS custom properties",
+    "location": "src/styles/globals.css :root / .dark / .high-contrast",
+    "bridge": "tailwind.config.ts theme.extend.colors wraps each in hsl(var(--token))",
+    "domainTokens": ["--normal", "--alert", "--warning", "--danger", "--water-blue"],
+    "modes": ["light", "dark (class)", "high-contrast"]
+  },
+  "motion": {
+    "stance": "motion-cut",
+    "note": "No framer-motion / gsap / motion / lenis / react-spring. tailwindcss-animate installed; custom keyframes accordion-down, accordion-up, bell-ring in tailwind.config.ts."
+  },
+  "spacing": {
+    "scale": "Tailwind default 4-pt",
+    "extends": ["touch: 44px", "safe-bottom / safe-top: env(safe-area-inset-*)"],
+    "note": "No --space-* custom-property scale."
+  },
+  "componentSystem": "shadcn/ui (components.json) + Radix primitives, src/components/ui/",
+  "pwa": "vite-plugin-pwa, registerType autoUpdate",
+  "designMd": false,
+  "priorHallmarkRuns": false,
+  "preserve": ["palette (HSL tokens + domain alert colours)", "spacing scale + touch tokens", "shadcn/Radix component layer", "dark + high-contrast modes"],
+  "introduce": ["font stack (none exists)", "macrostructure", "microinteraction discipline", "slop-test gates"]
+}

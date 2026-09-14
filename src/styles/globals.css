@@ -1,3 +1,5 @@
+/* Hallmark · genre: modern-minimal · macrostructure: 04 stat-led · theme: cobalt */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -48,6 +50,9 @@
         --input: 214.3 31.8% 91.4%;
         --ring: 202 92% 50%;
         --radius: 0.5rem;
+
+        /* Hairline rule — carries structure so cards aren't needed */
+        --rule: 214 24% 87%;
     }
 
     .dark {
@@ -94,6 +99,9 @@
         --border: 217.2 32.6% 17.5%;
         --input: 217.2 32.6% 17.5%;
         --ring: 199 89% 62%;
+
+        /* Hairline rule — Dark Mode */
+        --rule: 217 28% 24%;
     }
 }
 
@@ -218,6 +226,9 @@
         --warning-foreground: 0 0% 100%;
         --danger: 0 100% 30%;
         --danger-foreground: 0 0% 100%;
+
+        /* Hairline rule — High Contrast */
+        --rule: var(--high-contrast-border);
     }
 
     .high-contrast * {
@@ -251,6 +262,74 @@
     
     .theme-transition-slow {
         transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Hallmark · modern-minimal / cobalt
+   Type assignment. Until now nothing in the project declared a
+   font, so everything fell through to the default system sans.
+   Space Grotesk carries headings, Inter carries prose, and
+   JetBrains Mono carries anything a resident reads as a machine
+   value — levels, counts, timestamps.
+   ───────────────────────────────────────────────────────────── */
+@layer base {
+    body {
+        font-family: theme('fontFamily.sans');
+    }
+
+    .text-heading-1,
+    .text-heading-2,
+    .text-heading-3 {
+        font-family: theme('fontFamily.display');
+    }
+
+    /* Water readings are instrument values, not prose */
+    .text-water-level {
+        font-family: theme('fontFamily.mono');
+        font-weight: 700;
+    }
+}
+
+@layer utilities {
+    /* The one big number: answers "how bad is it right now" on paint */
+    .text-figure {
+        font-family: theme('fontFamily.mono');
+        font-weight: 700;
+        font-size: clamp(3.25rem, 12vw + 0.5rem, 6.5rem);
+        line-height: 0.88;
+        letter-spacing: -0.045em;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Small caps-ish label above a figure or section */
+    .text-eyebrow {
+        font-family: theme('fontFamily.mono');
+        font-size: 0.6875rem;
+        font-weight: 500;
+        line-height: 1.2;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+
+    /* Inline machine value inside running text */
+    .text-readout {
+        font-family: theme('fontFamily.mono');
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+    }
+
+    /* Hairlines do the structural work cards would otherwise do */
+    .rule-t {
+        border-top: 1px solid hsl(var(--rule));
+    }
+
+    .rule-b {
+        border-bottom: 1px solid hsl(var(--rule));
+    }
+
+    .rule-l {
+        border-left: 1px solid hsl(var(--rule));
     }
 }
 
