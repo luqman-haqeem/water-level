@@ -2,6 +2,7 @@ import { query, internalMutation, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { computeAlertLevel } from "./lib/alertClassification";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,34 +34,6 @@ interface JpsStationInput {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Determines the alert level (0-3) from a JPS waterlevelStatus code.
- * Falls back to threshold-based computation when status is -1 (below normal).
- * Returns -1 when water level data is unavailable (null).
- */
-function computeAlertLevel(station: JpsStationInput): number {
-  if (station.currentWaterLevel === null) return -1; // unknown — no data
-
-  switch (station.waterlevelStatus) {
-    case 3:
-      return 3; // danger
-    case 2:
-      return 2; // warning
-    case 1:
-      return 1; // alert
-    case 0:
-      return 0; // normal
-    case -1:
-      // Below normal — determine level based on thresholds
-      if (station.currentWaterLevel >= station.dangerLevel) return 3;
-      if (station.currentWaterLevel >= station.warningLevel) return 2;
-      if (station.currentWaterLevel >= station.alertLevel) return 1;
-      return 0;
-    default:
-      return 0;
-  }
-}
 
 /**
  * Ensures a district exists in the database, creating it if necessary.
@@ -145,6 +118,8 @@ async function upsertStation(
   // Update current water level via the dedicated upsert function
   // Skip when currentWaterLevel is null (no data available from API)
   if (station.currentWaterLevel !== null) {
+    // May be ALERT_UNKNOWN when thresholds are missing or the upstream status
+    // is unrecognised. `upsertCurrentLevel` applies the staleness gate on top.
     const alertLevel = computeAlertLevel(station);
     await ctx.runMutation(
       internal.sync.waterLevelUpdater.upsertCurrentLevel,
