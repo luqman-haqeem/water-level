@@ -1,6 +1,7 @@
 import { action, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { applyStalenessGate } from "../lib/alertClassification";
 
 const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
@@ -252,29 +253,28 @@ export const upsertCurrentLevel = internalMutation({
             .withIndex("by_station", (q) => q.eq("stationId", stationId))
             .first();
 
+        // A reading we cannot stand behind must not keep a non-Normal
+        // classification in the database. The staleness gate is what stores
+        // "unknown" rather than leaving a months-old Warning on the record.
+        const storedAlertLevel = applyStalenessGate(alertLevel, updatedAt);
+
         const updateData: {
             currentLevel: number;
             alertLevel: number;
             updatedAt?: string;
         } = {
             currentLevel,
-            alertLevel,
+            alertLevel: storedAlertLevel,
         };
         if (updatedAt) {
             updateData.updatedAt = updatedAt;
         }
 
-        // Notify whenever station is at danger level (cooldown logic in notifyDangerForStation prevents spam)
-        const shouldNotifyDanger = alertLevel === 3;
-
-        // Don't notify on stale data (older than 45 minutes)
-        // NOTE: This threshold must stay in sync with the frontend `isStale` utility
-        // in src/utils/timeUtils.ts. Convex backend and Vite frontend cannot share
-        // modules, so the constant is duplicated by necessity.
-        const STALENESS_MS = 2_700_000;
-        const isDataStale = updatedAt
-            ? (Date.now() - new Date(updatedAt).getTime() > STALENESS_MS)
-            : true;
+        // Notify whenever station is at danger level (cooldown logic in
+        // notifyDangerForStation prevents spam). Reads the gated level, so a
+        // stale or unclassifiable reading can never page subscribers — the
+        // gate has already turned those into ALERT_UNKNOWN.
+        const shouldNotifyDanger = storedAlertLevel === 3;
 
         if (existing) {
             // Update existing level
@@ -287,8 +287,8 @@ export const upsertCurrentLevel = internalMutation({
             });
         }
 
-        // Schedule danger notification if at danger level with fresh data
-        if (shouldNotifyDanger && !isDataStale) {
+        // Schedule danger notification. The gated level is already fresh.
+        if (shouldNotifyDanger) {
             await ctx.scheduler.runAfter(
                 0,
                 internal.notifications.notifyDangerForStation,
@@ -301,9 +301,11 @@ export const upsertCurrentLevel = internalMutation({
         const malaysiaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // UTC+8
 
         await ctx.db.insert("waterLevelHistory", {
+            // Record the gated level so the trend charts never show a
+            // confident colour for a reading we could not stand behind.
+            alertLevel: storedAlertLevel,
             stationId,
             currentLevel,
-            alertLevel,
             timestamp: now.getTime(),
             recordedAt: malaysiaTime.toISOString(),
         });
