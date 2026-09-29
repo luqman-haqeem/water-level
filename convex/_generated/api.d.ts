@@ -16,6 +16,7 @@ import type {
 import type * as cameras from "../cameras.js";
 import type * as crons from "../crons.js";
 import type * as lib_jpsClient from "../lib/jpsClient.js";
+import type * as migrations_dedupeStations from "../migrations/dedupeStations.js";
 import type * as notifications from "../notifications.js";
 import type * as seedCoordinates from "../seedCoordinates.js";
 import type * as stations from "../stations.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   cameras: typeof cameras;
   crons: typeof crons;
   "lib/jpsClient": typeof lib_jpsClient;
+  "migrations/dedupeStations": typeof migrations_dedupeStations;
   notifications: typeof notifications;
   seedCoordinates: typeof seedCoordinates;
   stations: typeof stations;
