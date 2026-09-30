@@ -110,9 +110,17 @@ export const getStationsWithDetails = query({
 // Optimized query for station detail page - fetches only ONE station with all details
 export const getStationDetailById = query({
     args: { stationId: v.id("stations") },
-    handler: async (ctx, { stationId }) => {
-        const station = await ctx.db.get(stationId);
+    handler: async (ctx, { stationId: requestedId }) => {
+        // A duplicate row merged away by migrations/dedupeStations still appears in
+        // shared links and alert URLs, so resolve it to the row that absorbed it.
+        // The scan only runs for ids that no longer exist (~200 stations).
+        const station =
+            (await ctx.db.get(requestedId)) ??
+            (await ctx.db.query("stations").collect()).find((row) =>
+                row.mergedStationIds?.includes(requestedId)
+            );
         if (!station) return null;
+        const stationId = station._id;
 
         const district = await ctx.db.get(station.districtId);
 

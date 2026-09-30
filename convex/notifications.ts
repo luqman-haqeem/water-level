@@ -64,21 +64,26 @@ export function buildNotificationPayload(args: {
   currentLevel: number;
   siteUrl: string;
   updatedAt?: string;
+  /** Ids of duplicate station rows merged into this one (see migrations/dedupeStations). */
+  mergedStationIds?: string[];
 }) {
-  const { appId, stationId, stationName, siteUrl } = args;
+  const { appId, stationId, stationName, siteUrl, mergedStationIds = [] } = args;
 
   const contentMessage = `${stationName} has reached Danger level. Check the app for details.`;
 
   return {
     app_id: appId,
-    filters: [
+    // Subscribers of a merged-away duplicate still carry its tag, so target
+    // those too — OneSignal filters are ANDed unless separated by an OR operator.
+    filters: [stationId, ...mergedStationIds].flatMap((id, index) => [
+      ...(index > 0 ? [{ operator: "OR" as const }] : []),
       {
         field: "tag" as const,
-        key: `station_${stationId}`,
+        key: `station_${id}`,
         value: "true",
         relation: "=" as const,
       },
-    ],
+    ]),
     headings: { en: "Danger Level Alert" },
     contents: { en: contentMessage },
     url: `${siteUrl}/stations/${stationId}`,
@@ -151,6 +156,7 @@ export const notifyDangerForStation = internalAction({
       currentLevel,
       siteUrl,
       updatedAt,
+      mergedStationIds: station.mergedStationIds,
     });
 
     try {
