@@ -3,7 +3,6 @@ import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { convertJpsDateToIso } from "./jpsDate";
 import { computeJpsFingerprint, fingerprintToRecord, latestJpsUpdate } from "./changeDetection";
-import { fetchWithRetry } from "../lib/fetchWithRetry";
 import { WATER_LEVELS_KEY } from "../lib/syncKeys";
 import { parseThreshold } from "../lib/alertLevel";
 import {
@@ -11,8 +10,6 @@ import {
     CLEANUP_MAX_BATCHES_PER_RUN,
     HISTORY_RETENTION_MS,
 } from "../lib/retention";
-
-const BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api";
 
 // Type definitions for JPS API responses
 interface JpsDistrictSummary {
@@ -100,11 +97,11 @@ export const updateWaterLevels = internalAction({
         // 1. Summary (the only fetch whose failure aborts the run)
         let summaryData: JpsDistrictSummary[];
         try {
-            const summaryResponse = await fetchWithRetry(
-                `${BASE_URL}/StationRiverLevels/GetWLStationSummary`,
-                { timeoutMs: 20_000, retries: 1, backoffMs: 5_000 }
-            );
-            const parsed: unknown = await summaryResponse.json();
+            // Via the Node runtime: the default runtime can't complete TLS with
+            // JPS any more (see sync/jpsFetch.ts).
+            const parsed: unknown = await ctx.runAction(internal.sync.jpsFetch.fetchJson, {
+                path: "/StationRiverLevels/GetWLStationSummary",
+            });
             if (!Array.isArray(parsed)) {
                 throw new Error("JPS summary response is not an array");
             }
@@ -159,13 +156,23 @@ export const updateWaterLevels = internalAction({
         // 3. District station data (per-district failures are warn-and-continue)
         let totalStationsSaved = 0;
         let failedDistricts = 0;
-        for (const district of summaryData) {
+        // Fetch every district in parallel: JPS takes 15-30s per request, so
+        // fetching serially (with retries) could exceed the action time limit.
+        const districtResponses = await Promise.allSettled(
+            summaryData.map(
+                (district): Promise<JpsDistrictStationsResponse> =>
+                    ctx.runAction(internal.sync.jpsFetch.fetchJson, {
+                        path: `/StationRiverLevels/GetWLAllStationData/${district.districtId}`,
+                    })
+            )
+        );
+        for (const [index, district] of summaryData.entries()) {
             try {
-                const districtResponse = await fetchWithRetry(
-                    `${BASE_URL}/StationRiverLevels/GetWLAllStationData/${district.districtId}`,
-                    { timeoutMs: 20_000, retries: 1, backoffMs: 5_000 }
-                );
-                const stationData: JpsDistrictStationsResponse = await districtResponse.json();
+                const districtResponse = districtResponses[index];
+                if (districtResponse.status === "rejected") {
+                    throw districtResponse.reason;
+                }
+                const stationData = districtResponse.value;
                 const stationsData = stationData.stations || [];
                 const stations = stationsData
                     .map((station) => ({

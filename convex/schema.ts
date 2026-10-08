@@ -33,6 +33,9 @@ export default defineSchema({
     z2: v.optional(v.union(v.number(), v.boolean())),
     z3: v.optional(v.union(v.number(), v.boolean())),
     batteryLevel: v.optional(v.union(v.number(), v.null())),
+    // _ids of duplicate rows merged into this one by migrations/dedupeStations.
+    // Kept because subscriptions (OneSignal tags) and shared links use the _id.
+    mergedStationIds: v.optional(v.array(v.string())),
   })
     .index("by_jps_sel_id", ["jpsSelId"])
     .index("by_district", ["districtId"])

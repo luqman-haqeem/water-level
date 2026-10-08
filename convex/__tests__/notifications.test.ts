@@ -53,6 +53,24 @@ describe("buildNotificationPayload", () => {
         expect(payload.filters[0].key).toBe("station_abc999def");
     });
 
+    it("also targets subscribers of duplicate records merged into this station", () => {
+        // Subscriptions are OneSignal tags keyed by the Convex station _id. When a
+        // duplicate station row is merged away, its subscribers still carry the old
+        // tag — dropping it would silently stop their danger alerts.
+        const payload = buildNotificationPayload({
+            ...defaultArgs,
+            mergedStationIds: ["oldA", "oldB"],
+        });
+
+        expect(payload.filters).toEqual([
+            { field: "tag", key: "station_k573f8xyz123", value: "true", relation: "=" },
+            { operator: "OR" },
+            { field: "tag", key: "station_oldA", value: "true", relation: "=" },
+            { operator: "OR" },
+            { field: "tag", key: "station_oldB", value: "true", relation: "=" },
+        ]);
+    });
+
     it("does not include included_segments in the payload", () => {
         const payload = buildNotificationPayload(defaultArgs);
 

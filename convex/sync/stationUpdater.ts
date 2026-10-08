@@ -43,9 +43,6 @@ export function parseCoordinate(raw: unknown): number | undefined {
 
 export const updateStations = internalAction({
   handler: async (ctx) => {
-    const stationURL =
-      "https://infobanjirjps.selangor.gov.my/JPSAPI/api/StationRiverLevels/GetWLAllStationData/";
-
     try {
       // Get all districts
       const districts = await ctx.runMutation(
@@ -57,17 +54,22 @@ export const updateStations = internalAction({
           console.log(
             `Skipping district "${district.name}" - no jpsDistrictsId`
           );
-          continue;
         }
+      }
+      const syncable = districts.filter((district) => district.jpsDistrictsId);
 
-        const response = await fetch(`${stationURL}${district.jpsDistrictsId}`);
-        if (!response.ok) {
-          throw new Error(
-            `Network response was not ok for district ${district._id}`
-          );
-        }
+      // JPS must be fetched from the Node runtime (see sync/jpsFetch.ts), and in
+      // parallel: at 15-30s per request a serial loop risks the action limit.
+      const responses = await Promise.all(
+        syncable.map((district) =>
+          ctx.runAction(internal.sync.jpsFetch.fetchJson, {
+            path: `/StationRiverLevels/GetWLAllStationData/${district.jpsDistrictsId}`,
+          })
+        )
+      );
 
-        const stationsJps = await response.json();
+      for (const [index, district] of syncable.entries()) {
+        const stationsJps = responses[index];
         if (!stationsJps || !stationsJps.stations) continue;
 
         for (const stationJps of stationsJps.stations) {

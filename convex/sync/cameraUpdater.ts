@@ -8,8 +8,6 @@ export const updateCameras = internalAction({
     camerasCount: number;
     timestamp: string;
   }> => {
-    const BASE_URL = 'https://infobanjirjps.selangor.gov.my/JPSAPI/api';
-
     try {
       console.log('📹 Starting automated camera data sync...');
       
@@ -17,7 +15,19 @@ export const updateCameras = internalAction({
       const districts = await ctx.runMutation(internal.sync.cameraUpdater.getDistricts);
       let totalCamerasUpdated = 0;
       
-      for (const district of districts) {
+      // JPS must be fetched from the Node runtime (see sync/jpsFetch.ts), and in
+      // parallel: at 15-30s per request a serial loop risks the action limit.
+      const responses = await Promise.allSettled(
+        districts.map((district) =>
+          district.jpsDistrictsId
+            ? ctx.runAction(internal.sync.jpsFetch.fetchJson, {
+                path: `/CCTVS/GetCCTVsByDistrict/${district.jpsDistrictsId}`,
+              })
+            : Promise.resolve(null)
+        )
+      );
+
+      for (const [index, district] of districts.entries()) {
         try {
           // Skip districts without jpsDistrictsId
           if (!district.jpsDistrictsId) {
@@ -25,28 +35,17 @@ export const updateCameras = internalAction({
             continue;
           }
           
-          let response;
-          let camerasJPS = [];
-          
-          const endpoint = `${BASE_URL}/CCTVS/GetCCTVsByDistrict/${district.jpsDistrictsId}`;
-          
-          try {
-            console.log(`📹 Fetching cameras from: ${endpoint}`);
-            response = await fetch(endpoint);
-            if (response.ok) {
-              camerasJPS = await response.json();
-              console.log(`✅ Found ${camerasJPS.length || 0} cameras for district ${district.name}`);
-            } else {
-              console.warn(`❌ Camera API returned ${response.status} for district ${district.name}`);
-            }
-          } catch (error) {
-            console.warn(`❌ Failed to fetch cameras for district ${district.name}:`, error);
+          const response = responses[index];
+          if (response.status === 'rejected') {
+            console.warn(`❌ Failed to fetch cameras for district ${district.name}:`, response.reason);
           }
+          const camerasJPS = response.status === 'fulfilled' ? response.value : null;
           
-          if (!response || !response.ok || !camerasJPS || !Array.isArray(camerasJPS)) {
+          if (!camerasJPS || !Array.isArray(camerasJPS)) {
             console.warn(`No camera data found for district ${district.name}`);
             continue;
           }
+          console.log(`✅ Found ${camerasJPS.length} cameras for district ${district.name}`);
         
           for (const cameraJPS of camerasJPS) {
             await ctx.runMutation(internal.sync.cameraUpdater.upsertCamera, {
