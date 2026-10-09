@@ -31,6 +31,10 @@ jobs:
       - run: npm ci
       - name: Type check & Build
         run: npm run build
+      # workers/ is outside the root tsconfig (it needs the workerd runtime types),
+      # so `npm run build` does not cover it.
+      - name: Type check workers
+        run: npm run typecheck:workers
 
   test:
     name: Test

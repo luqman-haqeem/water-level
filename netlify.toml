@@ -1,11 +1,10 @@
 [build]
   command = "npm run build"
-  functions = "netlify/functions"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
-  # VITE_CONVEX_URL must be set via Netlify dashboard environment variables (not committed to source control)
+  # VITE_SNAPSHOT_BASE_URL and VITE_SITE_URL are set in the Netlify dashboard.
 
 # Headers for better caching
 [[headers]]
@@ -27,16 +26,25 @@
 #                         react-onesignal, and public/OneSignalSDKWorker.js
 #                         importScripts() the service-worker build from here.
 #   *.onesignal.com     - SDK API calls and notification icons.
-#   *.convex.cloud      - queries over HTTPS plus the reactive WebSocket (wss).
+#   *.r2.dev            - the snapshot read path. ALL public data now comes from
+#                         here: stations/cameras/trends/meta JSON via fetch
+#                         (connect-src) and mirrored CCTV frames via <img>
+#                         (img-src). This must track VITE_SNAPSHOT_BASE_URL —
+#                         when a custom domain is attached to the bucket, add it
+#                         here in the same commit or the app loses all data.
 #   *.i.posthog.com     - analytics ingest; posthog-js also lazy-loads some
 #                         bundles (e.g. the session recorder) from its host.
 #   'unsafe-inline' in style-src - required by Tailwind/Radix inline styles.
+# *.convex.cloud is deliberately absent: the browser no longer opens a Convex
+# connection at all (src/lib/convexClient.ts and ConvexProvider were removed
+# with the snapshot read path). Convex is now reachable only from the sync
+# pipeline, server-side.
 # Google Fonts is deliberately absent: nothing in the app loads it (the stale
 # runtimeCaching rule for it in vite.config.ts is vestigial).
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://cdn.onesignal.com https://*.i.posthog.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.onesignal.com; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.onesignal.com https://*.i.posthog.com; worker-src 'self'; manifest-src 'self'; frame-src https://*.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://cdn.onesignal.com https://*.i.posthog.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.onesignal.com https://*.r2.dev; connect-src 'self' https://*.r2.dev https://*.onesignal.com https://*.i.posthog.com; worker-src 'self'; manifest-src 'self'; frame-src https://*.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
     # Enforced now (no compatibility risk):
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
     # Clickjacking protection. Enforced via XFO because `frame-ancestors` is
@@ -49,11 +57,9 @@
     # stations by distance.
     Permissions-Policy = "geolocation=(self), camera=(), microphone=(), payment=(), usb=()"
 
-# Proxy image API route to Netlify function
-[[redirects]]
-  from = "/api/proxy-image/*"
-  to = "/.netlify/functions/proxy-image/:splat"
-  status = 200
+# The /api/proxy-image/* redirect and its Netlify function were removed with the
+# snapshot read path: camera frames are mirrored to R2 and served directly from
+# the snapshot host, so nothing needs to proxy JPS at request time.
 
 # SPA fallback - must be last
 [[redirects]]
