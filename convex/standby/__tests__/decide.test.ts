@@ -47,6 +47,16 @@ describe("decideStandby", () => {
         expect(decideStandby(meta(fresh, "upstream_error"), NOW).publish).toBe(false);
     });
 
+    it("keeps publishing after its own write instead of mistaking it for the Worker's", () => {
+        const fresh = new Date(NOW - 15 * 60_000).toISOString();
+        const ownWrite = JSON.stringify({ ...JSON.parse(meta(fresh)), publisher: "standby" });
+        expect(decideStandby(ownWrite, NOW)).toEqual({
+            publish: true,
+            reason: "standby-active",
+            ageMs: 15 * 60_000,
+        });
+    });
+
     it("does not read a future timestamp as ancient", () => {
         const ahead = new Date(NOW + 5 * 60_000).toISOString();
         expect(decideStandby(meta(ahead), NOW).publish).toBe(false);

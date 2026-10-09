@@ -174,6 +174,7 @@ export async function runStandbyPublish(
                 summary.map((d) => ({ districtId: d.districtId, allLastUpdated: d.allLastUpdated }))
             ) ?? null,
         status: "ok",
+        publisher: "standby",
     };
     const metaFile = buildMetaFile(meta);
     await r2.putObject(metaFile.key, metaFile.body, JSON_PUT);

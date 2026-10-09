@@ -3,6 +3,7 @@ import type { SnapshotMeta } from "../sync/snapshotBuilder";
 
 export type StandbyReason =
     | "worker-healthy"
+    | "standby-active"
     | "snapshot-stale"
     | "meta-missing"
     | "meta-unreadable";
@@ -26,6 +27,11 @@ export interface StandbyDecision {
  * would fare no better against the same upstream — whereas a Worker that never ran at
  * all leaves `attemptedAt` frozen, which is exactly the case worth taking over.
  *
+ * Once the standby has published, `attemptedAt` is its own timestamp and says nothing
+ * about the Worker. Judging it by age would make the standby silence itself for 45
+ * minutes after every publish, so a standby-written meta.json always publishes again:
+ * the standby keeps the 15-minute cadence until a primary write replaces the file.
+ *
  * Unreadable and missing metadata both publish. On a bucket this app depends on
  * entirely, "I cannot tell whether anyone is publishing" is not a safe reason to sit
  * out; a redundant publish costs 88 KB, while a wrongly skipped one costs the outage.
@@ -44,6 +50,7 @@ export function decideStandby(metaRaw: string | null, now: number): StandbyDecis
     if (!Number.isFinite(attemptedAt)) return { publish: true, reason: "meta-unreadable" };
 
     const ageMs = now - attemptedAt;
+    if (meta.publisher === "standby") return { publish: true, reason: "standby-active", ageMs };
     // A clock skew that puts the snapshot in the future must not read as "ancient".
     if (ageMs < STALENESS_THRESHOLD_MS) return { publish: false, reason: "worker-healthy", ageMs };
     return { publish: true, reason: "snapshot-stale", ageMs };

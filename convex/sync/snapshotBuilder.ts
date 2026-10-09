@@ -45,6 +45,12 @@ export interface SnapshotMeta {
     status: SyncStatus;
     failingSince?: string;
     error?: string;
+    /**
+     * Set only by the Convex standby. The Worker and the Convex pipeline build meta.json
+     * from scratch, so their next write drops it — its presence means no primary has
+     * published since the standby took over.
+     */
+    publisher?: "standby";
 }
 
 export interface SnapshotEnvelope<T> {

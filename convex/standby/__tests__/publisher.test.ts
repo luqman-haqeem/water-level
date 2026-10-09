@@ -113,6 +113,22 @@ describe("runStandbyPublish", () => {
         ]);
     });
 
+    it("marks its meta.json as standby-written and publishes again on the next cycle", async () => {
+        stubJps();
+        const { client, puts } = fakeR2({ [SNAPSHOT_KEYS.meta]: STALE_META });
+
+        await runStandbyPublish(client, { now: () => NOW, baseUrl: BASE, retry: RETRY });
+        const written = JSON.parse(puts[puts.length - 1].body);
+        expect(written.publisher).toBe("standby");
+
+        const next = await runStandbyPublish(client, {
+            now: () => NOW + 15 * 60_000,
+            baseUrl: BASE,
+            retry: RETRY,
+        });
+        expect(next).toMatchObject({ published: true, reason: "standby-active" });
+    });
+
     it("never republishes cameras.json, the file that made Convex expensive", async () => {
         stubJps();
         const { client, puts } = fakeR2({ [SNAPSHOT_KEYS.meta]: STALE_META });
