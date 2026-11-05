@@ -102,6 +102,21 @@ export async function requestLocationPermission(): Promise<PermissionState> {
 }
 
 /**
+ * Read the geolocation permission state without ever showing a prompt.
+ * Returns 'prompt' when the Permissions API is unavailable.
+ */
+export async function getLocationPermissionState(): Promise<PermissionState> {
+    if (!('permissions' in navigator)) return 'prompt';
+
+    try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        return permission.state;
+    } catch {
+        return 'prompt';
+    }
+}
+
+/**
  * Format distance for display
  */
 export function formatDistance(distance: number): string {
