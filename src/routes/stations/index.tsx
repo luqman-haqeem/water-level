@@ -11,7 +11,7 @@ import { useFilter, FilterOptions } from "@/lib/FilterContext";
 import AdvancedFilter from "@/components/AdvancedFilter";
 import StatusSummary from "@/components/StatusSummary";
 import { useLocation } from "@/hooks/useLocation";
-import { calculateDistance } from "@/utils/locationUtils";
+import { calculateDistance, getLocationPermissionState } from "@/utils/locationUtils";
 import { isStale } from "@/utils/timeUtils";
 import { getSubscribedStationIds } from "@/services/notificationService";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -258,11 +258,15 @@ export function StationsRoute() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Request location unconditionally on mount
+    // Only fetch location on mount when the browser has already decided.
+    // Prompting on load meant dismissing the prompt (seconds later) rendered
+    // the "Location blocked" explanation, which became the page's LCP element.
+    // Undecided visitors use the "Allow Location" button instead.
     useEffect(() => {
-        if (!location.coordinates && !location.isLoading) {
-            location.requestLocation();
-        }
+        if (location.coordinates || location.isLoading) return;
+        getLocationPermissionState().then((state) => {
+            if (state !== "prompt") location.requestLocation();
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
