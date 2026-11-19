@@ -14,11 +14,4 @@ describe('DataProvenanceFooter', () => {
     it('says the data is unofficial', () => {
         render(<DataProvenanceFooter />)
         expect(screen.getByText(/Unofficial — not a JPS warning service/)).toBeInTheDocument()
-    })
-
-    it('offers both flood operations room numbers as tap-to-call links', () => {
-        render(<DataProvenanceFooter />)
-        expect(screen.getByRole('link', { name: '03-5544 7378' })).toHaveAttribute('href', 'tel:+60355447378')
-        expect(screen.getByRole('link', { name: '03-5544 7010' })).toHaveAttribute('href', 'tel:+60355447010')
-    })
-})
+    })})

@@ -352,10 +352,6 @@ export function StationDetailRoute() {
                                     : "Station Offline"}
                             </span>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            Unofficial reading — verify with JPS Selangor before acting.
-                            Contact details below.
-                        </p>
                     </div>
 
                     {/* 2. Gauge — rendered directly */}

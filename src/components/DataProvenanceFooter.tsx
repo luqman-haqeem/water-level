@@ -1,4 +1,4 @@
-import { JPS_FLOOD_OPS_PHONES, JPS_SELANGOR_PORTAL_URL } from "@/lib/jpsSource"
+import { JPS_SELANGOR_PORTAL_URL } from "@/lib/jpsSource"
 
 /**
  * Ft2 · inline-rule single line.
@@ -8,8 +8,7 @@ import { JPS_FLOOD_OPS_PHONES, JPS_SELANGOR_PORTAL_URL } from "@/lib/jpsSource"
  * page, not footer decoration. Everything stated here is verifiable from the
  * sync setup: JPS Selangor upstream, 15-minute cron, 45-minute staleness cut.
  *
- * "Verify with JPS" is only actionable with a way to reach them, so the footer
- * links the official portal and the flood operations room numbers.
+ * The attribution links the official portal so "verify with JPS" is actionable.
  */
 export default function DataProvenanceFooter() {
     return (
@@ -43,18 +42,6 @@ export default function DataProvenanceFooter() {
                 Unofficial — not a JPS warning service. Verify with JPS and follow your
                 local authority for evacuation guidance.
             </p>
-            <div className="text-body-small text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3">
-                <span>JPS Selangor flood operations room:</span>
-                {JPS_FLOOD_OPS_PHONES.map((phone) => (
-                    <a
-                        key={phone.tel}
-                        href={`tel:${phone.tel}`}
-                        className="inline-flex min-h-touch items-center font-medium text-foreground underline underline-offset-2"
-                    >
-                        {phone.display}
-                    </a>
-                ))}
-            </div>
         </footer>
     )
 }
