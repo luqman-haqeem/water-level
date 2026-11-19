@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Expand, BellOff } from "lucide-react";
 import { BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
 import useSwipeGestures from "@/hooks/useSwipeGestures";
 import AlertLevelBadge from "@/components/AlertLevelBadge";
+import DataProvenanceFooter from "@/components/DataProvenanceFooter";
 import WaterLevelGauge from "@/components/WaterLevelGauge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
@@ -351,6 +352,10 @@ export function StationDetailRoute() {
                                     : "Station Offline"}
                             </span>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            Unofficial reading — verify with JPS Selangor before acting.
+                            Contact details below.
+                        </p>
                     </div>
 
                     {/* 2. Gauge — rendered directly */}
@@ -471,6 +476,8 @@ export function StationDetailRoute() {
                             )}
                         </CardContent>
                     </Card>
+
+                    <DataProvenanceFooter />
                 </div>
 
                 {/* Mobile Navigation Footer - only shown when station list is available */}

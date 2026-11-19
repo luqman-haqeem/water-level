@@ -1,3 +1,5 @@
+import { JPS_FLOOD_OPS_PHONES, JPS_SELANGOR_PORTAL_URL } from "@/lib/jpsSource"
+
 /**
  * Ft2 · inline-rule single line.
  *
@@ -5,12 +7,25 @@
  * that is load-bearing information for someone deciding whether to trust the
  * page, not footer decoration. Everything stated here is verifiable from the
  * sync setup: JPS Selangor upstream, 15-minute cron, 45-minute staleness cut.
+ *
+ * "Verify with JPS" is only actionable with a way to reach them, so the footer
+ * links the official portal and the flood operations room numbers.
  */
 export default function DataProvenanceFooter() {
     return (
         <footer className="rule-t mt-10 pt-4">
             <p className="text-body-small text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>Readings from JPS Selangor</span>
+                <span>
+                    Readings from{" "}
+                    <a
+                        href={JPS_SELANGOR_PORTAL_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 hover:text-foreground"
+                    >
+                        JPS Selangor
+                    </a>
+                </span>
                 <span aria-hidden="true" className="text-rule">
                     /
                 </span>
@@ -25,9 +40,21 @@ export default function DataProvenanceFooter() {
                 </span>
             </p>
             <p className="text-body-small text-muted-foreground mt-2 max-w-[64ch]">
-                Not an official warning service. Follow JPS and your local authority for
-                evacuation guidance.
+                Unofficial — not a JPS warning service. Verify with JPS and follow your
+                local authority for evacuation guidance.
             </p>
+            <div className="text-body-small text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3">
+                <span>JPS Selangor flood operations room:</span>
+                {JPS_FLOOD_OPS_PHONES.map((phone) => (
+                    <a
+                        key={phone.tel}
+                        href={`tel:${phone.tel}`}
+                        className="inline-flex min-h-touch items-center font-medium text-foreground underline underline-offset-2"
+                    >
+                        {phone.display}
+                    </a>
+                ))}
+            </div>
         </footer>
     )
 }
