@@ -101,9 +101,9 @@ class WaterLevelScraper {
                 alertLevel: station.wlth_alert || 0,
                 warningLevel: station.wlth_warning || 0,
                 dangerLevel: station.wlth_danger || 0,
-                waterlevelStatus: station.waterlevelStatus || -1,
+                waterlevelStatus: station.waterlevelStatus ?? -1, // 0 = Normal; keep it (#100)
                 stationStatus: station.stationStatus || 0,
-                lastUpdate: station.lastUpdate || new Date().toISOString(),
+                lastUpdate: station.lastUpdate || '', // unknown age must read as stale (#100)
                 latitude: parseFloat(station.latitude) || 0,
                 longitude: parseFloat(station.longitude) || 0,
                 batteryLevel: station.batteryLevel,

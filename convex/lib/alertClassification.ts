@@ -127,3 +127,12 @@ export function applyStalenessGate(
 
     return now - readingAt > STALENESS_THRESHOLD_MS ? ALERT_UNKNOWN : alertLevel;
 }
+
+/**
+ * Normalises the raw JPS `waterlevelStatus` for classification. Only an absent
+ * status falls back to -1 ("derive from thresholds"); an explicit 0 is JPS
+ * saying Normal and is kept. `|| -1` used to discard it (#100).
+ */
+export function normalizeJpsStatus(raw: number | null | undefined): number {
+    return raw ?? -1;
+}
