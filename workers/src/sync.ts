@@ -4,7 +4,14 @@ import { buildStations } from "./stationMapper";
 import { publishMeta, publishSnapshot } from "./publish";
 import { readSyncState, recordSyncState } from "./syncState";
 import { appendTrends, readTrends } from "./trends";
-import { fetchCoordinates, mergeCoordinates, readPublishedCoordinates } from "./coordinates";
+import { coordinatesFromStations, fetchCoordinates, mergeCoordinates, readPublishedStations } from "./coordinates";
+import {
+    mergeStations,
+    nextDistrictStamps,
+    planDistricts,
+    reusedStations,
+    shouldFetchCoordinates,
+} from "./districtPlan";
 import { readCameras } from "./cameraSync";
 import { indexCamerasByStation } from "./stationCameras";
 import { notifyDangerStations } from "./notify";
@@ -88,23 +95,33 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         };
     }
 
-    // 3. District data and coordinates, concurrently. Coordinates live on a different
-    // endpoint than the readings, and it fails independently, so it must not be able to
-    // take the run down — hence `allSettled` semantics via the catch below.
-    const [districts, coordinates] = await Promise.all([
-        fetchAllDistricts(env.JPS_BASE_URL, summary, retry),
-        fetchCoordinates(env.JPS_BASE_URL, retry).catch((error) => {
-            console.warn(`Station index fetch failed, reusing published coordinates: ${error}`);
-            return null;
-        }),
-    ]);
-    const failedDistricts = districts.filter((d) => d.error).length;
+    // 3. Only the upstream calls this run needs (districtPlan.ts): districts JPS has
+    // not updated reuse what was published for them, and the coordinate index is
+    // fetched at most daily. Per-call overhead, not parsing, is what CPU is spent on.
+    // stations.json is read once and serves both the reuse and the coordinate fallback.
+    const published = await readPublishedStations(env.SNAPSHOT);
+    const plan = planDistricts(summary, previous, published, now());
+    const wantCoordinates = shouldFetchCoordinates(previous, published, now());
 
-    // Every district failed: JPS answered the summary but served nothing else. That is
-    // an upstream outage, not a successful sync of zero stations — publishing an empty
-    // stations.json here would blank the app.
-    if (summary.length > 0 && failedDistricts === summary.length) {
-        const message = `All ${summary.length} district fetches failed`;
+    // The coordinate index fails independently of the readings, so it must not be able
+    // to take the run down — hence `allSettled` semantics via the catch below.
+    const [districts, coordinates] = await Promise.all([
+        fetchAllDistricts(env.JPS_BASE_URL, plan.fetch, retry),
+        wantCoordinates
+            ? fetchCoordinates(env.JPS_BASE_URL, retry).catch((error) => {
+                  console.warn(`Station index fetch failed, reusing published coordinates: ${error}`);
+                  return null;
+              })
+            : Promise.resolve(null),
+    ]);
+    const failed = districts.filter((d) => d.error);
+    const failedDistricts = failed.length;
+
+    // Every district we tried failed: JPS answered the summary but served nothing else.
+    // That is an upstream outage, not a successful sync — publishing here would at best
+    // repeat the last snapshot and at worst (nothing to reuse) blank the app.
+    if (plan.fetch.length > 0 && failedDistricts === plan.fetch.length) {
+        const message = `All ${plan.fetch.length} district fetches failed`;
         console.error(message);
         const state = await recordSyncState(env.SYNC_STATE, previous, {
             attemptedAt, status: "upstream_error", error: message,
@@ -122,17 +139,14 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         );
     }
 
-    // Read the previous coordinates before overwriting stations.json, so a failed index
-    // fetch carries the last known pins forward instead of blanking the map.
-    const previousCoordinates = await readPublishedCoordinates(env.SNAPSHOT);
     // Read-only: cameras.json belongs to the mirror. Stations carry a copy of the camera
     // that watches them, which is what drives the card badge, the "has a camera" filter
     // and the detail page's camera view.
     const stationCameras = indexCamerasByStation(await readCameras(env.SNAPSHOT));
-    const stations = buildStations(
-        districts,
-        mergeCoordinates(previousCoordinates, coordinates ?? {}),
-        stationCameras
+    const mergedCoordinates = mergeCoordinates(coordinatesFromStations(published), coordinates ?? {});
+    const stations = mergeStations(
+        buildStations(districts, mergedCoordinates, stationCameras),
+        reusedStations(published ?? [], plan.reuse, mergedCoordinates, stationCameras)
     );
     const previousTrends = await readTrends(env.SNAPSHOT);
     const trends = appendTrends(previousTrends, stations, now());
@@ -145,6 +159,9 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         fingerprint: fingerprintToRecord(fingerprint, failedDistricts),
         jpsLastUpdate,
         syncedAt: attemptedAt,
+        districtStamps: nextDistrictStamps(plan, previous, new Set(failed.map((d) => d.districtId))),
+        lastFullFetchAt: plan.full && failedDistricts === 0 ? attemptedAt : undefined,
+        coordinatesFetchedAt: coordinates ? attemptedAt : undefined,
     });
     await publishQuietly(() =>
         publishSnapshot(env.SNAPSHOT, {
