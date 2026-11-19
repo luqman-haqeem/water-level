@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -119,16 +119,18 @@ export default function AdvancedFilter({
                 case 'name':
                     comparison = a.station_name.localeCompare(b.station_name)
                     break
-                case 'waterLevel':
+                case 'waterLevel': {
                     const aLevel = a.current_levels?.current_level || 0
                     const bLevel = b.current_levels?.current_level || 0
                     comparison = aLevel - bLevel
                     break
-                case 'lastUpdated':
+                }
+                case 'lastUpdated': {
                     const aTime = new Date(a.current_levels?.updated_at || 0).getTime()
                     const bTime = new Date(b.current_levels?.updated_at || 0).getTime()
                     comparison = bTime - aTime // Most recent first by default
                     break
+                }
                 case 'district':
                     comparison = a.districts.name.localeCompare(b.districts.name)
                     break

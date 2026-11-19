@@ -21,6 +21,8 @@ import MicroTrendChart from './MicroTrendChart'
 import { useStationSubscription } from '@/hooks/useStationSubscription'
 import { useToast } from '@/hooks/use-toast'
 import NotificationPermissionDialog from '@/components/NotificationPermissionDialog'
+import IosInstallDialog from '@/components/IosInstallDialog'
+import { getPushSupport } from '@/utils/pushSupport'
 
 interface Station {
     id: Id<"stations"> | number
@@ -64,10 +66,11 @@ export default function StationCard({
     showGauge = false,
     distance
 }: StationCardProps) {
-    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
+    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name, station.districts?.name);
     const { toast } = useToast();
     const [animKey, setAnimKey] = useState(0);
     const [showPermDialog, setShowPermDialog] = useState(false);
+    const [showIosDialog, setShowIosDialog] = useState(false);
 
     const stale = isStale(station.current_levels?.updated_at);
 
@@ -112,10 +115,15 @@ export default function StationCard({
                     description: "You'll receive alerts when this station reaches danger level",
                 });
             }
-        } else {
+        } else if (result.reason === "denied") {
             toast({
                 title: "Notifications blocked",
                 description: "Notifications blocked \u2014 enable in browser settings",
+            });
+        } else {
+            toast({
+                title: "Alerts not turned on",
+                description: "We couldn't set up notifications on this device. Please try again.",
             });
         }
     };
@@ -133,6 +141,18 @@ export default function StationCard({
                 description: "You'll no longer receive alerts for this station",
             });
         } else {
+            const support = getPushSupport();
+            if (support === "ios-install-required") {
+                setShowIosDialog(true);
+                return;
+            }
+            if (support === "unsupported") {
+                toast({
+                    title: "Alerts not available",
+                    description: "This browser can't receive push notifications.",
+                });
+                return;
+            }
             // Read permission at click time for accurate functional check
             const permissionState = typeof Notification !== 'undefined' ? Notification.permission : 'default';
             if (permissionState === 'denied') {
@@ -283,6 +303,11 @@ export default function StationCard({
                 </CardContent>
             </Card>
 
+            <IosInstallDialog
+                open={showIosDialog}
+                onOpenChange={setShowIosDialog}
+                stationId={station.id.toString()}
+            />
             <NotificationPermissionDialog
                 open={showPermDialog}
                 onOpenChange={setShowPermDialog}

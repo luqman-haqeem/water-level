@@ -55,7 +55,7 @@ export const useSwipeGestures = ({
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
       e.preventDefault()
     }
-  }, [])
+  }, [threshold])
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!touchState.current.isDragging) return

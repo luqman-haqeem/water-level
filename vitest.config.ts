@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defaultExclude, defineConfig } from "vitest/config";
 import path from "path";
 
 // Two projects: the existing app/Convex suite in jsdom, and the Worker suite which
@@ -19,6 +19,8 @@ export default defineConfig({
                         "convex/**/*.{test,spec}.{ts,tsx}",
                         "netlify/**/*.{test,spec}.{ts,tsx}",
                     ],
+                    // Keep vitest's defaults and skip nested git worktrees under .claude/.
+                    exclude: [...defaultExclude, "**/.claude/**"],
                 },
                 resolve: {
                     alias: { "@": path.resolve(__dirname, "./src") },

@@ -13,5 +13,7 @@ import { fetchJpsJson } from "../lib/jpsClient";
  */
 export const fetchJson = internalAction({
     args: { path: v.string() },
+    // Untyped JPS JSON boundary: each caller asserts its own response shape.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: async (_ctx, { path }): Promise<any> => fetchJpsJson(path),
 });

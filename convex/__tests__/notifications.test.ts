@@ -104,11 +104,11 @@ describe("buildNotificationPayload", () => {
         expect(payload.contents.en).not.toContain("as of");
     });
 
-    it("URL field uses station ID in path", () => {
-        const payload = buildNotificationPayload(defaultArgs);
+    it("URL field uses station ID in path, with alert attribution params", () => {
+        const payload = buildNotificationPayload({ ...defaultArgs, sentAt: 1700000000000 });
 
         expect(payload.url).toBe(
-            "https://example.com/stations/k573f8xyz123"
+            "https://example.com/stations/k573f8xyz123?src=alert&level=3&sent=1700000000000"
         );
     });
 
@@ -116,9 +116,10 @@ describe("buildNotificationPayload", () => {
         const payload = buildNotificationPayload({
             ...defaultArgs,
             siteUrl: "",
+            sentAt: 1700000000000,
         });
 
-        expect(payload.url).toBe("/stations/k573f8xyz123");
+        expect(payload.url).toBe("/stations/k573f8xyz123?src=alert&level=3&sent=1700000000000");
     });
 
     it("sets app_id correctly", () => {

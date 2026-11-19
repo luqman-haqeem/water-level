@@ -32,7 +32,7 @@ interface MiniTrendChartProps {
 
 export default function MiniTrendChart({
     stationId,
-    currentLevel,
+    currentLevel: _currentLevel,
     thresholds,
     height = 80,
     className
@@ -49,7 +49,7 @@ export default function MiniTrendChart({
             return null
         }
 
-        const points: TrendDataPoint[] = trendData.map((point: any) => ({
+        const points: TrendDataPoint[] = trendData.map((point) => ({
             timestamp: point.timestamp,
             currentLevel: point.currentLevel,
             alertLevel: point.alertLevel,

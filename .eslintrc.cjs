@@ -43,6 +43,14 @@ module.exports = {
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
   },
+  overrides: [
+    {
+      // Server-side sync/notification logs are the only observability Convex
+      // gives us (dashboard logs), so console output is intentional here.
+      files: ["convex/**"],
+      rules: { "no-console": "off" },
+    },
+  ],
   ignorePatterns: [
     "dist/",
     "node_modules/",

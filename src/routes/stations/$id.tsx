@@ -23,6 +23,9 @@ import NotificationPermissionDialog from "@/components/NotificationPermissionDia
 import { cameraFrameUrl, NO_FRAME_IMAGE } from "@/lib/cameraImageUrl";
 import { snapshotBaseUrl } from "@/lib/snapshotEnv";
 import { formatThreshold } from "@/lib/thresholds";
+import IosInstallDialog from "@/components/IosInstallDialog";
+import { getPushSupport } from "@/utils/pushSupport";
+import { track, trackAlertOpenFromUrl } from "@/lib/analytics";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -73,6 +76,7 @@ export function StationDetailRoute() {
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("");
     const [showPermDialog, setShowPermDialog] = useState(false);
+    const [showIosDialog, setShowIosDialog] = useState(false);
     const [showDetailHint, setShowDetailHint] = useState(
         () => localStorage.getItem("hint-detail-dismissed") !== "true"
     );
@@ -99,8 +103,14 @@ export function StationDetailRoute() {
 
     const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(
         stationId || "",
-        currentStation?.station_name || "Unknown Station"
+        currentStation?.station_name || "Unknown Station",
+        currentStation?.districts?.name
     );
+
+    // Attribute opens that came from a push notification (#75)
+    useEffect(() => {
+        if (stationId) trackAlertOpenFromUrl(stationId);
+    }, [stationId]);
     const { toast } = useToast();
 
     const stale = currentStation ? isStale(currentStation.current_levels?.updated_at) : false;
@@ -122,10 +132,15 @@ export function StationDetailRoute() {
                     description: "You'll receive alerts when this station reaches danger level",
                 });
             }
-        } else {
+        } else if (result.reason === "denied") {
             toast({
                 title: "Notifications blocked",
                 description: "Notifications blocked \u2014 enable in browser settings",
+            });
+        } else {
+            toast({
+                title: "Alerts not turned on",
+                description: "We couldn't set up notifications on this device. Please try again.",
             });
         }
     };
@@ -140,6 +155,18 @@ export function StationDetailRoute() {
                 description: "You'll no longer receive alerts for this station",
             });
         } else {
+            const support = getPushSupport();
+            if (support === "ios-install-required") {
+                setShowIosDialog(true);
+                return;
+            }
+            if (support === "unsupported") {
+                toast({
+                    title: "Alerts not available",
+                    description: "This browser can't receive push notifications.",
+                });
+                return;
+            }
             // Read permission at click time for accurate functional check
             const permissionState = typeof Notification !== 'undefined' ? Notification.permission : 'default';
             if (permissionState === 'denied') {
@@ -184,6 +211,11 @@ export function StationDetailRoute() {
     };
 
     const openFullscreen = (src: string) => {
+        track("camera_opened", {
+            stationId,
+            cameraId: currentStation?.cameras?.jps_camera_id,
+            source: "station",
+        });
         setFullscreenImageSrc(src);
         setIsFullscreenOpen(true);
     };
@@ -557,6 +589,11 @@ export function StationDetailRoute() {
                 showControls={false}
             />
 
+            <IosInstallDialog
+                open={showIosDialog}
+                onOpenChange={setShowIosDialog}
+                stationId={stationId}
+            />
             <NotificationPermissionDialog
                 open={showPermDialog}
                 onOpenChange={setShowPermDialog}

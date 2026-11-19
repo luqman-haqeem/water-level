@@ -1,11 +1,16 @@
 import OneSignal from "react-onesignal";
+import { track } from "@/lib/analytics";
 
 const STORAGE_KEY = "subscribed_stations";
 
 export interface SubscribedStation {
     id: string;
     name: string;
+    /** Epoch ms when watched on this device. Absent for older entries. */
+    subscribedAt?: number;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Get the list of subscribed stations from localStorage.
@@ -59,42 +64,77 @@ export function saveSubscribedStations(stations: SubscribedStation[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stations));
 }
 
+export type SubscribeFailureReason = "denied" | "not-subscribed" | "unavailable";
+
+export interface SubscribeResult {
+    permissionGranted: boolean;
+    /** Set when `permissionGranted` is false. */
+    reason?: SubscribeFailureReason;
+}
+
+function removeStoredStation(stationId: string): void {
+    saveSubscribedStations(
+        getSubscribedStations().filter((s) => s.id !== stationId)
+    );
+}
+
 /**
  * Subscribe to notifications for a specific station.
  * Updates localStorage immediately (optimistic) and calls OneSignal to add the tag.
  * On first subscribe, also opts in to push notifications if not already opted in.
  *
+ * Success is only reported once a push subscription actually exists. Any
+ * failure rolls localStorage back, so "My Stations" never lists a station
+ * that cannot alert this device.
+ *
  * @param stationId - The station's Convex document ID
  * @param stationName - Human-readable station name for display in the subscription dialog
- * @returns Object indicating whether push notification permission was granted
+ * @param district - District name, recorded on the `station_watched` event
  */
 export async function subscribeToStation(
     stationId: string,
-    stationName: string = "Unknown Station"
-): Promise<{ permissionGranted: boolean }> {
+    stationName: string = "Unknown Station",
+    district?: string
+): Promise<SubscribeResult> {
     // Update localStorage first (optimistic)
     const stations = getSubscribedStations();
-    if (!stations.some((s) => s.id === stationId)) {
-        stations.push({ id: stationId, name: stationName });
+    const alreadyStored = stations.some((s) => s.id === stationId);
+    if (!alreadyStored) {
+        stations.push({ id: stationId, name: stationName, subscribedAt: Date.now() });
         saveSubscribedStations(stations);
     }
+    const fail = (reason: SubscribeFailureReason): SubscribeResult => {
+        if (!alreadyStored) removeStoredStation(stationId);
+        return { permissionGranted: false, reason };
+    };
 
-    // Try to sync with OneSignal
+    const permissionBefore =
+        typeof Notification !== "undefined" ? Notification.permission : undefined;
+    const prompted = permissionBefore === "default";
+
     try {
         // Opt in to push if not already opted in
         if (!OneSignal.User.PushSubscription.optedIn) {
+            if (prompted) track("permission_requested", { stationId });
             await OneSignal.User.PushSubscription.optIn();
         }
 
-        // Check if permission was denied after the opt-in attempt
-        if (Notification.permission === "denied") {
-            // Rollback localStorage
-            const rollback = getSubscribedStations().filter((s) => s.id !== stationId);
-            saveSubscribedStations(rollback);
-            return { permissionGranted: false };
+        if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+            if (prompted) track("permission_denied", { stationId, dismissed: false });
+            return fail("denied");
         }
 
+        // Prompt dismissed, or OneSignal could not register the device.
+        if (!OneSignal.User.PushSubscription.optedIn) {
+            if (prompted && Notification.permission === "default") {
+                track("permission_denied", { stationId, dismissed: true });
+            }
+            return fail("not-subscribed");
+        }
+        if (prompted) track("permission_granted", { stationId });
+
         await OneSignal.User.addTag(`station_${stationId}`, "true");
+        if (!alreadyStored) track("station_watched", { stationId, district });
         return { permissionGranted: true };
     } catch (error) {
         // OneSignal not initialized or unavailable
@@ -102,7 +142,7 @@ export async function subscribeToStation(
             "[notificationService] OneSignal operation failed:",
             error
         );
-        return { permissionGranted: false };
+        return fail("unavailable");
     }
 }
 
@@ -113,8 +153,19 @@ export async function subscribeToStation(
 export async function unsubscribeFromStation(stationId: string): Promise<void> {
     // Update localStorage first (optimistic)
     const stations = getSubscribedStations();
+    const entry = stations.find((s) => s.id === stationId);
     const filtered = stations.filter((s) => s.id !== stationId);
     saveSubscribedStations(filtered);
+
+    if (entry) {
+        track("station_unwatched", {
+            stationId,
+            daysWatched:
+                entry.subscribedAt !== undefined
+                    ? Math.floor((Date.now() - entry.subscribedAt) / DAY_MS)
+                    : null,
+        });
+    }
 
     // Try to sync with OneSignal
     try {

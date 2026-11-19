@@ -42,6 +42,19 @@ vi.mock("@/components/NotificationPermissionDialog", () => ({
     default: () => null,
 }));
 
+// Mock IosInstallDialog so tests can see when it is opened
+vi.mock("@/components/IosInstallDialog", () => ({
+    default: ({ open }: { open: boolean }) =>
+        open ? <div data-testid="ios-install-dialog" /> : null,
+}));
+
+// jsdom has no push support; tests choose the platform explicitly
+let mockPushSupport: "supported" | "ios-install-required" | "unsupported" = "supported";
+vi.mock("@/utils/pushSupport", () => ({
+    getPushSupport: () => mockPushSupport,
+    canReceivePush: () => mockPushSupport === "supported",
+}));
+
 // Mock haptics
 vi.mock("@/utils/haptics", () => ({
     haptics: { select: vi.fn() },
@@ -74,6 +87,7 @@ describe("StationCard - Bell Icon", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockIsSubscribed = false;
+        mockPushSupport = "supported";
     });
 
     it("renders a bell icon button", () => {
@@ -142,6 +156,40 @@ describe("StationCard - Bell Icon", () => {
         fireEvent.click(bellButton);
 
         expect(mockSubscribe).toHaveBeenCalled();
+    });
+
+    it("shows Add-to-Home-Screen instructions instead of subscribing in an iOS browser tab", () => {
+        mockPushSupport = "ios-install-required";
+
+        render(
+            <StationCard
+                station={mockStation}
+                isSelected={false}
+                onSelect={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /notification/i }));
+
+        expect(screen.getByTestId("ios-install-dialog")).toBeInTheDocument();
+        expect(mockSubscribe).not.toHaveBeenCalled();
+    });
+
+    it("does not subscribe when the browser has no push support", () => {
+        mockPushSupport = "unsupported";
+
+        render(
+            <StationCard
+                station={mockStation}
+                isSelected={false}
+                onSelect={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /notification/i }));
+
+        expect(mockSubscribe).not.toHaveBeenCalled();
+        expect(screen.queryByTestId("ios-install-dialog")).not.toBeInTheDocument();
     });
 
     it("clicking bell calls unsubscribe when subscribed", () => {
