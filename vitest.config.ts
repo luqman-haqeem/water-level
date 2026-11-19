@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defaultExclude, defineConfig } from "vitest/config";
 import path from "path";
 
 export default defineConfig({
@@ -6,6 +6,8 @@ export default defineConfig({
         environment: "jsdom",
         globals: true,
         setupFiles: ["./src/test/setup.ts"],
+        // Keep vitest's defaults and skip nested git worktrees under .claude/.
+        exclude: [...defaultExclude, "**/.claude/**"],
     },
     resolve: {
         alias: {
