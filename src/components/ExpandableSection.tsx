@@ -25,7 +25,7 @@ export default function ExpandableSection({
   className,
   titleClassName,
   contentClassName,
-  animationDuration = 200
+  animationDuration: _animationDuration = 200
 }: ExpandableSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [contentHeight, setContentHeight] = useState(0)

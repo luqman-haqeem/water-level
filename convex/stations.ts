@@ -37,7 +37,7 @@ export const getStationsWithDetails = query({
             const stationCamera = cameraMap.get(station._id);
 
             // Convert string coordinates to numbers if needed
-            const convertToNumber = (value: any): number | undefined => {
+            const convertToNumber = (value: unknown): number | undefined => {
                 if (typeof value === 'number') return value;
                 if (typeof value === 'string') {
                     const trimmed = value.trim();
