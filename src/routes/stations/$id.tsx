@@ -20,6 +20,8 @@ import { useStationSubscription } from "@/hooks/useStationSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
+import IosInstallDialog from "@/components/IosInstallDialog";
+import { getPushSupport } from "@/utils/pushSupport";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -65,6 +67,7 @@ export function StationDetailRoute() {
     const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState("");
     const [showPermDialog, setShowPermDialog] = useState(false);
+    const [showIosDialog, setShowIosDialog] = useState(false);
     const [showDetailHint, setShowDetailHint] = useState(
         () => localStorage.getItem("hint-detail-dismissed") !== "true"
     );
@@ -114,10 +117,15 @@ export function StationDetailRoute() {
                     description: "You'll receive alerts when this station reaches danger level",
                 });
             }
-        } else {
+        } else if (result.reason === "denied") {
             toast({
                 title: "Notifications blocked",
                 description: "Notifications blocked \u2014 enable in browser settings",
+            });
+        } else {
+            toast({
+                title: "Alerts not turned on",
+                description: "We couldn't set up notifications on this device. Please try again.",
             });
         }
     };
@@ -132,6 +140,18 @@ export function StationDetailRoute() {
                 description: "You'll no longer receive alerts for this station",
             });
         } else {
+            const support = getPushSupport();
+            if (support === "ios-install-required") {
+                setShowIosDialog(true);
+                return;
+            }
+            if (support === "unsupported") {
+                toast({
+                    title: "Alerts not available",
+                    description: "This browser can't receive push notifications.",
+                });
+                return;
+            }
             // Read permission at click time for accurate functional check
             const permissionState = typeof Notification !== 'undefined' ? Notification.permission : 'default';
             if (permissionState === 'denied') {
@@ -533,6 +553,11 @@ export function StationDetailRoute() {
                 showControls={false}
             />
 
+            <IosInstallDialog
+                open={showIosDialog}
+                onOpenChange={setShowIosDialog}
+                stationId={stationId}
+            />
             <NotificationPermissionDialog
                 open={showPermDialog}
                 onOpenChange={setShowPermDialog}

@@ -59,39 +59,61 @@ export function saveSubscribedStations(stations: SubscribedStation[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stations));
 }
 
+export type SubscribeFailureReason = "denied" | "not-subscribed" | "unavailable";
+
+export interface SubscribeResult {
+    permissionGranted: boolean;
+    /** Set when `permissionGranted` is false. */
+    reason?: SubscribeFailureReason;
+}
+
+function removeStoredStation(stationId: string): void {
+    saveSubscribedStations(
+        getSubscribedStations().filter((s) => s.id !== stationId)
+    );
+}
+
 /**
  * Subscribe to notifications for a specific station.
  * Updates localStorage immediately (optimistic) and calls OneSignal to add the tag.
  * On first subscribe, also opts in to push notifications if not already opted in.
  *
+ * Success is only reported once a push subscription actually exists. Any
+ * failure rolls localStorage back, so "My Stations" never lists a station
+ * that cannot alert this device.
+ *
  * @param stationId - The station's Convex document ID
  * @param stationName - Human-readable station name for display in the subscription dialog
- * @returns Object indicating whether push notification permission was granted
  */
 export async function subscribeToStation(
     stationId: string,
     stationName: string = "Unknown Station"
-): Promise<{ permissionGranted: boolean }> {
+): Promise<SubscribeResult> {
     // Update localStorage first (optimistic)
     const stations = getSubscribedStations();
-    if (!stations.some((s) => s.id === stationId)) {
+    const alreadyStored = stations.some((s) => s.id === stationId);
+    if (!alreadyStored) {
         stations.push({ id: stationId, name: stationName });
         saveSubscribedStations(stations);
     }
+    const fail = (reason: SubscribeFailureReason): SubscribeResult => {
+        if (!alreadyStored) removeStoredStation(stationId);
+        return { permissionGranted: false, reason };
+    };
 
-    // Try to sync with OneSignal
     try {
         // Opt in to push if not already opted in
         if (!OneSignal.User.PushSubscription.optedIn) {
             await OneSignal.User.PushSubscription.optIn();
         }
 
-        // Check if permission was denied after the opt-in attempt
-        if (Notification.permission === "denied") {
-            // Rollback localStorage
-            const rollback = getSubscribedStations().filter((s) => s.id !== stationId);
-            saveSubscribedStations(rollback);
-            return { permissionGranted: false };
+        if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+            return fail("denied");
+        }
+
+        // Prompt dismissed, or OneSignal could not register the device.
+        if (!OneSignal.User.PushSubscription.optedIn) {
+            return fail("not-subscribed");
         }
 
         await OneSignal.User.addTag(`station_${stationId}`, "true");
@@ -102,7 +124,7 @@ export async function subscribeToStation(
             "[notificationService] OneSignal operation failed:",
             error
         );
-        return { permissionGranted: false };
+        return fail("unavailable");
     }
 }
 
