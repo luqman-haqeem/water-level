@@ -13,6 +13,11 @@ Object.defineProperty(globalThis, 'Notification', {
     writable: true,
 });
 
+const mockTrack = vi.fn();
+vi.mock("@/lib/analytics", () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+}));
+
 // Mock the react-onesignal module
 const mockAddTag = vi.fn().mockResolvedValue(undefined);
 const mockRemoveTag = vi.fn().mockResolvedValue(undefined);
@@ -75,7 +80,7 @@ describe("notificationService", () => {
                 localStorage.getItem("subscribed_stations") || "[]"
             );
             expect(stored).toEqual([
-                { id: "ABC123", name: "Sg Klang at Midlands" },
+                { id: "ABC123", name: "Sg Klang at Midlands", subscribedAt: expect.any(Number) },
             ]);
         });
 
@@ -123,7 +128,7 @@ describe("notificationService", () => {
                 localStorage.getItem("subscribed_stations") || "[]"
             );
             expect(stored).toEqual([
-                { id: "ABC123", name: "Unknown Station" },
+                { id: "ABC123", name: "Unknown Station", subscribedAt: expect.any(Number) },
             ]);
         });
     });
@@ -158,6 +163,66 @@ describe("notificationService", () => {
             expect(result).toEqual({ permissionGranted: false, reason: "not-subscribed" });
             expect(storedIds()).not.toContain("ABC123");
             expect(mockAddTag).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("analytics events (#75)", () => {
+        const events = () => mockTrack.mock.calls.map((c) => c[0]);
+
+        it("tracks requested + granted + station_watched when the prompt is accepted", async () => {
+            (globalThis as { Notification: { permission: string } }).Notification.permission = "default";
+            mockOptIn.mockImplementationOnce(async () => {
+                (globalThis as { Notification: { permission: string } }).Notification.permission = "granted";
+            });
+
+            await subscribeToStation("ABC123", "Test Station", "Petaling");
+
+            expect(events()).toEqual(["permission_requested", "permission_granted", "station_watched"]);
+            expect(mockTrack).toHaveBeenCalledWith("station_watched", { stationId: "ABC123", district: "Petaling" });
+        });
+
+        it("tracks permission_denied (not dismissed) when the user blocks", async () => {
+            (globalThis as { Notification: { permission: string } }).Notification.permission = "default";
+            mockOptIn.mockImplementationOnce(async () => {
+                (globalThis as { Notification: { permission: string } }).Notification.permission = "denied";
+            });
+
+            await subscribeToStation("ABC123", "Test Station");
+
+            expect(mockTrack).toHaveBeenCalledWith("permission_denied", { stationId: "ABC123", dismissed: false });
+            expect(events()).not.toContain("station_watched");
+        });
+
+        it("does not track permission events when permission was already granted", async () => {
+            await subscribeToStation("ABC123", "Test Station");
+
+            expect(events()).toEqual(["station_watched"]);
+        });
+
+        it("does not re-track station_watched for an already-stored station", async () => {
+            await subscribeToStation("ABC123", "Test Station");
+            mockTrack.mockClear();
+
+            await subscribeToStation("ABC123", "Test Station");
+
+            expect(events()).not.toContain("station_watched");
+        });
+
+        it("tracks station_unwatched with daysWatched", async () => {
+            const now = Date.now();
+            localStorage.setItem("subscribed_stations", JSON.stringify([
+                { id: "ABC123", name: "A", subscribedAt: now - 3.5 * 24 * 60 * 60 * 1000 },
+                { id: "OLD", name: "Legacy" },
+            ]));
+
+            await unsubscribeFromStation("ABC123");
+            await unsubscribeFromStation("OLD");
+            await unsubscribeFromStation("NOT_WATCHED");
+
+            expect(mockTrack.mock.calls).toEqual([
+                ["station_unwatched", { stationId: "ABC123", daysWatched: 3 }],
+                ["station_unwatched", { stationId: "OLD", daysWatched: null }],
+            ]);
         });
     });
 
@@ -198,8 +263,8 @@ describe("notificationService", () => {
 
             const result = getSubscribedStations();
             expect(result).toEqual([
-                { id: "ABC123", name: "Station A" },
-                { id: "DEF456", name: "Station B" },
+                { id: "ABC123", name: "Station A", subscribedAt: expect.any(Number) },
+                { id: "DEF456", name: "Station B", subscribedAt: expect.any(Number) },
             ]);
         });
 

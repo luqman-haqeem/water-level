@@ -71,7 +71,7 @@ describe("useStationSubscription", () => {
         });
 
         expect(result.current.isSubscribed).toBe(true);
-        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123", "Test Station");
+        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123", "Test Station", undefined);
     });
 
     it("after calling unsubscribe(), isSubscribed becomes false", async () => {
@@ -111,7 +111,7 @@ describe("useStationSubscription", () => {
         });
 
         // The subscribe function should have been called which updates localStorage
-        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123", "Test Station");
+        expect(mockSubscribeToStation).toHaveBeenCalledWith("ABC123", "Test Station", undefined);
         expect(result.current.isSubscribed).toBe(true);
     });
 
