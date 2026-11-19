@@ -25,10 +25,12 @@ interface UseStationSubscriptionReturn {
  *
  * @param stationId - The station's Convex document ID
  * @param stationName - Human-readable station name, stored alongside ID for display
+ * @param district - District name, recorded on the `station_watched` event
  */
 export function useStationSubscription(
     stationId: string,
-    stationName: string = "Unknown Station"
+    stationName: string = "Unknown Station",
+    district?: string
 ): UseStationSubscriptionReturn {
     const [isSubscribed, setIsSubscribed] = useState<boolean>(() =>
         isSubscribedToStation(stationId) && canReceivePush()
@@ -39,7 +41,7 @@ export function useStationSubscription(
         setIsLoading(true);
         setIsSubscribed(true); // optimistic update
         try {
-            const result = await subscribeToStation(stationId, stationName);
+            const result = await subscribeToStation(stationId, stationName, district);
             if (!result.permissionGranted) {
                 // Revert optimistic React state; localStorage rollback is handled by subscribeToStation
                 setIsSubscribed(false);
@@ -52,7 +54,7 @@ export function useStationSubscription(
         } finally {
             setIsLoading(false);
         }
-    }, [stationId, stationName]);
+    }, [stationId, stationName, district]);
 
     const unsubscribe = useCallback(async () => {
         setIsLoading(true);

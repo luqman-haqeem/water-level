@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import NotificationPermissionDialog from "@/components/NotificationPermissionDialog";
 import IosInstallDialog from "@/components/IosInstallDialog";
 import { getPushSupport } from "@/utils/pushSupport";
+import { track, trackAlertOpenFromUrl } from "@/lib/analytics";
 
 export function StationDetailRoute() {
     const navigate = useNavigate();
@@ -94,8 +95,14 @@ export function StationDetailRoute() {
 
     const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(
         stationId || "",
-        currentStation?.station_name || "Unknown Station"
+        currentStation?.station_name || "Unknown Station",
+        currentStation?.districts?.name
     );
+
+    // Attribute opens that came from a push notification (#75)
+    useEffect(() => {
+        if (stationId) trackAlertOpenFromUrl(stationId);
+    }, [stationId]);
     const { toast } = useToast();
 
     const stale = currentStation ? isStale(currentStation.current_levels?.updated_at) : false;
@@ -196,6 +203,11 @@ export function StationDetailRoute() {
     };
 
     const openFullscreen = (src: string) => {
+        track("camera_opened", {
+            stationId,
+            cameraId: currentStation?.cameras?.jps_camera_id,
+            source: "station",
+        });
         setFullscreenImageSrc(src);
         setIsFullscreenOpen(true);
     };

@@ -64,7 +64,7 @@ export default function StationCard({
     showGauge = false,
     distance
 }: StationCardProps) {
-    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name);
+    const { isSubscribed, subscribe, unsubscribe } = useStationSubscription(station.id.toString(), station.station_name, station.districts?.name);
     const { toast } = useToast();
     const [animKey, setAnimKey] = useState(0);
     const [showPermDialog, setShowPermDialog] = useState(false);

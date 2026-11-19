@@ -6,6 +6,7 @@ import {
     isGeolocationSupported,
     requestLocationPermission
 } from '@/utils/locationUtils';
+import { track } from '@/lib/analytics';
 
 export function useLocation() {
     const [locationState, setLocationState] = useState<LocationState>({
@@ -26,6 +27,7 @@ export function useLocation() {
 
     const requestLocation = useCallback(async () => {
         if (!isGeolocationSupported()) {
+            track('location_denied', { reason: 'unsupported' });
             setLocationState(prev => ({
                 ...prev,
                 error: 'Geolocation is not supported by this browser',
@@ -45,6 +47,7 @@ export function useLocation() {
             const permissionState = await requestLocationPermission();
 
             if (permissionState === 'denied') {
+                track('location_denied', { reason: 'permission' });
                 setLocationState(prev => ({
                     ...prev,
                     isLoading: false,
@@ -62,6 +65,7 @@ export function useLocation() {
                 longitude: position.coords.longitude
             };
 
+            track('location_granted', {});
             setLocationState({
                 isLoading: false,
                 isSupported: true,
@@ -71,6 +75,10 @@ export function useLocation() {
             });
 
         } catch (error) {
+            // GeolocationPositionError.PERMISSION_DENIED === 1 (prompt refused)
+            if ((error as GeolocationPositionError | undefined)?.code === 1) {
+                track('location_denied', { reason: 'permission' });
+            }
             console.warn('Failed to get location:', error);
             setLocationState(prev => ({
                 ...prev,
