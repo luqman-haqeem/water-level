@@ -19,6 +19,12 @@ vi.mock("@/services/notificationService", () => ({
     reconcileTagsWithLocalStorage: vi.fn(),
 }));
 
+// jsdom has no push support; default to a device that can receive push
+let mockCanReceivePush = true;
+vi.mock("@/utils/pushSupport", () => ({
+    canReceivePush: () => mockCanReceivePush,
+}));
+
 // Mock react-onesignal for the hook's permission check
 vi.mock("react-onesignal", () => ({
     default: {
@@ -39,6 +45,7 @@ describe("useStationSubscription", () => {
         localStorage.clear();
         vi.clearAllMocks();
         mockIsSubscribedToStation.mockReturnValue(false);
+        mockCanReceivePush = true;
     });
 
     it("returns isSubscribed=false initially for a station", () => {
@@ -117,6 +124,18 @@ describe("useStationSubscription", () => {
         );
 
         expect(result.current.isSubscribed).toBe(true);
+    });
+
+    it("does not report subscribed when this device cannot receive push (#78)", () => {
+        // Stored in localStorage, but e.g. an iOS Safari tab or revoked permission
+        mockIsSubscribedToStation.mockReturnValue(true);
+        mockCanReceivePush = false;
+
+        const { result } = renderHook(() =>
+            useStationSubscription("ABC123", "Test Station")
+        );
+
+        expect(result.current.isSubscribed).toBe(false);
     });
 
     it("handles permission denied gracefully", async () => {

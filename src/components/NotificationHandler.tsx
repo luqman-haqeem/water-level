@@ -11,6 +11,7 @@ import {
     unsubscribeFromStation,
 } from "@/services/notificationService";
 import type { SubscribedStation } from "@/services/notificationService";
+import { canReceivePush, getPushSupport } from "@/utils/pushSupport";
 
 interface NotificationHandlerProps {
     open: boolean;
@@ -45,6 +46,13 @@ export default function NotificationHandler({
                         danger levels.
                     </DialogDescription>
                 </DialogHeader>
+                {stations.length > 0 && !canReceivePush() && (
+                    <p role="alert" className="text-sm text-destructive">
+                        {getPushSupport() === "ios-install-required"
+                            ? "Alerts can't reach this device yet. Add the app to your Home Screen and open it from there."
+                            : "Alerts can't reach this device. Allow notifications for this site in your browser settings."}
+                    </p>
+                )}
                 <div className="py-4 space-y-2">
                     {stations.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">

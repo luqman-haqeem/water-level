@@ -19,27 +19,46 @@ const mockRemoveTag = vi.fn().mockResolvedValue(undefined);
 const mockOptIn = vi.fn().mockResolvedValue(undefined);
 const mockGetTags = vi.fn().mockResolvedValue({});
 
-vi.mock("react-onesignal", () => ({
+vi.mock("react-onesignal", () => {
+    // A successful optIn leaves the device opted in, like the real SDK.
+    const PushSubscription = {
+        optedIn: false,
+        optIn: async (...args: unknown[]) => {
+            await mockOptIn(...args);
+            PushSubscription.optedIn = true;
+        },
+    };
+    return {
     default: {
         User: {
             addTag: (...args: unknown[]) => mockAddTag(...args),
             removeTag: (...args: unknown[]) => mockRemoveTag(...args),
             getTags: (...args: unknown[]) => mockGetTags(...args),
-            PushSubscription: {
-                optedIn: false,
-                optIn: (...args: unknown[]) => mockOptIn(...args),
-            },
+            PushSubscription,
         },
         Notifications: {
             permission: true,
         },
     },
-}));
+    };
+});
+
+async function pushSubscription() {
+    const OneSignal = await import("react-onesignal");
+    return OneSignal.default.User.PushSubscription as { optedIn: boolean };
+}
+
+function storedIds(): string[] {
+    return JSON.parse(localStorage.getItem("subscribed_stations") || "[]")
+        .map((s: { id: string }) => s.id);
+}
 
 describe("notificationService", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         localStorage.clear();
         vi.clearAllMocks();
+        (await pushSubscription()).optedIn = false;
+        (globalThis as { Notification: { permission: string } }).Notification.permission = "granted";
     });
 
     describe("subscribeToStation", () => {
@@ -106,6 +125,39 @@ describe("notificationService", () => {
             expect(stored).toEqual([
                 { id: "ABC123", name: "Unknown Station" },
             ]);
+        });
+    });
+
+    describe("subscribeToStation reports success only for a real subscription", () => {
+        it("returns granted when opt-in succeeds", async () => {
+            const result = await subscribeToStation("ABC123", "Test Station");
+            expect(result).toEqual({ permissionGranted: true });
+            expect(storedIds()).toContain("ABC123");
+        });
+
+        it("fails and rolls back when permission is denied", async () => {
+            (globalThis as { Notification: { permission: string } }).Notification.permission = "denied";
+
+            const result = await subscribeToStation("ABC123", "Test Station");
+
+            expect(result).toEqual({ permissionGranted: false, reason: "denied" });
+            expect(storedIds()).not.toContain("ABC123");
+            expect(mockAddTag).not.toHaveBeenCalled();
+        });
+
+        it("fails and rolls back when the prompt is dismissed (still not opted in)", async () => {
+            (globalThis as { Notification: { permission: string } }).Notification.permission = "default";
+            const ps = await pushSubscription();
+            // optIn resolves but the device never becomes opted in
+            const original = (ps as unknown as { optIn: () => Promise<void> }).optIn;
+            (ps as unknown as { optIn: () => Promise<void> }).optIn = async () => {};
+
+            const result = await subscribeToStation("ABC123", "Test Station");
+
+            (ps as unknown as { optIn: () => Promise<void> }).optIn = original;
+            expect(result).toEqual({ permissionGranted: false, reason: "not-subscribed" });
+            expect(storedIds()).not.toContain("ABC123");
+            expect(mockAddTag).not.toHaveBeenCalled();
         });
     });
 
@@ -203,19 +255,26 @@ describe("notificationService", () => {
     });
 
     describe("handles OneSignal not initialized", () => {
-        it("falls back to localStorage-only when OneSignal addTag throws", async () => {
+        it("reports failure and rolls back localStorage when OneSignal throws", async () => {
             mockAddTag.mockRejectedValueOnce(
                 new Error("OneSignal not initialized")
             );
 
-            // Should not throw - falls back gracefully
+            // Should not throw
+            const result = await subscribeToStation("ABC123", "Test Station");
+
+            // A station that cannot alert this device must not be listed (#78)
+            expect(result).toEqual({ permissionGranted: false, reason: "unavailable" });
+            expect(storedIds()).not.toContain("ABC123");
+        });
+
+        it("keeps an existing entry when a re-subscribe fails", async () => {
+            await subscribeToStation("ABC123", "Test Station");
+            mockAddTag.mockRejectedValueOnce(new Error("transient"));
+
             await subscribeToStation("ABC123", "Test Station");
 
-            // localStorage should still be updated
-            const stored = JSON.parse(
-                localStorage.getItem("subscribed_stations") || "[]"
-            );
-            expect(stored.find((s: { id: string }) => s.id === "ABC123")).toBeDefined();
+            expect(storedIds()).toContain("ABC123");
         });
 
         it("falls back to localStorage-only when OneSignal removeTag throws", async () => {
