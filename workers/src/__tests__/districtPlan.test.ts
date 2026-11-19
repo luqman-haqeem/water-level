@@ -133,6 +133,26 @@ describe("fetching only what changed", () => {
         expect((await stations()).map((s) => s.id)).toEqual(["101", "201"]);
     });
 
+    it("keeps a failed district's last published stations instead of dropping them", async () => {
+        const w = world();
+        stub(w);
+        await runSync(env, { now: () => T0, retry });
+
+        w.allLastUpdated = "2026-11-19T16:15:00";
+        w.lastUpdated = { 1: "2026-11-19T16:15:00", 2: "2026-11-19T16:15:00" };
+        w.level = { 1: 1.5, 2: 2.5 };
+        w.failDistricts = new Set([2]);
+        stub(w);
+        const result = await runSync(env, { now: () => T0 + 15 * MIN, retry });
+
+        expect(result.stationsCount).toBe(2);
+        const byId = Object.fromEntries((await stations()).map((s) => [s.id, s]));
+        expect(byId["101"].current_levels!.current_level).toBe(1.5);
+        expect(byId["201"].current_levels!.current_level).toBe(2.0); // last good reading
+        const state = await env.SYNC_STATE.get<SyncStateRow>(SYNC_STATE_KEY, "json");
+        expect(state!.districtStamps).not.toHaveProperty("2"); // retried next run
+    });
+
     it("re-fetches every district once the full-refresh interval has passed", async () => {
         const w = world();
         stub(w);
