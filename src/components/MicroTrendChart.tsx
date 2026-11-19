@@ -13,7 +13,7 @@ interface MicroTrendChartProps {
 
 export default function MicroTrendChart({
     stationId,
-    currentLevel,
+    currentLevel: _currentLevel,
     alertLevel,
     normalLevel,
     dangerLevel,
@@ -29,7 +29,7 @@ export default function MicroTrendChart({
             return "M 8 20 L 32 20"
         }
 
-        const points = trendData.map((point: any) => point.currentLevel)
+        const points = trendData.map((point) => point.currentLevel)
 
         // Determine y-axis range: use normalLevel/dangerLevel if available and valid
         let minLevel: number

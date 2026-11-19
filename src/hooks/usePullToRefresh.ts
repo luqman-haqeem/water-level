@@ -60,7 +60,7 @@ export const usePullToRefresh = ({
     }
 
     lastTouchY.current = currentY
-  }, [threshold, isRefreshing, checkIfAtTop])
+  }, [threshold, isRefreshing])
 
   const handleTouchEnd = useCallback(async () => {
     if (!isPulling || isRefreshing) {

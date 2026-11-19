@@ -34,7 +34,7 @@ export default function OneSignalProvider({
         OneSignal.init({ appId })
             .then(() => {
                 oneSignalInitialized = true;
-                console.log("[OneSignalProvider] OneSignal initialized");
+                console.debug("[OneSignalProvider] OneSignal initialized");
 
                 // After successful init, reconcile tags with localStorage
                 reconcileTagsWithLocalStorage();

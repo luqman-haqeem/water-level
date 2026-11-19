@@ -12,7 +12,6 @@ import {
   XCircle,
   Info,
   Eye,
-  EyeOff,
   RefreshCw,
   SlidersHorizontal,
   ChevronLeft,
@@ -22,8 +21,6 @@ import {
   Menu,
   X,
   Search,
-  Filter,
-  Settings,
   User,
   LogIn,
   LogOut,
@@ -31,25 +28,12 @@ import {
   Moon,
   Expand,
   Minimize,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
   Wifi,
   WifiOff,
-  Battery,
-  Signal,
-  Download,
-  Upload,
-  Share,
-  Heart,
-  Bookmark,
-  Zap,
   TrendingUp,
   TrendingDown,
   Activity,
-  BarChart3,
-  PieChart
+  BarChart3
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const [isMobile, setIsMobile] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
     const [howItWorksOpen, setHowItWorksOpen] = useState(false);
-    const { theme, setTheme, resolvedTheme } = useTheme();
+    const { setTheme, resolvedTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
     const { showFirstRun, completeOnboarding } = useOnboarding();

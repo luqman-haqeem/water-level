@@ -132,7 +132,8 @@ export default function FullscreenModal({
         onSwipeLeft: zoom <= 1 ? onSwipeLeft : undefined,
         onSwipeRight: zoom <= 1 ? onSwipeRight : undefined,
         onSwipeUp: () => {
-            onSwipeUp?.() || handleOpenChange(false)
+            onSwipeUp?.()
+            handleOpenChange(false)
         },
         threshold: zoom <= 1 ? 60 : 100
     })
