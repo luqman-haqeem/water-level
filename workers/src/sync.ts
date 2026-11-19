@@ -146,7 +146,16 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
     const mergedCoordinates = mergeCoordinates(coordinatesFromStations(published), coordinates ?? {});
     const stations = mergeStations(
         buildStations(districts, mergedCoordinates, stationCameras),
-        reusedStations(published ?? [], plan.reuse, mergedCoordinates, stationCameras)
+        // A district whose fetch failed keeps its last published stations rather than
+        // vanishing from the app for a cycle; its stamp is withheld, so the next run
+        // retries it. Previously a flaky JPS connection dropped whole districts (44 of
+        // 152 stations on 2026-11-19).
+        reusedStations(
+            published ?? [],
+            [...plan.reuse, ...plan.fetch.filter((d) => failed.some((f) => f.districtId === d.districtId))],
+            mergedCoordinates,
+            stationCameras
+        )
     );
     const previousTrends = await readTrends(env.SNAPSHOT);
     const trends = appendTrends(previousTrends, stations, now());
