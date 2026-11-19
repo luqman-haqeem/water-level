@@ -161,7 +161,9 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
     // failure must not delay alerts or fail the run. A lost object costs one run's
     // points; the next run still writes its own.
     try {
-        const history = buildHistoryFile(previousTrends, trends, now());
+        // Keyed by the run's start, not the write time: the write lands after
+        // ~50 s of JPS I/O, and the key should name the run that produced it.
+        const history = buildHistoryFile(previousTrends, trends, Date.parse(attemptedAt));
         if (history) {
             await env.SNAPSHOT.put(history.key, history.body, {
                 httpMetadata: { contentType: "application/json", cacheControl: HISTORY_CACHE_CONTROL },

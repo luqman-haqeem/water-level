@@ -113,6 +113,15 @@ describe("long-term history (#80)", () => {
         expect(file.items).toEqual({ "160": [{ t: Date.parse("2026-09-05T12:00:00.000Z"), v: 4.32, a: 0 }] });
     });
 
+    it("keys the object by the run's start time, not when the write lands", async () => {
+        stubFetch({});
+        // The clock advances through the run (JPS I/O takes ~50 s in production).
+        let t = NOW;
+        await runSync(env, { now: () => (t += 7_000) - 7_000, retry });
+
+        expect(await historyKeys()).toEqual(["history/2026-09-05/120000.json"]);
+    });
+
     it("writes nothing when JPS has not changed", async () => {
         stubFetch({});
         await runSync(env, { now, retry });
