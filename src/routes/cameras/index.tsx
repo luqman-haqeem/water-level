@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import FullscreenModal from "@/components/FullscreenModal";
+import DataProvenanceFooter from "@/components/DataProvenanceFooter";
 import CameraCard from "@/components/CameraCard";
 import { CameraSkeleton } from "@/components/SkeletonCard";
 import { useCameras } from "@/hooks/useCameras";
@@ -174,6 +175,7 @@ export function CamerasRoute() {
                             </div>
                         )}
                     </div>
+                    <DataProvenanceFooter />
                     <div className="pb-20"></div>
                     <FullscreenModal
                         open={isFullscreenOpen}

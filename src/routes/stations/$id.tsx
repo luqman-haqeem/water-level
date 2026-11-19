@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Expand, BellOff } from "lucide-react";
 import { BellIcon, BellRingIcon } from "@/components/icons/IconLibrary";
 import useSwipeGestures from "@/hooks/useSwipeGestures";
 import AlertLevelBadge from "@/components/AlertLevelBadge";
+import DataProvenanceFooter from "@/components/DataProvenanceFooter";
 import WaterLevelGauge from "@/components/WaterLevelGauge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
@@ -471,6 +472,8 @@ export function StationDetailRoute() {
                             )}
                         </CardContent>
                     </Card>
+
+                    <DataProvenanceFooter />
                 </div>
 
                 {/* Mobile Navigation Footer - only shown when station list is available */}
