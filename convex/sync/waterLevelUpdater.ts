@@ -1,6 +1,7 @@
 import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { isReadingStale } from "../lib/alertLevel";
 
 // Type definitions for JPS API responses
 interface JpsDistrictSummary {
@@ -269,13 +270,10 @@ export const upsertCurrentLevel = internalMutation({
         // Notify whenever station is at danger level (cooldown logic in notifyDangerForStation prevents spam)
         const shouldNotifyDanger = alertLevel === 3;
 
-        // Don't notify on stale data (older than 45 minutes)
-        // NOTE: This threshold must stay in sync with the frontend `isStale` utility
-        // in src/utils/timeUtils.ts. Convex backend and Vite frontend cannot share
-        // modules, so the constant is duplicated by necessity.
-        const STALENESS_MS = 2_700_000;
+        // Don't notify on stale data (older than STALENESS_MS). computeAlertLevel
+        // already downgrades stale readings to unknown; this is a second guard.
         const isDataStale = updatedAt
-            ? (Date.now() - new Date(updatedAt).getTime() > STALENESS_MS)
+            ? isReadingStale(updatedAt, Date.now())
             : true;
 
         if (existing) {
