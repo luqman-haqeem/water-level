@@ -66,8 +66,17 @@ export function buildNotificationPayload(args: {
   updatedAt?: string;
   /** Ids of duplicate station rows merged into this one (see migrations/dedupeStations). */
   mergedStationIds?: string[];
+  /** Send time in epoch ms, carried in the URL so the app can report time-to-open. */
+  sentAt?: number;
 }) {
-  const { appId, stationId, stationName, siteUrl, mergedStationIds = [] } = args;
+  const {
+    appId,
+    stationId,
+    stationName,
+    siteUrl,
+    mergedStationIds = [],
+    sentAt = Date.now(),
+  } = args;
 
   const contentMessage = `${stationName} has reached Danger level. Check the app for details.`;
 
@@ -86,7 +95,10 @@ export function buildNotificationPayload(args: {
     ]),
     headings: { en: "Danger Level Alert" },
     contents: { en: contentMessage },
-    url: `${siteUrl}/stations/${stationId}`,
+    // Attribution params read by trackAlertOpenFromUrl (src/lib/analytics.ts,
+    // ALERT_URL_PARAMS) to fire `alert_opened`. Keep the names in sync.
+    // Only Danger (3) is ever sent today.
+    url: `${siteUrl}/stations/${stationId}?src=alert&level=3&sent=${sentAt}`,
   };
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import FullscreenModal from "@/components/FullscreenModal";
+import { track } from "@/lib/analytics";
 import CameraCard from "@/components/CameraCard";
 import { CameraSkeleton } from "@/components/SkeletonCard";
 import { useCameras } from "@/hooks/useCameras";
@@ -144,9 +145,13 @@ export function CamerasRoute() {
                                 <CameraCard
                                     key={camera.id.toString()}
                                     camera={camera}
-                                    onImageClick={(imageUrl) =>
-                                        openFullscreen(imageUrl)
-                                    }
+                                    onImageClick={(imageUrl) => {
+                                        track("camera_opened", {
+                                            cameraId: camera.jps_camera_id,
+                                            source: "cameras",
+                                        });
+                                        openFullscreen(imageUrl);
+                                    }}
                                 />
                             ))
                         ) : (

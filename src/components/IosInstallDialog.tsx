@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import posthog from "posthog-js";
 import { Share, SquarePlus } from "lucide-react";
 import {
     Dialog,
@@ -9,6 +8,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
 
 interface IosInstallDialogProps {
     open: boolean;
@@ -28,7 +28,7 @@ export default function IosInstallDialog({
 }: IosInstallDialogProps) {
     useEffect(() => {
         if (open) {
-            posthog.capture("ios_install_required_shown", { stationId });
+            track("ios_install_required_shown", { stationId });
         }
     }, [open, stationId]);
 
