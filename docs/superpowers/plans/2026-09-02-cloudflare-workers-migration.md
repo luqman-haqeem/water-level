@@ -526,8 +526,10 @@ Add a **GitHub Actions cron (~30 min)** that fetches `meta.json` and opens or up
 an issue when `syncedAt` is older than ~30 minutes. *Built 2026-11-20 with a 90 min
 threshold instead: over a day of staging the longest gap between changed runs was
 45 min and 30 min gaps were routine, so 30 would alert constantly. Override with the
-`SNAPSHOT_MAX_AGE_MINUTES` repo variable. The issue says whether syncs are still being
-attempted (JPS down) or not (publishers stopped).* Free and unlimited on public
+`SNAPSHOT_MAX_AGE_MINUTES` repo variable. Owner decision: alert on **Telegram**, and
+only when both publishers (Worker and Convex standby) are down — not when JPS alone is
+down, which the owner cannot fix and the banner already covers. One message on down,
+one on recovery; an open `snapshot-stale` issue is only the workflow's memory.* Free and unlimited on public
 repos, and independent of the thing it watches. The 5-15 minute Actions cron delay
 that disqualified it as a *sync* fallback is irrelevant for a watchdog.
 

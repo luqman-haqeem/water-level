@@ -10,9 +10,13 @@
  * stays "ok" forever while the data rots (see "status is not a freshness signal" in
  * docs/superpowers/plans/2026-09-02-cloudflare-workers-migration.md).
  *
+ * It alerts only when **both publishers are down** (the Worker and the Convex standby):
+ * nobody is attempting a sync, or meta.json cannot be read at all. Stale data with
+ * recent attempts means JPS is down, which the owner cannot fix and the app's banner
+ * already tells visitors, so it stays silent (owner decision, 2026-11-20).
+ *
  * Usage: node scripts/snapshotWatchdog.mjs <snapshot base URL> [max age minutes]
- * Prints one JSON line `{ stale, reason, ... }` and exits 0 either way; the workflow
- * turns `stale` into an issue.
+ * Prints one JSON line `{ alert, stale, reason, ... }` and exits 0 either way.
  */
 
 /**
@@ -24,27 +28,28 @@ export const DEFAULT_MAX_AGE_MINUTES = 90;
 
 /** Pure: decides whether a parsed meta.json (or null when unreachable) is stale. */
 export function assess(meta, now, maxAgeMinutes = DEFAULT_MAX_AGE_MINUTES) {
-    if (!meta) return { stale: true, reason: "meta.json unreachable" };
+    if (!meta) return { alert: true, stale: true, reason: "meta.json unreachable" };
 
     const syncedMs = Date.parse(meta.syncedAt ?? "");
-    if (Number.isNaN(syncedMs)) return { stale: true, reason: "meta.json has no valid syncedAt", meta };
+    if (Number.isNaN(syncedMs)) return { alert: true, stale: true, reason: "meta.json has no valid syncedAt" };
 
     const ageMinutes = Math.round((now - syncedMs) / 60_000);
     const attemptMs = Date.parse(meta.attemptedAt ?? "");
     const attemptAgeMinutes = Number.isNaN(attemptMs) ? null : Math.round((now - attemptMs) / 60_000);
     const stale = ageMinutes > maxAgeMinutes;
+    const attempting = attemptAgeMinutes !== null && attemptAgeMinutes <= maxAgeMinutes;
 
     // Which half failed decides what to look at: no attempts means the writers stopped
     // (Cloudflare cron, standby); recent attempts with old data means JPS is down.
     let reason = "fresh";
     if (stale) {
-        reason =
-            attemptAgeMinutes !== null && attemptAgeMinutes <= maxAgeMinutes
-                ? `data ${ageMinutes} min old, but a sync was attempted ${attemptAgeMinutes} min ago — upstream (JPS) is likely failing`
-                : `no sync attempt for ${attemptAgeMinutes ?? "?"} min — the publishers have stopped`;
+        reason = attempting
+            ? `data ${ageMinutes} min old, but a sync was attempted ${attemptAgeMinutes} min ago — upstream (JPS) is likely failing`
+            : `no sync attempt for ${attemptAgeMinutes ?? "?"} min — the publishers have stopped`;
     }
 
     return {
+        alert: stale && !attempting,
         stale,
         reason,
         ageMinutes,
