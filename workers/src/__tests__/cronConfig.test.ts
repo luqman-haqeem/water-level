@@ -6,8 +6,9 @@ import camerasToml from "../../wrangler.cameras.toml?raw";
 import { WEEKLY_METADATA_CRON } from "../index";
 import { SLICE_INTERVAL_MS } from "../cameraSync";
 
+/** The production (top-level) schedule; staging's is emptied to fit the free plan's 5 cron slots. */
 function crons(toml: string): string[] {
-    const match = /\[env\.staging\.triggers\][\s\S]*?crons\s*=\s*\[([^\]]*)\]/.exec(toml);
+    const match = /^\[triggers\][\s\S]*?crons\s*=\s*\[([^\]]*)\]/m.exec(toml);
     return match ? [...match[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]) : [];
 }
 
