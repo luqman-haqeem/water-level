@@ -1,5 +1,5 @@
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -23,6 +23,13 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+
+# Local Worker secrets (wrangler reads these for `wrangler dev`)
+.dev.vars
+.dev.vars.*
+
+# Local Wrangler/Miniflare state and cache (holds the account id)
+.wrangler/
 
 # typescript
 *.tsbuildinfo

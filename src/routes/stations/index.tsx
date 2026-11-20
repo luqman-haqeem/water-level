@@ -34,10 +34,11 @@ interface StationData {
         jps_camera_id: string;
         is_enabled: boolean;
     } | null;
-    normal_water_level: number;
-    alert_water_level: number;
-    warning_water_level: number;
-    danger_water_level: number;
+    // null = JPS publishes no threshold for this station (#73).
+    normal_water_level: number | null;
+    alert_water_level: number | null;
+    warning_water_level: number | null;
+    danger_water_level: number | null;
     station_status: boolean;
 }
 

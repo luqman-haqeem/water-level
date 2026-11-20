@@ -6,8 +6,9 @@ interface MicroTrendChartProps {
     stationId: string
     currentLevel: number
     alertLevel: number
-    normalLevel?: number
-    dangerLevel?: number
+    /** null/undefined = JPS publishes no threshold for this station (#73). */
+    normalLevel?: number | null
+    dangerLevel?: number | null
     className?: string
 }
 
@@ -35,14 +36,17 @@ export default function MicroTrendChart({
         let minLevel: number
         let maxLevel: number
 
+        // The `!(normalLevel === 0 && dangerLevel === 0)` special case that used to
+        // live here was a workaround for absent thresholds arriving as 0. They now
+        // arrive as null, so "absent" is expressible and the guard is just a null
+        // check (#73).
         const hasThresholds =
-            normalLevel !== undefined &&
-            dangerLevel !== undefined &&
-            !(normalLevel === 0 && dangerLevel === 0)
+            normalLevel !== undefined && normalLevel !== null &&
+            dangerLevel !== undefined && dangerLevel !== null
 
         if (hasThresholds) {
-            minLevel = normalLevel!
-            maxLevel = dangerLevel!
+            minLevel = normalLevel
+            maxLevel = dangerLevel
         } else {
             // Fall back to local min/max
             minLevel = Math.min(...points)

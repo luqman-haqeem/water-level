@@ -2,6 +2,7 @@ import { internalMutation, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { computeAlertLevel } from "./lib/alertLevel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,10 +15,12 @@ interface JpsStationInput {
   referenceName?: string;
   districtName: string;
   currentWaterLevel: number | null;
-  normalLevel: number;
-  alertLevel: number;
-  warningLevel: number;
-  dangerLevel: number;
+  // Optional: absent means "JPS publishes no threshold for this station", which
+  // must stay distinguishable from a threshold of 0 (#73).
+  normalLevel?: number;
+  alertLevel?: number;
+  warningLevel?: number;
+  dangerLevel?: number;
   waterlevelStatus: number;
   stationStatus: number;
   lastUpdate: string;
@@ -34,33 +37,8 @@ interface JpsStationInput {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Determines the alert level (0-3) from a JPS waterlevelStatus code.
- * Falls back to threshold-based computation when status is -1 (below normal).
- * Returns -1 when water level data is unavailable (null).
- */
-function computeAlertLevel(station: JpsStationInput): number {
-  if (station.currentWaterLevel === null) return -1; // unknown — no data
-
-  switch (station.waterlevelStatus) {
-    case 3:
-      return 3; // danger
-    case 2:
-      return 2; // warning
-    case 1:
-      return 1; // alert
-    case 0:
-      return 0; // normal
-    case -1:
-      // Below normal — determine level based on thresholds
-      if (station.currentWaterLevel >= station.dangerLevel) return 3;
-      if (station.currentWaterLevel >= station.warningLevel) return 2;
-      if (station.currentWaterLevel >= station.alertLevel) return 1;
-      return 0;
-    default:
-      return 0;
-  }
-}
+// computeAlertLevel now lives in lib/alertLevel.ts: it is pure, it is the thing
+// most worth unit-testing in this file, and #67 Phase 1 moves it to the Worker.
 
 /**
  * Ensures a district exists in the database, creating it if necessary.
@@ -142,10 +120,6 @@ async function upsertStation(
     stationCode: station.stationCode,
     refName: station.referenceName,
     gsmNumber: station.gsmNumber,
-    normalWaterLevel: station.normalLevel,
-    alertWaterLevel: station.alertLevel,
-    warningWaterLevel: station.warningLevel,
-    dangerWaterLevel: station.dangerLevel,
     stationStatus: station.stationStatus === 1,
     batteryLevel:
       station.batteryLevel === null ? undefined : station.batteryLevel,
@@ -153,6 +127,17 @@ async function upsertStation(
     // JPS removed lat/lng from their API; writing 0/undefined would destroy stored data.
     ...(station.latitude && station.latitude !== 0 ? { latitude: station.latitude } : {}),
     ...(station.longitude && station.longitude !== 0 ? { longitude: station.longitude } : {}),
+    // Thresholds get the same treatment as coordinates, and for the same reason.
+    // #70 stopped the *weekly* metadata sync wiping them, but this 5-minute path
+    // still patched all four unconditionally — so a run where JPS omitted them
+    // overwrote known-good thresholds (previously with 0, which then classified
+    // the station as DANGER). Omitting the key leaves the stored value alone;
+    // note a Convex patch treats an explicit `undefined` as "delete this field",
+    // so these have to be spread conditionally rather than passed as undefined.
+    ...(station.normalLevel !== undefined ? { normalWaterLevel: station.normalLevel } : {}),
+    ...(station.alertLevel !== undefined ? { alertWaterLevel: station.alertLevel } : {}),
+    ...(station.warningLevel !== undefined ? { warningWaterLevel: station.warningLevel } : {}),
+    ...(station.dangerLevel !== undefined ? { dangerWaterLevel: station.dangerLevel } : {}),
   };
 
   let stationDbId: Id<"stations">;
@@ -203,10 +188,12 @@ export const storeDistrictStationsInternal = internalMutation({
         referenceName: v.optional(v.string()),
         districtName: v.string(),
         currentWaterLevel: v.union(v.number(), v.null()),
-        normalLevel: v.number(),
-        alertLevel: v.number(),
-        warningLevel: v.number(),
-        dangerLevel: v.number(),
+        // Optional, not v.number(): an absent threshold must survive the trip
+        // from the scraper to the database as absent (#73).
+        normalLevel: v.optional(v.number()),
+        alertLevel: v.optional(v.number()),
+        warningLevel: v.optional(v.number()),
+        dangerLevel: v.optional(v.number()),
         waterlevelStatus: v.number(),
         stationStatus: v.number(),
         lastUpdate: v.string(),
