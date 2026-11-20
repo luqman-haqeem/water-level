@@ -423,6 +423,11 @@ Blockers, all of which must be cleared first:
   not, leave production as-is and let previews point at staging. Either way the failure
   mode is worth remembering: it is entirely client-side, so every Worker log shows a
   successful publish while the app loads nothing.
+- **Live push verified 2026-11-20:** the exact `notify.ts` payload, sent with the
+  production OneSignal keys via `workers/scripts/test-push.sh`, reached the owner's
+  device. The keys were then removed from staging again: staging shares the OneSignal
+  app, so once subscriptions carry JPS ids it would double every production alert.
+  Remaining: set them on the production Worker at cutover.
 - **Set the OneSignal secrets** on both production Workers (dashboard, never
   `wrangler.toml`). Note that staging has **no** secrets set, so `notify.ts` has been
   taking its `!appId || !restApiKey` early return for the whole soak — the push path
