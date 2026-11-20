@@ -429,7 +429,11 @@ Blockers, all of which must be cleared first:
   best-effort cron on the free plan. The follow-on work is the Convex standby writer
   (design above), which does not block cutover, plus the dead-man's switch, which
   should ship with it.
-- **Design the history store** — see *History retention*. Still open.
+- ~~**Design the history store**~~ — **DONE 2026-11-19** (#103), see *History retention*.
+- **Dead-man's switch** — **BUILT 2026-11-20**: `.github/workflows/snapshot-watchdog.yml`
+  + `scripts/snapshotWatchdog.mjs`. Dormant until the repo variable
+  `SNAPSHOT_BASE_URL` is set; set it to the production r2.dev URL at cutover (it only
+  runs from `main`, so it activates when this branch merges).
 
 Then:
 
@@ -519,7 +523,11 @@ Cloudflare is the writer, the store *and* the delivery path, so a Cloudflare-sid
 failure takes out all three with nothing outside to notice.
 
 Add a **GitHub Actions cron (~30 min)** that fetches `meta.json` and opens or updates
-an issue when `syncedAt` is older than ~30 minutes. Free and unlimited on public
+an issue when `syncedAt` is older than ~30 minutes. *Built 2026-11-20 with a 90 min
+threshold instead: over a day of staging the longest gap between changed runs was
+45 min and 30 min gaps were routine, so 30 would alert constantly. Override with the
+`SNAPSHOT_MAX_AGE_MINUTES` repo variable. The issue says whether syncs are still being
+attempted (JPS down) or not (publishers stopped).* Free and unlimited on public
 repos, and independent of the thing it watches. The 5-15 minute Actions cron delay
 that disqualified it as a *sync* fallback is irrelevant for a watchdog.
 

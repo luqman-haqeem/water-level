@@ -1,0 +1,69 @@
+name: Snapshot watchdog
+
+# Dead-man's switch for the R2 snapshot (#67). Runs off Cloudflare on purpose: after
+# cutover Cloudflare is writer, store and delivery path, so nothing there would notice
+# its own outage. Opens one issue when meta.json's syncedAt is too old and closes it
+# on recovery. Logic and threshold: scripts/snapshotWatchdog.mjs.
+#
+# Dormant until the repo variable SNAPSHOT_BASE_URL is set (Settings → Variables), so
+# it cannot fire before a publisher is running. Set it at cutover to the production
+# r2.dev URL. Scheduled workflows only run from the default branch.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: snapshot-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: vars.SNAPSHOT_BASE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      LABEL: snapshot-stale
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Assess meta.json
+        id: assess
+        env:
+          BASE_URL: ${{ vars.SNAPSHOT_BASE_URL }}
+          MAX_AGE: ${{ vars.SNAPSHOT_MAX_AGE_MINUTES }}
+        run: |
+          result=$(node scripts/snapshotWatchdog.mjs "$BASE_URL" "$MAX_AGE")
+          echo "$result"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "stale=$(jq -r .stale <<<"$result")" >> "$GITHUB_OUTPUT"
+
+      - name: Open or close the stale issue
+        env:
+          RESULT: ${{ steps.assess.outputs.result }}
+          STALE: ${{ steps.assess.outputs.stale }}
+        run: |
+          gh label create "$LABEL" --color B60205 --description "Snapshot watchdog: data is stale" 2>/dev/null || true
+          open=$(gh issue list --label "$LABEL" --state open --json number -q '.[0].number')
+          details=$(jq -r '"- **\(.reason)**\n- syncedAt: `\(.syncedAt)`\n- attemptedAt: `\(.attemptedAt)`\n- status: `\(.status)` · publisher: `\(.publisher)`"' <<<"$RESULT")
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          if [ "$STALE" = "true" ] && [ -z "$open" ]; then
+            gh issue create --label "$LABEL" \
+              --title "Snapshot is stale: $(jq -r .reason <<<"$RESULT" | cut -c1-80)" \
+              --body "$(printf 'The R2 snapshot has not been updated in time.\n\n%s\n\nRun: %s\n\nThis issue closes itself when the snapshot is fresh again.' "$details" "$run_url")"
+          elif [ "$STALE" != "true" ] && [ -n "$open" ]; then
+            gh issue close "$open" --comment "$(printf 'Recovered.\n\n%s\n\nRun: %s' "$details" "$run_url")"
+          fi
