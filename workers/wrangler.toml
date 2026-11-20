@@ -1,9 +1,5 @@
 # wl-sync — water level sync Worker (issue #67).
 #
-# Phase 1 scaffolds this; the scheduled() handler is filled in at Phase 2. Cron
-# triggers are deliberately NOT declared yet: an empty handler firing every 5
-# minutes would publish nothing while looking like it works.
-#
 # The camera mirror (`wl-cameras`) gets its own config at Phase 3, so the two can
 # fail and be rolled back independently.
 name = "wl-sync"
@@ -25,7 +21,7 @@ preview_bucket_name = "riverlevel-snapshot-dev"
 # ~288 writes/day against the free plan's 1,000/day.
 [[kv_namespaces]]
 binding = "SYNC_STATE"
-id = "placeholder-set-at-phase-5"
+id = "31e6a882557141a9aaa3484686697cb8"
 
 [vars]
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
@@ -35,6 +31,15 @@ SITE_URL = "https://riverlevel.netlify.app"
 #   ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY
 # Danger alerts are skipped with a warning when either is missing, so a staging
 # deployment without them syncs normally instead of failing.
+
+# Production schedule (cutover, #67). Same as staging; see the note on "SUN" there.
+#
+# The free plan allows 5 cron triggers per account. Production uses 3 (2 + 1 here and
+# in the other config), so staging's triggers are emptied at cutover — otherwise the
+# deploy is rejected. Staging can be re-armed by restoring its `crons` after cutover
+# only if production is torn down.
+[triggers]
+crons = ["*/15 * * * *", "0 2 * * SUN"]
 
 # ---------------------------------------------------------------------------
 # Staging (Phase 5). Deploy with: wrangler deploy --env staging --config workers/wrangler.toml
@@ -63,10 +68,10 @@ id = "306d01a3aedf464ab99b99a84b884662"
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
 SITE_URL = "https://riverlevel.netlify.app"
 
-# Staging schedule only — the top-level (production) config still declares no triggers.
 # */15 water levels; the weekly camera roster is branched on controller.cron.
 #
 # "SUN", not "0": Cloudflare weekdays run 1 = Sunday to 7 = Saturday, off by one from
 # standard cron, and it rejects 0 outright. The name sidesteps the whole question.
 [env.staging.triggers]
-crons = ["*/15 * * * *", "0 2 * * SUN"]
+# Emptied at cutover: the free plan allows 5 cron triggers and production needs 3.
+crons = []

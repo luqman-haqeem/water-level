@@ -23,10 +23,19 @@ preview_bucket_name = "riverlevel-snapshot-dev"
 # JPS is worth calling at all.
 [[kv_namespaces]]
 binding = "SYNC_STATE"
-id = "placeholder-set-at-phase-5"
+id = "31e6a882557141a9aaa3484686697cb8"
 
 [vars]
 JPS_BASE_URL = "https://infobanjirjps.selangor.gov.my/JPSAPI/api"
+
+# Production schedule (cutover, #67). Same as staging; see the note on "SUN" there.
+#
+# The free plan allows 5 cron triggers per account. Production uses 3 (2 + 1 here and
+# in the other config), so staging's triggers are emptied at cutover — otherwise the
+# deploy is rejected. Staging can be re-armed by restoring its `crons` after cutover
+# only if production is torn down.
+[triggers]
+crons = ["*/15 * * * *"]
 
 # ---------------------------------------------------------------------------
 # Staging (Phase 5). Deploy with: wrangler deploy --env staging --config workers/wrangler.cameras.toml
@@ -60,4 +69,5 @@ SITE_URL = "https://riverlevel.netlify.app"
 # is mirrored every run. The period here MUST match SLICE_INTERVAL_MS in cameraSync.ts:
 # the slice is derived from the clock, so a mismatch silently freezes part of the roster.
 [env.staging.triggers]
-crons = ["*/15 * * * *"]
+# Emptied at cutover: the free plan allows 5 cron triggers and production needs 3.
+crons = []
