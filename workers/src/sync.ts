@@ -4,7 +4,8 @@ import { buildStations } from "./stationMapper";
 import { publishMeta, publishSnapshot } from "./publish";
 import { readSyncState, recordSyncState } from "./syncState";
 import { appendTrends, readTrends } from "./trends";
-import { fetchCoordinates, mergeCoordinates, readPublishedCoordinates } from "./coordinates";
+import { coordinatesFromStations, fetchCoordinates, mergeCoordinates, readPublishedStations } from "./coordinates";
+import { mergeStations, reusedStations, shouldFetchCoordinates } from "./districtPlan";
 import { readCameras } from "./cameraSync";
 import { indexCamerasByStation } from "./stationCameras";
 import { notifyDangerStations } from "./notify";
@@ -88,21 +89,29 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         };
     }
 
-    // 3. District data and coordinates, concurrently. Coordinates live on a different
-    // endpoint than the readings, and it fails independently, so it must not be able to
-    // take the run down — hence `allSettled` semantics via the catch below.
+    // 3. Every district, plus the coordinate index at most daily (districtPlan.ts) —
+    // per-call overhead, not parsing, is what CPU is spent on. stations.json serves both
+    // the coordinate fallback and a failed district's last good stations.
+    const published = await readPublishedStations(env.SNAPSHOT);
+    const wantCoordinates = shouldFetchCoordinates(previous, published, now());
+
+    // The coordinate index fails independently of the readings, so it must not be able
+    // to take the run down — hence `allSettled` semantics via the catch below.
     const [districts, coordinates] = await Promise.all([
         fetchAllDistricts(env.JPS_BASE_URL, summary, retry),
-        fetchCoordinates(env.JPS_BASE_URL, retry).catch((error) => {
-            console.warn(`Station index fetch failed, reusing published coordinates: ${error}`);
-            return null;
-        }),
+        wantCoordinates
+            ? fetchCoordinates(env.JPS_BASE_URL, retry).catch((error) => {
+                  console.warn(`Station index fetch failed, reusing published coordinates: ${error}`);
+                  return null;
+              })
+            : Promise.resolve(null),
     ]);
-    const failedDistricts = districts.filter((d) => d.error).length;
+    const failed = districts.filter((d) => d.error);
+    const failedDistricts = failed.length;
 
     // Every district failed: JPS answered the summary but served nothing else. That is
-    // an upstream outage, not a successful sync of zero stations — publishing an empty
-    // stations.json here would blank the app.
+    // an upstream outage, not a successful sync — publishing here would at best repeat
+    // the last snapshot and at worst (nothing to fall back on) blank the app.
     if (summary.length > 0 && failedDistricts === summary.length) {
         const message = `All ${summary.length} district fetches failed`;
         console.error(message);
@@ -122,17 +131,23 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         );
     }
 
-    // Read the previous coordinates before overwriting stations.json, so a failed index
-    // fetch carries the last known pins forward instead of blanking the map.
-    const previousCoordinates = await readPublishedCoordinates(env.SNAPSHOT);
     // Read-only: cameras.json belongs to the mirror. Stations carry a copy of the camera
     // that watches them, which is what drives the card badge, the "has a camera" filter
     // and the detail page's camera view.
     const stationCameras = indexCamerasByStation(await readCameras(env.SNAPSHOT));
-    const stations = buildStations(
-        districts,
-        mergeCoordinates(previousCoordinates, coordinates ?? {}),
-        stationCameras
+    const mergedCoordinates = mergeCoordinates(coordinatesFromStations(published), coordinates ?? {});
+    const stations = mergeStations(
+        buildStations(districts, mergedCoordinates, stationCameras),
+        // A district whose fetch failed keeps its last published stations rather than
+        // vanishing from the app for a cycle; the fingerprint is withheld, so the next
+        // run retries it. Previously a flaky JPS connection dropped whole districts (44 of
+        // 152 stations on 2026-11-19).
+        reusedStations(
+            published ?? [],
+            summary.filter((d) => failed.some((f) => f.districtId === d.districtId)),
+            mergedCoordinates,
+            stationCameras
+        )
     );
     const previousTrends = await readTrends(env.SNAPSHOT);
     const trends = appendTrends(previousTrends, stations, now());
@@ -145,6 +160,7 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         fingerprint: fingerprintToRecord(fingerprint, failedDistricts),
         jpsLastUpdate,
         syncedAt: attemptedAt,
+        coordinatesFetchedAt: coordinates ? attemptedAt : undefined,
     });
     await publishQuietly(() =>
         publishSnapshot(env.SNAPSHOT, {
