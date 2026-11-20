@@ -396,7 +396,8 @@ syncs normally and skips alerts with a warning.
 
 - Point the Workers at a **staging bucket prefix**, never production. **DONE**
 - Run a local frontend against it via `VITE_SNAPSHOT_BASE_URL` and click through.
-  **Owner's call — outstanding.**
+  **DONE 2026-11-20** — owner clicked through list, filters, detail, cameras and
+  offline against staging; all good.
 - Soak for 24 h; confirm cron actually fires every 15 min. **DONE, 71 h —
   see "Soak result" below. Cron does not reliably fire; that is a platform
   property, not a bug in our code.**
