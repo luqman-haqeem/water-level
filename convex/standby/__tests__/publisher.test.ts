@@ -110,6 +110,23 @@ describe("runStandbyPublish", () => {
             SNAPSHOT_KEYS.trends,
             SNAPSHOT_KEYS.stations,
             SNAPSHOT_KEYS.meta,
+            expect.stringMatching(/^history\/\d{4}-\d{2}-\d{2}\/\d{6}\.json$/),
+        ]);
+    });
+
+    it("writes long-term history during a Worker blackout (#80)", async () => {
+        stubJps();
+        const { client, puts } = fakeR2({ [SNAPSHOT_KEYS.meta]: STALE_META });
+
+        await runStandbyPublish(client, { now: () => NOW, baseUrl: BASE, retry: RETRY });
+
+        const history = puts.find((p) => p.key.startsWith("history/"));
+        expect(history).toBeDefined();
+        const file = JSON.parse(history!.body);
+        expect(file.version).toBe(1);
+        expect(Object.keys(file.items)).toHaveLength(1);
+        expect(Object.values(file.items)[0]).toEqual([
+            expect.objectContaining({ t: expect.any(Number), v: expect.any(Number), a: expect.any(Number) }),
         ]);
     });
 
@@ -118,7 +135,7 @@ describe("runStandbyPublish", () => {
         const { client, puts } = fakeR2({ [SNAPSHOT_KEYS.meta]: STALE_META });
 
         await runStandbyPublish(client, { now: () => NOW, baseUrl: BASE, retry: RETRY });
-        const written = JSON.parse(puts[puts.length - 1].body);
+        const written = JSON.parse(puts.filter((p) => p.key === SNAPSHOT_KEYS.meta).at(-1)!.body);
         expect(written.publisher).toBe("standby");
 
         const next = await runStandbyPublish(client, {
@@ -144,7 +161,8 @@ describe("runStandbyPublish", () => {
 
         await runStandbyPublish(client, { now: () => NOW, baseUrl: BASE, retry: RETRY });
 
-        expect(puts[puts.length - 1].key).toBe(SNAPSHOT_KEYS.meta);
+        // History follows meta but is not something meta describes.
+        expect(puts.filter((p) => !p.key.startsWith("history/")).at(-1)!.key).toBe(SNAPSHOT_KEYS.meta);
     });
 
     it("publishes the JPS ids the Worker publishes, not Convex document ids", async () => {

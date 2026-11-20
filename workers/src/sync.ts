@@ -8,6 +8,7 @@ import { fetchCoordinates, mergeCoordinates, readPublishedCoordinates } from "./
 import { readCameras } from "./cameraSync";
 import { indexCamerasByStation } from "./stationCameras";
 import { notifyDangerStations } from "./notify";
+import { HISTORY_CACHE_CONTROL, buildHistoryFile } from "./history";
 
 export interface SyncResult {
     success: boolean;
@@ -133,7 +134,8 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
         mergeCoordinates(previousCoordinates, coordinates ?? {}),
         stationCameras
     );
-    const trends = appendTrends(await readTrends(env.SNAPSHOT), stations, now());
+    const previousTrends = await readTrends(env.SNAPSHOT);
+    const trends = appendTrends(previousTrends, stations, now());
 
     // 4. Record, then publish. When some districts failed the fingerprint is withheld,
     // so the next run re-fetches instead of treating a partial sync as complete.
@@ -154,6 +156,22 @@ export async function runSync(env: Env, deps: SyncDeps = {}): Promise<SyncResult
     // load is worse than one that arrives five seconds later. Failures here are logged
     // inside and never fail the sync — the readings are already safe on R2.
     await notifyDangerStations(env, stations, now);
+
+    // Long-term history (#80), last: it is the least time-sensitive write, and a
+    // failure must not delay alerts or fail the run. A lost object costs one run's
+    // points; the next run still writes its own.
+    try {
+        // Keyed by the run's start, not the write time: the write lands after
+        // ~50 s of JPS I/O, and the key should name the run that produced it.
+        const history = buildHistoryFile(previousTrends, trends, Date.parse(attemptedAt));
+        if (history) {
+            await env.SNAPSHOT.put(history.key, history.body, {
+                httpMetadata: { contentType: "application/json", cacheControl: HISTORY_CACHE_CONTROL },
+            });
+        }
+    } catch (error) {
+        console.error("History write failed:", error);
+    }
 
     return {
         success: true, changed: true, districtsCount: summary.length,

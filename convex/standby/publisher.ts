@@ -26,6 +26,7 @@ import {
 import { readCameras, type SnapshotReader } from "../../workers/src/snapshotFiles";
 import { indexCamerasByStation } from "../../workers/src/stationCameras";
 import { appendTrends, readTrends } from "../../workers/src/trends";
+import { HISTORY_CACHE_CONTROL, buildHistoryFile } from "../../workers/src/history";
 
 const JSON_PUT = { contentType: "application/json", cacheControl: JSON_CACHE_CONTROL };
 
@@ -155,7 +156,8 @@ export async function runStandbyPublish(
     // here — stations only carry a copy of which camera watches them.
     const stationCameras = indexCamerasByStation(await readCameras(reader));
     const stations = buildStations(districts, coordinates, stationCameras);
-    const trends = appendTrends(await readTrends(reader), stations, now);
+    const previousTrends = await readTrends(reader);
+    const trends = appendTrends(previousTrends, stations, now);
 
     // cameras.json is filtered out: republishing an unchanged 24 KB roster every
     // cycle would add a quarter to the egress for no gain.
@@ -178,6 +180,20 @@ export async function runStandbyPublish(
     };
     const metaFile = buildMetaFile(meta);
     await r2.putObject(metaFile.key, metaFile.body, JSON_PUT);
+
+    // Long-term history (#80). Written here too, or a Worker blackout would leave a
+    // permanent hole in it. Last and non-fatal, as in the Worker sync.
+    try {
+        const history = buildHistoryFile(previousTrends, trends, now);
+        if (history) {
+            await r2.putObject(history.key, history.body, {
+                contentType: "application/json",
+                cacheControl: HISTORY_CACHE_CONTROL,
+            });
+        }
+    } catch (error) {
+        console.error(`standby: history write failed: ${String(error)}`);
+    }
 
     console.log(
         `standby: published ${stations.length} stations, overall ${computeOverallStatus(summary)}`

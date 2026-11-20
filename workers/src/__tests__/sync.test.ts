@@ -94,6 +94,63 @@ describe("happy path", () => {
     });
 });
 
+describe("long-term history (#80)", () => {
+    async function historyKeys() {
+        return (await env.SNAPSHOT.list({ prefix: "history/" })).objects.map((o) => o.key);
+    }
+    beforeEach(async () => {
+        for (const k of await historyKeys()) await env.SNAPSHOT.delete(k);
+    });
+
+    it("writes the run's readings to a history object", async () => {
+        stubFetch({});
+        await runSync(env, { now, retry });
+
+        expect(await historyKeys()).toEqual(["history/2026-09-05/120000.json"]);
+        const object = await env.SNAPSHOT.get("history/2026-09-05/120000.json");
+        expect(object!.httpMetadata?.cacheControl).toBe("public, max-age=31536000, immutable");
+        const file = JSON.parse(await object!.text());
+        expect(file.items).toEqual({ "160": [{ t: Date.parse("2026-09-05T12:00:00.000Z"), v: 4.32, a: 0 }] });
+    });
+
+    it("keys the object by the run's start time, not when the write lands", async () => {
+        stubFetch({});
+        // The clock advances through the run (JPS I/O takes ~50 s in production).
+        let t = NOW;
+        await runSync(env, { now: () => (t += 7_000) - 7_000, retry });
+
+        expect(await historyKeys()).toEqual(["history/2026-09-05/120000.json"]);
+    });
+
+    it("writes nothing when JPS has not changed", async () => {
+        stubFetch({});
+        await runSync(env, { now, retry });
+        for (const k of await historyKeys()) await env.SNAPSHOT.delete(k);
+
+        // Same fingerprint: the run short-circuits before building anything.
+        await runSync(env, { now: () => NOW + 15 * 60_000, retry });
+
+        expect(await historyKeys()).toEqual([]);
+    });
+
+    it("does not fail the run when the history write fails", async () => {
+        stubFetch({});
+        const put = env.SNAPSHOT.put.bind(env.SNAPSHOT);
+        vi.spyOn(env.SNAPSHOT, "put").mockImplementation(async (k: string, ...rest: unknown[]) => {
+            if (k.startsWith("history/")) throw new Error("R2 down");
+            // @ts-expect-error variadic passthrough
+            return put(k, ...rest);
+        });
+
+        const result = await runSync(env, { now, retry });
+        vi.restoreAllMocks();
+
+        expect(result).toMatchObject({ success: true, changed: true });
+        expect((await readJson(SNAPSHOT_KEYS.stations)).items).toHaveLength(1);
+        expect(await historyKeys()).toEqual([]);
+    });
+});
+
 describe("upstream failure", () => {
     it("records upstream_error and does not touch stations.json when the summary fails", async () => {
         await env.SNAPSHOT.put(SNAPSHOT_KEYS.stations, JSON.stringify({ items: ["last good"] }));
@@ -220,7 +277,8 @@ describe("publish ordering", () => {
 
         await runSync(env, { now, retry });
 
-        expect(order.at(-1)).toBe(SNAPSHOT_KEYS.meta);
+        // History is written after the snapshot and is not something meta describes.
+        expect(order.filter((k) => !k.startsWith("history/")).at(-1)).toBe(SNAPSHOT_KEYS.meta);
         vi.restoreAllMocks();
     });
 

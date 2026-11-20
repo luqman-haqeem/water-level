@@ -573,20 +573,38 @@ including the full retention #80 ultimately asks for, which Convex Free structur
 cannot hold. `recordedAt` is derivable from `timestamp` and `alertLevel` from the
 station thresholds, so compaction is available but not required.
 
-### Sketch (needs its own design pass before Phase 6)
+### Design — decided and built 2026-11-19
 
-Append-only daily objects, `history/YYYY-MM-DD.json`, written by the same run that
-publishes the snapshot. One extra R2 write per changed run (~288/day worst case,
-against the ~280k/month Class A budget already in this plan — noise). Reads are
-analytical, not on the hot path, so no CDN concern and no `trends.json` change:
-the public contract and the golden-file equivalence test both stay exactly as they
-are.
+Implemented in `workers/src/history.ts`. The sketch above proposed one daily object;
+that was rejected on CPU grounds.
 
-Open questions for that pass: whether to compact the row shape; whether the daily
-object is rewritten each run or appended as `history/YYYY-MM-DD/HH.json` to avoid
-read-modify-write growing through the day; and whether the existing 14 days in
-Convex should be exported at cutover or simply left to age out while the new store
-accumulates in parallel.
+- **One write-only object per changed run**: `history/YYYY-MM-DD/HHMMSS.json` (UTC,
+  from the run time), holding only the points that run appended — the diff between the
+  trends read in and the trends written out. The sync never reads history, so it costs
+  one R2 PUT and next to no CPU. A daily object rewritten every run would parse and
+  re-serialise up to ~0.8 MB per run on a Worker already measured at **7 ms of its
+  10 ms** CPU budget (see below), and the read-modify-write would race the standby.
+- **Compact rows**: `{ "version": 1, "generatedAt": ISO, "items": { [jpsId]: [{ t, v, a }] } }`
+  — epoch ms, metres, stored alert level. `a` stays: since #73 a stored level can be
+  `-1` (unknown) for reasons the thresholds cannot recover. `recordedAt` is dropped.
+- **No pruning.** ~0.3 GB/year at the observed rate against 10 GB free.
+- **Immutable**: `Cache-Control: public, max-age=31536000, immutable`; objects are
+  never rewritten.
+- **Public, same bucket** (owner decision): the data is public JPS telemetry and
+  r2.dev cannot list a bucket.
+- **Both writers emit it.** The Convex standby publisher writes history too, otherwise
+  every Worker cron blackout (13.9% of windows, two multi-hour) would leave a permanent
+  hole. `history.ts` is therefore pure — it builds `{ key, body }` and each writer puts
+  it with its own client.
+- **Written last and non-fatal** in both writers: after `meta.json` and after danger
+  notifications. A failed write loses that run's points only.
+- **No Convex export at cutover** (owner decision): the up-to-14 days in Convex are
+  left to age out.
+- `trends.json`, the public contract and the golden-file test are unchanged.
+
+Reading it back (analysis, #82 rate-of-rise backtests) means listing the prefix with
+wrangler or the S3 API and concatenating per-station arrays; a periodic compaction
+into daily objects can be added later without changing the writers.
 
 ## Phase 0 question 3, finally answered (2026-09-06)
 
@@ -1285,7 +1303,7 @@ safe ordering.
 | ~~Build exceeds 10 ms CPU~~ | **Resolved** — Phase 5 soak: 491 invocations over 71 h on a real free-plan account, zero `exceededCpu` | none needed; the chained-Worker split is dropped |
 | JPS connect stalls ~20 s on ~40% of attempts | **High — observed** | Fetch districts in parallel, not sequentially; explicit retry budget well inside the 15-minute cron wall clock; withhold the fingerprint when any district failed so the next run retries |
 | KV write cap (1,000/day) | Low | 288/day projected; move `syncState` to an R2 key if it ever tightens |
-| Migration silently drops the 14 d history `3941656` preserved | **High** if unaddressed | Design the history store before Phase 6 — see *History retention* |
+| ~~Migration silently drops the 14 d history `3941656` preserved~~ | **Resolved 2026-11-19** | Append-only `history/` store in R2, written by both the Worker and the standby — see *History retention* |
 | Cron drift or missed runs | **High — measured: 14% of windows never fire; worst observed outage 3.5 h, both Workers together** | Free-plan best-effort scheduling; not fixable in our code. Owner decision before Phase 6: accept / Workers Paid / standby publisher — see *Soak result*. UI banner already degrades correctly; operator still needs the dead-man's switch |
 | Silent staleness: writer dies and nobody is told | **High — observed** (2 days stale with `status:"ok"`) | Off-Cloudflare GitHub Actions watchdog on `syncedAt` age; never alert on `status` |
 | `r2.dev` rate-limits under flood-day traffic | Medium | **Accepted 2026-09-04** — no custom domain, traffic out of scope; revisit before flood season |
