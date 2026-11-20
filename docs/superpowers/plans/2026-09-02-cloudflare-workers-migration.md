@@ -410,7 +410,11 @@ syncs normally and skips alerts with a warning.
 
 Blockers, all of which must be cleared first:
 
-- **Reconcile CORS on the production bucket.** *Corrected 2026-09-11: it is no longer
+- ~~**Reconcile CORS on the production bucket.**~~ **DONE 2026-11-20:** both buckets
+  now allow only this project — `riverlevel.netlify.app`, its deploy previews via
+  `https://*--riverlevel.netlify.app` (R2 honours a mid-origin wildcard; verified by
+  preflight: previews 204, `other.netlify.app` 403) and localhost. The broader
+  `https://*.netlify.app` is gone. Historical note follows. *Corrected 2026-09-11: it is no longer
   true that production has no CORS policy.* It carries the three-origin rule
   (`riverlevel.netlify.app` + both localhost ports) but **not** the
   `https://*.netlify.app` wildcard that `workers/r2-cors.json` and the staging bucket

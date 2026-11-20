@@ -4,14 +4,21 @@
       "allowed": {
         "origins": [
           "https://riverlevel.netlify.app",
-          "https://*.netlify.app",
+          "https://*--riverlevel.netlify.app",
           "http://localhost:5173",
           "http://localhost:4173"
         ],
-        "methods": ["GET", "HEAD"],
-        "headers": ["If-None-Match"]
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "headers": [
+          "If-None-Match"
+        ]
       },
-      "exposeHeaders": ["ETag"],
+      "exposeHeaders": [
+        "ETag"
+      ],
       "maxAgeSeconds": 3600
     }
   ]
