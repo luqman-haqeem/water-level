@@ -18,6 +18,7 @@ export default defineConfig({
                         "src/**/*.{test,spec}.{ts,tsx}",
                         "convex/**/*.{test,spec}.{ts,tsx}",
                         "netlify/**/*.{test,spec}.{ts,tsx}",
+                        "scripts/**/*.{test,spec}.{ts,tsx}",
                     ],
                     // Keep vitest's defaults and skip nested git worktrees under .claude/.
                     exclude: [...defaultExclude, "**/.claude/**"],
