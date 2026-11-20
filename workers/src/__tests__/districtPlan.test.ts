@@ -5,12 +5,7 @@ import { SNAPSHOT_KEYS } from "../shared";
 import { SYNC_STATE_KEY, type SyncStateRow } from "../syncState";
 
 const st = (o: Partial<SyncStateRow>) => o as SyncStateRow;
-import {
-    COORDINATES_REFRESH_INTERVAL_MS,
-    FULL_REFRESH_INTERVAL_MS,
-    planDistricts,
-    shouldFetchCoordinates,
-} from "../districtPlan";
+import { COORDINATES_REFRESH_INTERVAL_MS, shouldFetchCoordinates } from "../districtPlan";
 
 const T0 = Date.parse("2026-11-19T08:00:00.000Z");
 const retry = { sleep: async () => {} };
@@ -83,7 +78,7 @@ function world(): World {
     };
 }
 
-describe("fetching only what changed", () => {
+describe("upstream calls per run", () => {
     it("fetches every district and the index on the first run", async () => {
         const calls = stub(world());
         await runSync(env, { now: () => T0, retry });
@@ -91,46 +86,23 @@ describe("fetching only what changed", () => {
         expect(indexCalls(calls)).toBe(1);
     });
 
-    it("re-fetches only the district JPS updated, and keeps the other's readings", async () => {
+    it("fetches every district again on a changed run, but not the index", async () => {
         const w = world();
         stub(w);
         await runSync(env, { now: () => T0, retry });
 
         w.allLastUpdated = "2026-11-19T16:15:00";
-        w.lastUpdated[1] = "2026-11-19T16:15:00"; // district 2 unchanged
-        w.level = { 1: 1.5, 2: 9.9 }; // 9.9 must NOT appear: district 2 was not re-fetched
+        w.lastUpdated[1] = "2026-11-19T16:15:00"; // district 2's stamp unchanged
+        w.level = { 1: 1.5, 2: 2.5 };
         const calls = stub(w);
         const result = await runSync(env, { now: () => T0 + 15 * MIN, retry });
 
         expect(result).toMatchObject({ success: true, changed: true, stationsCount: 2 });
-        expect(districtCalls(calls)).toEqual([1]);
+        expect(districtCalls(calls)).toEqual([1, 2]);
         expect(indexCalls(calls)).toBe(0); // coordinates are under a day old
         const byId = Object.fromEntries((await stations()).map((s) => [s.id, s]));
-        expect(byId["101"].current_levels!.current_level).toBe(1.5);
-        expect(byId["201"].current_levels!.current_level).toBe(2.0);
-        expect(byId["201"].latitude).toBe(3.2); // reused station keeps its pin
-    });
-
-    it("re-fetches a district that failed last run even if its stamp did not move", async () => {
-        const w = world();
-        stub(w);
-        await runSync(env, { now: () => T0, retry }); // clean full fetch
-
-        // Both districts update; district 2's fetch fails.
-        w.allLastUpdated = "2026-11-19T16:15:00";
-        w.lastUpdated = { 1: "2026-11-19T16:15:00", 2: "2026-11-19T16:15:00" };
-        w.failDistricts = new Set([2]);
-        stub(w);
-        await runSync(env, { now: () => T0 + 15 * MIN, retry });
-
-        // Nothing new upstream for either district, but 2 has no recorded stamp.
-        w.failDistricts = undefined;
-        w.allLastUpdated = "2026-11-19T16:30:00";
-        const calls = stub(w);
-        await runSync(env, { now: () => T0 + 30 * MIN, retry });
-
-        expect(districtCalls(calls)).toEqual([2]);
-        expect((await stations()).map((s) => s.id)).toEqual(["101", "201"]);
+        expect(byId["201"].current_levels!.current_level).toBe(2.5);
+        expect(byId["201"].latitude).toBe(3.2); // pin carried from the published snapshot
     });
 
     it("keeps a failed district's last published stations instead of dropping them", async () => {
@@ -139,7 +111,6 @@ describe("fetching only what changed", () => {
         await runSync(env, { now: () => T0, retry });
 
         w.allLastUpdated = "2026-11-19T16:15:00";
-        w.lastUpdated = { 1: "2026-11-19T16:15:00", 2: "2026-11-19T16:15:00" };
         w.level = { 1: 1.5, 2: 2.5 };
         w.failDistricts = new Set([2]);
         stub(w);
@@ -149,20 +120,44 @@ describe("fetching only what changed", () => {
         const byId = Object.fromEntries((await stations()).map((s) => [s.id, s]));
         expect(byId["101"].current_levels!.current_level).toBe(1.5);
         expect(byId["201"].current_levels!.current_level).toBe(2.0); // last good reading
-        const state = await env.SYNC_STATE.get<SyncStateRow>(SYNC_STATE_KEY, "json");
-        expect(state!.districtStamps).not.toHaveProperty("2"); // retried next run
+        expect(byId["201"].latitude).toBe(3.2);
     });
 
-    it("re-fetches every district once the full-refresh interval has passed", async () => {
+    it("retries after a partial failure even though JPS has nothing new", async () => {
         const w = world();
         stub(w);
         await runSync(env, { now: () => T0, retry });
 
-        w.allLastUpdated = "2026-11-19T17:01:00";
-        const calls = stub(w);
-        await runSync(env, { now: () => T0 + FULL_REFRESH_INTERVAL_MS + MIN, retry });
+        w.allLastUpdated = "2026-11-19T16:15:00";
+        w.failDistricts = new Set([2]);
+        stub(w);
+        await runSync(env, { now: () => T0 + 15 * MIN, retry });
 
+        w.failDistricts = undefined; // same summary as the failed run
+        const calls = stub(w);
+        const result = await runSync(env, { now: () => T0 + 30 * MIN, retry });
+
+        expect(result.changed).toBe(true);
         expect(districtCalls(calls)).toEqual([1, 2]);
+    });
+
+    it("refreshes the camera copy on a failed district's stations so frame times keep moving", async () => {
+        const w = world();
+        stub(w);
+        const camera = (captured_at: string) => JSON.stringify({ items: [{
+            id: "c1", jps_camera_id: "77", camera_name: "C", img_url: "cam/77.jpg",
+            captured_at, districts: { name: "D2" }, station_id: "201" }] });
+        await env.SNAPSHOT.put(SNAPSHOT_KEYS.cameras, camera("2026-11-19T07:59:00.000Z"));
+        await runSync(env, { now: () => T0, retry });
+
+        await env.SNAPSHOT.put(SNAPSHOT_KEYS.cameras, camera("2026-11-19T08:14:00.000Z"));
+        w.allLastUpdated = "2026-11-19T16:15:00";
+        w.failDistricts = new Set([2]);
+        stub(w);
+        await runSync(env, { now: () => T0 + 15 * MIN, retry });
+
+        const s201 = (await stations()).find((s) => s.id === "201")!;
+        expect(s201.cameras!.captured_at).toBe("2026-11-19T08:14:00.000Z");
     });
 
     it("re-fetches the coordinate index after a day", async () => {
@@ -177,55 +172,17 @@ describe("fetching only what changed", () => {
         expect(indexCalls(calls)).toBe(1);
     });
 
-    it("refreshes the camera copy on reused stations so frame times keep moving", async () => {
-        const w = world();
-        stub(w);
-        const camera = (captured_at: string) => JSON.stringify({ items: [{
-            id: "c1", jps_camera_id: "77", camera_name: "C", img_url: "cam/77.jpg",
-            captured_at, districts: { name: "D2" }, station_id: "201" }] });
-        await env.SNAPSHOT.put(SNAPSHOT_KEYS.cameras, camera("2026-11-19T07:59:00.000Z"));
-        await runSync(env, { now: () => T0, retry });
-
-        await env.SNAPSHOT.put(SNAPSHOT_KEYS.cameras, camera("2026-11-19T08:14:00.000Z"));
-        w.allLastUpdated = "2026-11-19T16:15:00";
-        w.lastUpdated[1] = "2026-11-19T16:15:00";
-        stub(w);
-        await runSync(env, { now: () => T0 + 15 * MIN, retry });
-
-        const s201 = (await stations()).find((s) => s.id === "201")!;
-        expect(s201.cameras!.captured_at).toBe("2026-11-19T08:14:00.000Z");
-    });
-
-    it("treats every attempted district failing as an outage even when others were reused", async () => {
+    it("treats every district failing as an outage", async () => {
         const w = world();
         stub(w);
         await runSync(env, { now: () => T0, retry });
 
         w.allLastUpdated = "2026-11-19T16:15:00";
-        w.lastUpdated[1] = "2026-11-19T16:15:00";
-        w.failDistricts = new Set([1]);
+        w.failDistricts = new Set([1, 2]);
         stub(w);
         const result = await runSync(env, { now: () => T0 + 15 * MIN, retry });
 
-        expect(result).toMatchObject({ success: false, error: "All 1 district fetches failed" });
-    });
-});
-
-describe("planDistricts", () => {
-    const summary = [{ districtId: 1, district: "D1", normal: 0, alert: 0, warning: 0, danger: 0,
-        lastUpdated: "a", allLastUpdated: "x" }];
-    const published = [{ id: "101" }] as never;
-
-    it("does a full fetch with no stored stamps or no published stations", () => {
-        expect(planDistricts(summary, null, published, T0).full).toBe(true);
-        expect(planDistricts(summary, st({ districtStamps: { 1: "a" }, lastFullFetchAt: new Date(T0).toISOString() }), null, T0).full).toBe(true);
-    });
-
-    it("reuses a district whose stamp matches", () => {
-        const plan = planDistricts(summary,
-            st({ districtStamps: { 1: "a" }, lastFullFetchAt: new Date(T0 - MIN).toISOString() }), published, T0);
-        expect(plan).toMatchObject({ fetch: [], full: false });
-        expect(plan.reuse).toHaveLength(1);
+        expect(result).toMatchObject({ success: false, error: "All 2 district fetches failed" });
     });
 });
 
