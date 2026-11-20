@@ -5,6 +5,8 @@ export const SYNC_STATE_KEY = "syncState:waterLevels";
 
 export interface SyncStateRow extends SyncStateLike {
     lastJpsFingerprint?: string;
+    /** Last successful station-index (coordinates) fetch. */
+    coordinatesFetchedAt?: string;
 }
 
 export async function readSyncState(kv: KVNamespace): Promise<SyncStateRow | null> {
@@ -18,6 +20,7 @@ export interface RecordArgs {
     jpsLastUpdate?: string;
     syncedAt?: string;
     error?: string;
+    coordinatesFetchedAt?: string;
 }
 
 /**
@@ -41,6 +44,7 @@ export function nextSyncState(previous: SyncStateRow | null, args: RecordArgs): 
         lastStatus: args.status,
         failingSince: failing ? (previous?.failingSince ?? args.attemptedAt) : undefined,
         lastError: failing ? (args.error ?? previous?.lastError) : undefined,
+        coordinatesFetchedAt: args.coordinatesFetchedAt ?? previous?.coordinatesFetchedAt,
     };
 }
 

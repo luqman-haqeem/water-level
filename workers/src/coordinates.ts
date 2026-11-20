@@ -1,6 +1,7 @@
 import type { SnapshotReader } from "./snapshotFiles";
 import { SNAPSHOT_KEYS, fetchWithRetry } from "./shared";
 import type { RetryOverrides } from "./jps";
+import type { SnapshotStation } from "./stationMapper";
 
 export type Coordinates = Record<string, { latitude: number; longitude: number }>;
 
@@ -58,20 +59,31 @@ export async function fetchCoordinates(baseUrl: string, retry: RetryOverrides = 
  * the Gulf of Guinea".
  */
 export async function readPublishedCoordinates(reader: SnapshotReader): Promise<Coordinates> {
+    return coordinatesFromStations(await readPublishedStations(reader));
+}
+
+/**
+ * The previously published station list, or null when absent or unreadable. Read once
+ * per run: it supplies both the fallback coordinates and the stations reused for
+ * districts JPS has not updated (districtPlan.ts).
+ */
+export async function readPublishedStations(reader: SnapshotReader): Promise<SnapshotStation[] | null> {
     const object = await reader.get(SNAPSHOT_KEYS.stations);
-    if (!object) return {};
+    if (!object) return null;
     try {
-        const parsed = JSON.parse(await object.text()) as {
-            items?: Array<{ id: string; latitude?: number; longitude?: number }>;
-        };
-        const out: Coordinates = {};
-        for (const s of parsed.items ?? []) {
-            if (s.latitude && s.longitude) out[s.id] = { latitude: s.latitude, longitude: s.longitude };
-        }
-        return out;
+        const parsed = JSON.parse(await object.text()) as { items?: SnapshotStation[] };
+        return Array.isArray(parsed.items) ? parsed.items : null;
     } catch {
-        return {};
+        return null;
     }
+}
+
+export function coordinatesFromStations(stations: SnapshotStation[] | null): Coordinates {
+    const out: Coordinates = {};
+    for (const s of stations ?? []) {
+        if (s.latitude && s.longitude) out[s.id] = { latitude: s.latitude, longitude: s.longitude };
+    }
+    return out;
 }
 
 /** Fresh values win; previously published ones fill the gaps. */
