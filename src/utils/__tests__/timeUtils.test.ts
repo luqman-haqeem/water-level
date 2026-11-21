@@ -10,6 +10,11 @@ describe('isStale', () => {
         expect(isStale(undefined)).toBe(true)
     })
 
+    it('returns true for an empty or unparseable time, which is unknown age (#100)', () => {
+        expect(isStale('')).toBe(true)
+        expect(isStale('not a date')).toBe(true)
+    })
+
     it('returns true when the reading is older than 45 minutes', () => {
         vi.useFakeTimers()
         const now = new Date('2024-06-15T12:00:00Z').getTime()

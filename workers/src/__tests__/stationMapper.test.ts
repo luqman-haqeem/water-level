@@ -44,6 +44,15 @@ describe("toSnapshotStation", () => {
         expect(toSnapshotStation(jps(), "D").current_levels!.updated_at).toBe("2026-09-05T12:00:00.000Z");
     });
 
+    it("marks a reading of unknown age as unknown, never fresh (#100)", () => {
+        // A missing or malformed lastUpdate used to be stamped "now", so a dead gauge's
+        // last value looked fresh and could page subscribers at danger.
+        for (const lastUpdate of ["", "garbage", "32/13/2026 25:00:00"]) {
+            const s = toSnapshotStation(jps({ lastUpdate, waterlevelStatus: 3, waterLevel: 9 }), "D");
+            expect(s.current_levels).toMatchObject({ updated_at: "", alert_level: "-1" });
+        }
+    });
+
     it("falls back to 0 for unparseable coordinates", () => {
         const s = toSnapshotStation(jps({ latitude: "", longitude: "abc" }), "D");
         expect([s.latitude, s.longitude]).toEqual([0, 0]);

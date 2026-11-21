@@ -15,7 +15,7 @@
  * is what makes them portable at all. That property is self-enforcing: adding a Convex
  * import to any of them breaks the Worker bundle, and the Worker suite fails to build.
  */
-export { convertJpsDateToIso } from "../../convex/sync/jpsDate";
+export { convertJpsDateToIso, parseJpsDateToIso } from "../../convex/sync/jpsDate";
 
 export {
     type DistrictStamp,
