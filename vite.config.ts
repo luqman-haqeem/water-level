@@ -17,6 +17,15 @@ export default defineConfig(({ mode }) => {
     if (isDeployBuild && mode === "production" && !snapshotBase) {
         throw new Error("VITE_SNAPSHOT_BASE_URL must be set for Netlify deploy builds (set it in the Netlify dashboard).");
     }
+    // Set is not enough: on 2026-11-20 the cutover build inlined 51 "•" characters —
+    // the variable had been saved as a masked secret — and the live site fetched
+    // "•••/meta.json" with no error anywhere. Any non-URL value fails the build.
+    if (isDeployBuild && mode === "production" && !/^https:\/\/[a-z0-9.-]+(?::\d+)?(?:\/[\w./-]*)?$/i.test(snapshotBase)) {
+        throw new Error(
+            `VITE_SNAPSHOT_BASE_URL must be a plain https URL, got ${JSON.stringify(snapshotBase.slice(0, 12))}… ` +
+                "(is it saved as a secret in Netlify? Secrets are masked; this value is public)."
+        );
+    }
     // Workbox serialises runtimeCaching into the SW file, so patterns must be
     // literal RegExps (a closure over `snapshotBase` would not survive).
     // meta.json is deliberately excluded: the snapshot store keeps its own

@@ -1,4 +1,4 @@
-import { computeAlertLevel, convertJpsDateToIso, parseThreshold } from "./shared";
+import { computeAlertLevel, parseJpsDateToIso, parseThreshold } from "./shared";
 import type { DistrictOutcome, JpsStation } from "./jps";
 import type { Coordinates } from "./coordinates";
 import type { StationCamera } from "./stationCameras";
@@ -63,11 +63,19 @@ export function toSnapshotStation(
         dangerLevel: parseThreshold(station.wlth_danger),
     };
 
-    const alertLevel = computeAlertLevel({
-        currentWaterLevel,
-        waterlevelStatus: station.waterlevelStatus ?? -1,
-        ...thresholds,
-    });
+    // A reading of unknown age is classified unknown (-1), whatever its level says:
+    // JPS keeps serving a dead gauge's last value, and stamping it "now" used to make
+    // it look fresh, alertable and un-flagged in the app (#100). The empty updated_at
+    // is what tells the app, the trends and the notifier that its age is unknown.
+    const updatedAt = parseJpsDateToIso(station.lastUpdate);
+    const alertLevel =
+        updatedAt === null
+            ? -1
+            : computeAlertLevel({
+                  currentWaterLevel,
+                  waterlevelStatus: station.waterlevelStatus ?? -1,
+                  ...thresholds,
+              });
 
     // The district endpoint sends an empty string for every coordinate, so these come
     // from the station index (see coordinates.ts) and fall back to whatever it last
@@ -94,7 +102,7 @@ export function toSnapshotStation(
                 ? null
                 : {
                       current_level: currentWaterLevel,
-                      updated_at: convertJpsDateToIso(station.lastUpdate),
+                      updated_at: updatedAt ?? "",
                       alert_level: String(alertLevel),
                   },
         cameras: cameras[id] ?? null,

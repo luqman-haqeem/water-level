@@ -20,8 +20,11 @@ export const STALENESS_THRESHOLD_MS = 2_700_000
  */
 export function isStale(updatedAt: string | number | undefined): boolean {
     if (updatedAt === undefined || updatedAt === null) return true
-    const elapsed = Date.now() - new Date(updatedAt).getTime()
-    return elapsed > STALENESS_THRESHOLD_MS
+    const at = new Date(updatedAt).getTime()
+    // An unparseable or empty time is unknown age, which must read as stale (#100);
+    // NaN compares false, so without this it read as fresh.
+    if (Number.isNaN(at)) return true
+    return Date.now() - at > STALENESS_THRESHOLD_MS
 }
 
 export default formatTimestamp
